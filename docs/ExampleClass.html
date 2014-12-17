@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Class: ExampleClass</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Class: ExampleClass</h1>
+
+    
+
+
+
+<section>
+
+<header>
+    <h2>
+    ExampleClass
+    </h2>
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+
+    
+        
+<dt>
+    <h4 class="name" id="ExampleClass"><span class="type-signature"></span>new ExampleClass<span class="signature">(keyField, stringField, jsonField, indexedField, childField)</span><span class="type-signature"></span></h4>
+
+    
+</dt>
+<dd>
+
+    
+    <div class="description">
+        Example class, a <a href="ClassFactory.html">ClassFactory</a> returned by <a href="Updraft.Store.html#createClass">Updraft.Store#createClass</a>
+    </div>
+    
+
+    
+
+    
+
+    
+        <h5>Parameters:</h5>
+        
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>keyField</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">int</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">object's primary key, unique in the table</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>stringField</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>jsonField</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">can be any javascript type, object, or nesting of objects.  Will be        stored stringified, so any shared properties will no longer be shared after reloading from db.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>indexedField</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">int</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">a regular integer field, but queries testing indexed fields will be faster</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>childField</code></td>
+            
+
+            <td class="type">
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">a pseudo 'ChildClass' object.  Although you can assign to it, the object won't be available.       That is, you will always need to call 'childField.get()' and wait for the promise, even if you just       assigned to it.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">int</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the key of the child object pointed to.  Note that the member 'id' is because        ChildClass's key is named 'id'; similarly the type is inherited from ChildClass's key type.  This        is the only part of the reference that is stored on the object.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+    
+
+    
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li>ClassTemplate, ClassFactory</li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h5>Example</h5>
+        
+    <pre class="prettyprint"><code>var ChildClass = store.createClass({  tableName: 'childClass',  columns: {    id: { type: 'int', key: true },    intField: { type: 'int', index: true }  }});var ExampleClass = store.createClass({  tableName: 'exampleClass',  columns: {    keyField: { type: 'int', key: true },    stringField: { type: 'text' },    jsonField: { type: 'json' },    indexedField: { type: 'int', index: true },    childField: { type: 'ptr', ref: ChildClass }  }});var child = new ChildClass({id: 321, intField: 456});var x = new ExampleClass();x.keyField = 123;x.stringField = 'string example';x.jsonField = { x: 1, y: 'a', z: { foo: 'bar' } };console.log(x.changes());// -> ['keyField', 'stringField', 'jsonField']// the following lines are exactly equivalent:x.childField = child;x.childField = child.id;x.childField = 321;console.log(x.childField.id); // -> 321x.childField.get().then(function(c) {  // child was never saved, so c is null, unless there was  // already a ChildClass with id=321 in the db');});// ... assume more objects have been created and saved ...ExampleClass.all.where('childField.intField', '=', 456).get().then(function(results) {  // results is an array containing (a copy of) x and anything  // else that has the same });</code></pre>
+
+    
+</dd>
+
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Index</a></h2><h3>Classes</h3><ul><li><a href="ClassFactory.html">ClassFactory</a></li><li><a href="ExampleClass.html">ExampleClass</a></li><li><a href="QueryBuilder.html">QueryBuilder</a></li><li><a href="Updraft.Store.html">Store</a></li></ul><h3>Namespaces</h3><ul><li><a href="Updraft.html">Updraft</a></li></ul>
+</nav>
+
+<br clear="both">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.0-alpha5</a> on Sun Dec 14 2014 22:07:53 GMT-0600 (CST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
