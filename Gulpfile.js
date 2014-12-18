@@ -12,7 +12,7 @@ var uglify = require('gulp-uglify');
 var buffer = require('vinyl-buffer');
 var sourcemaps = require('gulp-sourcemaps');
 
-function makeBundle(watch) {
+function makeBundle(watch, minify) {
   var b = browserify({
     debug: true,
     cache: {},
@@ -27,16 +27,26 @@ function makeBundle(watch) {
       });
     }
     
-    return b
+    var ret = b
       .bundle()
       .on('error', function(err) {
         gutil.log("Browserify error:", err.message);
-      })
-      .pipe(source('updraft.js'))
+      });
+    
+    ret = ret
+      .pipe(source(minify ? 'updraft.min.js' : 'updraft.js'));
+    
+    ret = ret
       .pipe(buffer())
-      .pipe(sourcemaps.init({loadMaps: true}))
-      // Add transformation tasks to the pipeline here.
-      //.pipe(uglify())
+      .pipe(sourcemaps.init({loadMaps: true}));
+    
+    if(minify) {
+      ret = ret
+        // Add transformation tasks to the pipeline here.
+        .pipe(uglify());
+    }
+    
+    ret = ret
       .pipe(sourcemaps.write('./'))
       .pipe(gulp.dest('./dist/'));
   };
@@ -51,7 +61,8 @@ function makeBundle(watch) {
 }
 
 gulp.task('bundle', function() {
-  makeBundle(false);
+  makeBundle(false, false);
+  makeBundle(false, true);
 });
 
 gulp.task('watch', function() {
@@ -65,8 +76,26 @@ gulp.task('lint', function() {
 });
 
 gulp.task('jsdoc', function() {
+  var infos = null;
+  var template = {
+    path            : 'ink-docstrap',
+    systemName      : 'Updraft',
+    footer          : "Something",
+    copyright       : "Something",
+    navType         : "vertical",
+    theme           : "journal",
+    linenums        : true,
+    collapseSymbols : false,
+    inverseNav      : false
+  };
+  var options = {
+    'private': true,
+    'outputSourceFiles': false,
+    debug: true,
+    verbose: true
+  };
   return gulp.src(['./src/*.js', 'README.md'])
-    .pipe(jsdoc('./docs', null, null, {outputSourceFiles: false}));
+    .pipe(jsdoc('./docs', template, infos, options));
 });
 
 gulp.task('test', ['bundle'], function() {

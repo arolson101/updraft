@@ -37,29 +37,14 @@ function clone(obj) {
 }
 
 
-function inherits( child, Parent ) { 
-  if (Parent.constructor == Function) {
-    //Normal Inheritance 
-    child.prototype = Object.create(Parent.prototype);
-    child.prototype.constructor = child;
-    child.prototype.parent = Parent.prototype;
-  } else {
-    //Pure Virtual Inheritance 
-    child.prototype = Parent;
-    child.prototype.constructor = child;
-    child.prototype.parent = Parent;
+function keyOf(obj) {
+  if(typeof(obj.key) === 'function') {
+    return obj.key();
   }
+  return obj;
+}
 
-  // inherit class methods
-//  for (var prop in Parent) {
-//    //if (typeof(Parent[prop]) === 'function' ) {
-//      child[prop] = Parent[prop];
-//    //}
-//  }
-  
-  return child;
-} 
 
 module.exports.startsWith = startsWith;
 module.exports.clone = clone;
-module.exports.inherits = inherits;
+module.exports.keyOf = keyOf;

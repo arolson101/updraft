@@ -114,13 +114,12 @@ describe('query interface', function () {
   var checkQuery = function (expected) {
     return function (results) {
       expect(results).to.have.length(expected.length);
-      for (var i=0; i<expected.length; i++) {
-        var e = expected[i];
+      expected.forEach(function(e, i) {
         var r = results[i];
         Object.keys(e.factory.columns).forEach(function (prop) {
           expect(r).to.have.property(prop, e[prop], 'object index '+i);
         });
-      }
+      });
     };
   };
   
@@ -150,6 +149,10 @@ describe('query interface', function () {
 
   it("#order (descending)", function() {
     return Class.all.order('col2', false).get().then(checkQuery([x3, x2, x1]));
+  });
+
+  it("#limit/#offset", function() {
+    return Class.all.order('col2').limit(2).offset(2).get().then(checkQuery([x3]));
   });
 
   it("#count (filtered)", function() {
@@ -240,7 +243,6 @@ describe('migrations', function() {
   var runMigration = function(message, newTemplate, expectedSchema, sqls, debug) {
     if(debug) {
       console.log("*** " + message + " begin");
-      store.logSql = true;
     }
     store.createClass(newTemplate);
     return store.open(storeProps)
@@ -469,6 +471,7 @@ describe('migrations', function() {
       ], false);
     });
     
+    
     it("delete and rename and add", function() {
       var newTemplate = {
         tableName: 'template',
@@ -508,6 +511,7 @@ describe('migrations', function() {
 
 describe("child objects", function() {
   var store, Image, Artist, City, Tag, Color;
+  var favorite;
   
   before(function() {
     store = new Updraft.Store();
@@ -529,7 +533,8 @@ describe("child objects", function() {
         columns: {
           artistId: { type: 'int', key: true },
           name: { type: 'text' },
-          city: { type: 'ptr' }
+          city: { type: 'ptr' },
+          masterpiece: { type: 'ptr' }
         }
       });
 
@@ -561,6 +566,7 @@ describe("child objects", function() {
       Image.columns.tags.ref = Tag;
       Image.columns.colors.ref = Color;
       Artist.columns.city.ref = City;
+      Artist.columns.masterpiece.ref = Image;
       
       var red = new Color({colorId: 300, name: 'red'});
       var green = new Color({colorId: 301, name: 'green'});
@@ -579,7 +585,11 @@ describe("child objects", function() {
       var starryNight = new Image({imageId: 4, name: 'starry night', artist: vanGogh});
       
       var plants = new Tag({tagId: 801, name: 'plants'});
-      var favorite = new Tag({tagId: 802, name: 'favorite'});
+      favorite = new Tag({tagId: 802, name: 'favorite'});
+      
+      daVinci.masterpiece = monaLisa;
+      monet.masterpiece = waterLillies;
+      vanGogh.masterpiece = starryNight;
       
       lastSupper.tags.push(favorite);
       waterLillies.tags = [favorite, plants];
@@ -620,4 +630,31 @@ describe("child objects", function() {
     });
   });
   
+  
+  it("should search in lists", function() {
+    return Image.all.where('tags', 'contains', favorite).order('imageId').get()
+    .then(function(results) {
+      expect(results).to.have.length(2);
+      expect(results[0]).to.have.property('name', 'the last supper');
+      expect(results[1]).to.have.property('name', 'water lillies');
+    });
+  });
+
+  
+  it("should search in multiple lists", function() {
+    return Image.all.where('tags', 'contains', favorite).and('colors', 'contains', 302).order('imageId').get()
+    .then(function(results) {
+      expect(results).to.have.length(1);
+      expect(results[0]).to.have.property('name', 'water lillies');
+    });
+  });
+
+
+  it("should search in childrens' lists", function() {
+    return Artist.all.where('masterpiece.tags', 'contains', favorite).order('name').get()
+    .then(function(results) {
+      expect(results).to.have.length(1);
+      expect(results[0]).to.have.property('name', 'Monet');
+    });
+  });
 });

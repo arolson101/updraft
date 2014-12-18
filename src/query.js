@@ -1,5 +1,8 @@
 'use strict';
 
+var Util = require('./util');
+var keyOf = Util.keyOf;
+
 
 /**
  * Do not construct objects of type Query directly- instead, use {@link Model}.all
@@ -18,6 +21,8 @@ var Query = function(model, store) {
   this._columns = [];
   this._conditions = [];
   this._order = undefined;
+  this._limit = undefined;
+  this._offset = undefined;
   this._asc = true;
   this._nocase = false;
 
@@ -37,30 +42,65 @@ Query.prototype.all = function() {
 
 Query.prototype.addCondition = function(conj, col, op, val) {
   var fields = col.split(/\./);
-    var f = this._model;
-    for(var i=0; i<fields.length - 1; i++) {
-      var field = fields[i];
-      console.assert(field in f.columns);
-      var ref = f.columns[field].ref;
-      console.assert(ref);
-      if(this._tables.indexOf(ref.tableName)) {
-        this._tables.push(ref.tableName);
+  var field;
+  var f = this._model;
+  val = keyOf(val);
+
+  for(var i=0; i<fields.length - 1; i++) {
+    field = fields[i];
+    console.assert(field in f.columns);
+    var ref = f.columns[field].ref;
+    console.assert(ref);
+    if(this._tables.indexOf(ref.tableName) === -1) {
+      this._tables.push(ref.tableName);
+      this._conditions.push({
+        conj: 'AND',
+        col: f.tableName + '.' + field,
+        op: '=',
+        val: ref.tableName + '.' + ref.key
+      });
+    }
+    f = ref;
+  }
+  
+  field = fields[fields.length - 1];
+
+  switch(op) {
+    case 'contains':
+      console.assert(f.columns[field].type === 'list');
+      var listTable = f.columns[field].listTable;
+      console.assert(listTable);
+
+      if(this._tables.indexOf(listTable.tableName) === -1) {
+        this._tables.push(listTable.tableName);
         this._conditions.push({
           conj: 'AND',
-          col: f.tableName + '.' + field,
+          col: f.tableName + '.' + f.key,
           op: '=',
-          val: ref.tableName + '.' + ref.key
+          val: listTable.tableName + '.' + f.key
         });
       }
-      f = ref;
-    }
-    this._conditions.push({
-      conj: conj,
-      col: f.tableName + '.' + fields[fields.length - 1],
-      op: op,
-      val: '?',
-      arg: val
-    });
+
+      this._conditions.push({
+        conj: conj,
+        col: listTable.tableName + '.' + field,
+        op: '=',
+        val: '?',
+        arg: val
+      });
+      break;
+
+    default:
+      console.assert(f.columns[field].type !== 'list');
+      this._conditions.push({
+        conj: conj,
+        col: f.tableName + '.' + field,
+        op: op,
+        val: '?',
+        arg: val
+      });
+    break;
+  }
   return this;
 };
 
@@ -123,7 +163,7 @@ Query.prototype.or = function(col, op, val) {
  *  // -> SELECT ... ORDER BY x
  */
 Query.prototype.order = function(col, asc) {
-  this._order = col;
+  this._order = this._model.tableName + '.' + col;
   if(typeof asc !== 'undefined') {
     this._asc = asc;
   }
@@ -142,6 +182,36 @@ Query.prototype.order = function(col, asc) {
  */
 Query.prototype.nocase = function() {
   this._nocase = true;
+  return this;
+};
+
+
+/**
+ * Limits the result set to a certain number.  Useful in pagination
+ *
+ * @return {Query}
+ * @see Query#offset
+ * @example
+ *  return Class.all.limit(5).get();
+ *  // -> SELECT ... FROM ... LIMIT 5
+ */
+Query.prototype.limit = function(count) {
+  this._limit = count;
+  return this;
+};
+
+
+/**
+ * Skip a number of results.  Useful in pagination
+ *
+ * @return {Query}
+ * @see Query#limit
+ * @example
+ *  return Class.all.limit(10).offset(50).get();
+ *  // -> SELECT ... FROM ... LIMIT 10 OFFSET 50
+ */
+Query.prototype.offset = function(count) {
+  this._offset = count;
   return this;
 };
 
@@ -195,6 +265,13 @@ Query.prototype.get = function() {
     stmt += ' ORDER BY ' + this._order;
     stmt += (this._nocase ? ' COLLATE NOCASE' : '');
     stmt += (this._asc ? ' ASC' : ' DESC');
+  }
+  console.assert(!this._offset || this._limit);
+  if(this._limit) {
+    stmt += ' LIMIT ' + this._limit;
+    if(this._offset) {
+      stmt += ' OFFSET ' + this._offset;
+    }
   }
 
   var objects = [];

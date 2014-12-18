@@ -1,6 +1,6 @@
 'use strict';
 
-var util = require('./util');
+var Util = require('./util');
 var Query = require('./query');
 
 
@@ -28,13 +28,7 @@ function Instance(props) {
 
       // allow client to do object.field.push(otherobject); we'll transform it to object.field.push(otherobject.key())
       o['_' + col].push = function() {
-        var args = Array.prototype.slice.call(arguments).map(function(arg) {
-          if(typeof arg === 'object') {
-            return arg.key();
-          } else {
-            return arg;
-          }
-        });
+        var args = Array.prototype.slice.call(arguments).map(Util.keyOf);
         var array = o['_' + col];
         var ret = Array.prototype.push.apply(array, args);
         o[col] = array; // this will mark it dirty
@@ -123,9 +117,7 @@ var addClassProperty = function(model, proto, col, propMask) {
         },
         set: function (val) {
           // allow client to do object.field = otherobject; we'll transform it to object.field = otherobject.key()
-          if(typeof val === 'object') {
-            val = val.key();
-          }
+          val = Util.keyOf(val);
           if (this[prop] !== val) {
             this[prop] = val;
             this._changes |= propMask;
@@ -141,13 +133,7 @@ var addClassProperty = function(model, proto, col, propMask) {
         },
         set: function(val) {
           // allow client to do object.field = [otherobject]; we'll transform it to object.field = [otherobject.key()]
-          val = val.map(function(arg) {
-            if(typeof arg === 'object') {
-              return arg.key();
-            } else {
-              return arg;
-            }
-          });
+          val = val.map(Util.keyOf);
           this[prop] = val;
           this._changes |= propMask;
         }
@@ -164,18 +150,18 @@ var addClassProperty = function(model, proto, col, propMask) {
  *
  * @property {string} tableName - the name of the table in which entities of this type will be stored.  Cannot begin with underscore.
  * @property {string} key - the name of the primary key for this table
- * @property {Updraft.columnType} keyType - the type of the primary key for this table
+ * @property {columnType} keyType - the type of the primary key for this table
  * @property {Object} columns - an object describing the fields of objects of this type
  * @property {string} columns.key - name of the field
  * @property {object} columns.value
- * @property {Updraft.columnType} columns.value.type - 'int', 'bool', etc.
+ * @property {columnType} columns.value.type - 'int', 'bool', etc.
  * @property {bool} [columns.value.key=false] - set to true on the field that should be the primary key.  Only set one.
  * @property {bool} [columns.value.index=false] - create an index on this field
  * @property {Query} all - use to construct a query
  * @see ExampleModel
  * @class
  * @param {Store} store
- * @param {Updraft.ClassTemplate} templ
+ * @param {ClassTemplate} templ
  * @example
  *  var ExampleModel = store.createClass({
  *    tableName: 'exampleModel',
@@ -230,7 +216,7 @@ function Model(store, templ) {
   m.indices = [];
 
   for (var key in templ) {
-    m[key] = util.clone(templ[key]);
+    m[key] = Util.clone(templ[key]);
   }
 
   m.key = null;
@@ -337,7 +323,7 @@ Model.prototype.constructFromDb = function(row) {
  *           ChildClass's key is named 'id'; similarly the type is inherited from ChildClass's key type.  This 
  *           is the only part of the reference that is stored on the object.
  * @property {list} listField - a searchable collection of objects
- * @see Updraft.ClassTemplate, Model
+ * @see ClassTemplate, Model
  * @example
  *  var ChildClass = store.createClass({
  *    tableName: 'childClass',

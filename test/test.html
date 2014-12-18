@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mocha Test Runner</title>
     <link rel="stylesheet" href="../node_modules/mocha/mocha.css">
+    <script>
+      // polyfill
+      Object.setPrototypeOf = Object.setPrototypeOf || function(obj, proto) {
+        obj.__proto__ = proto;
+        return obj; 
+      }
+    </script>
   </head>
   <body>
     <div id="mocha"></div>
@@ -23,10 +30,6 @@
     <script src="test.js"></script>
     <script>
       if (window.mochaPhantomJS) {
-        Object.setPrototypeOf = Object.setPrototypeOf || function(obj, proto) {
-          obj.__proto__ = proto;
-          return obj; 
-        }
         mochaPhantomJS.run();
       } else {
         mocha.run();
