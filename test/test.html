@@ -9,7 +9,8 @@
   </head>
   <body>
     <div id="mocha"></div>
-    <script src="../node_modules/q/q.js"></script>
+    <!--<script src="../node_modules/q/q.js"></script>-->
+    <script src="../node_modules/lie/dist/lie.js"></script>
     <script src="../node_modules/mocha/mocha.js"></script>
     <script src="../node_modules/chai/chai.js"></script>
     <script src="../node_modules/chai-as-promised/lib/chai-as-promised.js"></script>
@@ -22,6 +23,10 @@
     <script src="test.js"></script>
     <script>
       if (window.mochaPhantomJS) {
+        Object.setPrototypeOf = Object.setPrototypeOf || function(obj, proto) {
+          obj.__proto__ = proto;
+          return obj; 
+        }
         mochaPhantomJS.run();
       } else {
         mocha.run();

@@ -27,6 +27,7 @@
     "gulp-streamify": "0.0.5",
     "gulp-uglify": "^1.0.2",
     "gulp-util": "^3.0.1",
+    "lie": "^2.8.0",
     "mocha": "^2.0.1",
     "q": "^1.1.2",
     "vinyl-buffer": "^1.0.0",

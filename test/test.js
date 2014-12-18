@@ -1,8 +1,7 @@
-/*global window, Updraft, Q, chai, sinon, describe, before, beforeEach, after, afterEach, it, it */
+/*global Updraft, chai, sinon, describe, before, beforeEach, after, afterEach, it */
 
 'use strict';
 
-window.Promise = Q.Promise;
 var assert = chai.assert;
 var expect = chai.expect;
 chai.should();
@@ -72,6 +71,7 @@ describe("basic usage", function () {
         assert.deepEqual(x2.changes(), [], "changes should be reset");
         assert.deepEqual(x3.changes(), [], "changes should be reset");
 
+      
         return Promise.all([
           Class.get(1).should.eventually.have.property('col2', 10),
           Class.get(2).should.eventually.have.property('col2', 20),
@@ -125,7 +125,7 @@ describe('query interface', function () {
   };
   
   it("#all", function() {
-    return Class.all().then(checkQuery([x1, x2, x3])); // it's probably the insertion order, but not guaranteed!
+    return Class.all.get().then(checkQuery([x1, x2, x3])); // it's probably the insertion order, but not guaranteed!
   });
   
   it("#count", function() {

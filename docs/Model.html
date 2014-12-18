@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Class: ClassFactory</title>
+    <title>JSDoc: Class: Model</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Class: ClassFactory</h1>
+    <h1 class="page-title">Class: Model</h1>
 
     
 
@@ -27,7 +27,7 @@
 
 <header>
     <h2>
-    ClassFactory
+    Model
     </h2>
     
 </header>
@@ -39,7 +39,7 @@
     
         
 <dt>
-    <h4 class="name" id="ClassFactory"><span class="type-signature"></span>new ClassFactory<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="Model"><span class="type-signature"></span>new Model<span class="signature">(store, templ)</span><span class="type-signature"></span></h4>
 
     
 </dt>
@@ -47,7 +47,8 @@
 
     
     <div class="description">
-        Instances of this type will have properties for all the columns defined in Store#createClass.You can add additional properties, but they will not be saved.  Object will track which properties have changedsince the last save.  Fields of type 'ptr' will return an object { [table's key]:[value], get: [function returning promise evaluating to object] }
+        A class that you can use to create, save, and retrieve <a href="Instance.html">Instance</a>s.
+Do not create instances of type Model directly; instead use <a href="Store.html#createClass">Store#createClass</a>
     </div>
     
 
@@ -55,6 +56,77 @@
 
     
 
+    
+        <h5>Parameters:</h5>
+        
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>store</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Store.html">Store</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>templ</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Updraft.html#ClassTemplate">Updraft.ClassTemplate</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
     
 
     
@@ -75,11 +147,7 @@
         <th>Type</th>
 
         
-        <th>Argument</th>
-        
 
-        
-        <th>Default</th>
         
 
         <th class="last">Description</th>
@@ -104,17 +172,7 @@
             </td>
 
             
-                <td class="attributes">
-                
 
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                </td>
             
 
             <td class="description last">the name of the table in which entities of this type will be stored.  Cannot begin with underscore.</td>
@@ -124,74 +182,46 @@
 
         <tr>
             
-                <td class="name"><code>recreate</code></td>
+                <td class="name"><code>key</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">bool</span>
+<span class="param-type">string</span>
 
 
             
             </td>
 
             
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-                </td>
-            
 
             
-                <td class="default">
-                
-                    false
-                
-                </td>
-            
 
-            <td class="description last">whether the table should be recreated (dropped) if it exists.  All data will be lost.</td>
+            <td class="description last">the name of the primary key for this table</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>temp</code></td>
+                <td class="name"><code>keyType</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">bool</span>
+<span class="param-type"><a href="Updraft.html#columnType">Updraft.columnType</a></span>
 
 
             
             </td>
 
             
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-                </td>
-            
 
             
-                <td class="default">
-                
-                    false
-                
-                </td>
-            
 
-            <td class="description last">whether the table should be created as temporary (will not persist)</td>
+            <td class="description last">the type of the primary key for this table</td>
         </tr>
 
     
@@ -211,17 +241,7 @@
             </td>
 
             
-                <td class="attributes">
-                
 
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                </td>
             
 
             <td class="description last">an object describing the fields of objects of this type
@@ -323,7 +343,7 @@
             <td class="type">
             
                 
-<span class="param-type"><a href="global.html#columnType">columnType</a></span>
+<span class="param-type"><a href="Updraft.html#columnType">Updraft.columnType</a></span>
 
 
             
@@ -436,65 +456,20 @@
 
         <tr>
             
-                <td class="name"><code>renamedColumns</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                </td>
-            
-
-            <td class="description last">old column name is the key, new column name is the value</td>
-        </tr>
-
-    
-
-        <tr>
-            
                 <td class="name"><code>all</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><a href="QueryBuilder.html">QueryBuilder</a></span>
+<span class="param-type"><a href="Query.html">Query</a></span>
 
 
             
             </td>
 
             
-                <td class="attributes">
-                
 
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                </td>
             
 
             <td class="description last">use to construct a query</td>
@@ -530,7 +505,7 @@
     <dt class="tag-see">See:</dt>
     <dd class="tag-see">
         <ul>
-            <li><a href="ExampleClass.html">ExampleClass</a></li>
+            <li><a href="ExampleModel.html">ExampleModel</a></li>
         </ul>
     </dd>
     
@@ -550,6 +525,22 @@
     
 
     
+
+    
+        <h5>Example</h5>
+        
+    <pre class="prettyprint"><code>var ExampleModel = store.createClass({
+  tableName: 'exampleModel',
+  columns: {
+    keyField: { type: 'int', key: true },
+    stringField: { type: 'text' },
+    jsonField: { type: 'json' },
+    indexedField: { type: 'int', index: true },
+    childField: { type: 'ptr', ref: ChildClass }
+  }
+});
+
+var x = new ExampleModel({keyField: 123});</code></pre>
 
     
 </dd>
@@ -575,100 +566,7 @@
         <dl>
             
 <dt>
-    <h4 class="name" id="all"><span class="type-signature">&lt;static> </span>all<span class="signature">()</span><span class="type-signature"> &rarr; {Promise.&lt;Array.&lt;object>>}</span></h4>
-
-    
-</dt>
-<dd>
-
-    
-    <div class="description">
-        Get all objects of this type from database
-    </div>
-    
-
-    
-
-    
-
-    
-
-    
-<dl class="details">
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <h5>Returns:</h5>
-    
-            
-<div class="param-desc">
-    Promise that resolves with (possibly empty) array of all objects of this type
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">Promise.&lt;Array.&lt;object>></span>
-
-
-    </dd>
-</dl>
-
-        
-
-    
-        <h5>Example</h5>
-        
-    <pre class="prettyprint"><code>Class.all().then(function(results) {  console.log('all objects in db:', results);});</code></pre>
-
-    
-</dd>
-
-        
-            
-<dt>
-    <h4 class="name" id="get"><span class="type-signature">&lt;static> </span>get<span class="signature">(id)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></h4>
+    <h4 class="name" id="get"><span class="type-signature"></span>get<span class="signature">(id)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="Instance.html">Instance</a>>}</span></h4>
 
     
 </dt>
@@ -785,7 +683,7 @@
     </dt>
     <dd>
         
-<span class="param-type">Promise.&lt;object></span>
+<span class="param-type">Promise.&lt;<a href="Instance.html">Instance</a>></span>
 
 
     </dd>
@@ -796,100 +694,13 @@
     
         <h5>Example</h5>
         
-    <pre class="prettyprint"><code>Class.get(123).then(function(obj) {  if(obj) {    console.log('found object 123:', obj);  } else {    console.log('object 123 was not in db');  }});</code></pre>
-
-    
-</dd>
-
-        
-            
-<dt>
-    <h4 class="name" id="changes"><span class="type-signature"></span>changes<span class="signature">()</span><span class="type-signature"> &rarr; {string[]}</span></h4>
-
-    
-</dt>
-<dd>
-
-    
-    <div class="description">
-        Get the fields that have been changed since the object was last loaded/saved
-    </div>
-    
-
-    
-
-    
-
-    
-
-    
-<dl class="details">
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <h5>Returns:</h5>
-    
-            
-<div class="param-desc">
-    Names of the fields that have changed
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string[]</span>
-
-
-    </dd>
-</dl>
-
-        
-
-    
-        <h5>Example</h5>
-        
-    <pre class="prettyprint"><code>var x = new Class();x.foo = 'bar';console.log(x.changes());// -> ['foo']</code></pre>
+    <pre class="prettyprint"><code>Class.get(123).then(function(obj) {
+  if(obj) {
+    console.log('found object 123:', obj);
+  } else {
+    console.log('object 123 was not in db');
+  }
+});</code></pre>
 
     
 </dd>
@@ -910,13 +721,13 @@
 </div>
 
 <nav>
-    <h2><a href="index.html">Index</a></h2><h3>Classes</h3><ul><li><a href="ClassFactory.html">ClassFactory</a></li><li><a href="ExampleClass.html">ExampleClass</a></li><li><a href="QueryBuilder.html">QueryBuilder</a></li><li><a href="Updraft.Store.html">Store</a></li></ul><h3>Namespaces</h3><ul><li><a href="Updraft.html">Updraft</a></li></ul>
+    <h2><a href="index.html">Index</a></h2><h3>Classes</h3><ul><li><a href="ExampleModel.html">ExampleModel</a></li><li><a href="Instance.html">Instance</a></li><li><a href="Model.html">Model</a></li><li><a href="Query.html">Query</a></li><li><a href="Store.html">Store</a></li></ul><h3>Namespaces</h3><ul><li><a href="Updraft.html">Updraft</a></li></ul>
 </nav>
 
 <br clear="both">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.0-alpha5</a> on Sun Dec 14 2014 22:07:53 GMT-0600 (CST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.0-alpha5</a> on Wed Dec 17 2014 22:07:11 GMT-0600 (CST)
 </footer>
 
 <script> prettyPrint(); </script>

@@ -5,48 +5,15 @@
 //  lists
 
 /**
- * Namespace for Updraft objects
- * @namespace
+ * @namespace Updraft
  */
 var Updraft = {};
+Updraft.VERSION = '0.4.0';
 
-
-function startsWith(str, val) {
-  return str.lastIndexOf(val, 0) === 0;
-}
-
-
-function clone(obj) {
-  var copy;
-
-  // Handle the 3 simple types, and null or undefined
-  if (null === obj || "object" !== typeof obj) {
-    return obj;
-  }
-
-  // Handle Array
-  if (obj instanceof Array) {
-    copy = [];
-    for (var i = 0, len = obj.length; i < len; i++) {
-      copy[i] = clone(obj[i]);
-    }
-    return copy;
-  }
-
-  // Handle Object
-  if (obj instanceof Object) {
-    copy = {};
-    for (var attr in obj) {
-      if (obj.hasOwnProperty(attr)) {
-        copy[attr] = clone(obj[attr]);
-      }
-    }
-    return copy;
-  }
-
-  throw new Error("Unable to copy obj! Its type isn't supported.");
-}
-
+var util = require('./util');
+var Model = require('./model');
+var clone = util.clone;
+var startsWith = util.startsWith;
 
 /**
  * Column types.  Ignore the values; only use the keys.  Note that these are just column
@@ -56,7 +23,7 @@ function clone(obj) {
  * @enum {string}
  * @readonly
  */
-var columnType = {
+Updraft.columnType = {
   'int': 'INTEGER',
   'bool': 'BOOL',
   'real': 'REAL',
@@ -64,6 +31,8 @@ var columnType = {
   'blob': 'BLOB',
   'date': 'DATE',
   'datetime': 'DATETIME',
+  
+  /** object will be serialized & restored as JSON text */
   'json': 'TEXT',
 
   /** points to an object in another table.  Its affinity will be that table's key's affinity */
@@ -73,12 +42,13 @@ var columnType = {
   'list': 'ref',
 };
 
+var columnType = Updraft.columnType;
 
 /**
  * The class template used by {@link Updraft.Store#createClass}.
  *
  * @typedef
- * @name ClassTemplate
+ * @name Updraft.ClassTemplate
  * @property {string} tableName - the name of the table in which entities of this type will be stored.  Cannot begin with underscore.
  * @property {bool} [recreate=false] - whether the table should be recreated (dropped) if it exists.  All data will be lost.
  * @property {bool} [temp=false] - whether the table should be created as temporary (will not persist)
@@ -107,59 +77,35 @@ var columnType = {
 
 
 /**
+ * The parameters used to open a database
+ *
+ * @typedef
+ * @name Updraft.StoreOptions
+ * @property {string} name - the name of the database to open
+ */
+
+
+/**
  * Interface for creating classes & database interaction
  *
  * @class
  * @property {bool} [logSql=false] - log sql statements to console.log
  */
-Updraft.Store = function () {
+var Store = function () {
   var self = this;
   this.tables = [];
   this.triggers = {};
   this.logSql = false;
 
-  //  this.listTable = {
-  //    tableName: '_updraft_lists',
-  //    columns: {
-  //      'tableName': {type: 'TEXT'},
-  //      'key': {type: 'TEXT'},
-  //      'member': {type: 'TEXT'},
-  //      'index': {type: 'INTEGER'},
-  //      'value': {type: 'TEXT'},
-  //    },
-  //    indices: [
-  //      ['tableName', 'key', 'member']
-  //    ]
-  //  };
-  //  this.tables.push(this.listTable);
   
   /**
-   * Example class, a {@link ClassFactory} returned by {@link Updraft.Store#createClass}
-   *
-   * @class
-   * @name ExampleClass
-   * @param {int} keyField - object's primary key, unique in the table
-   * @param {string} stringField
-   * @param {object} jsonField - can be any javascript type, object, or nesting of objects.  Will be 
-   *        stored stringified, so any shared properties will no longer be shared after reloading from db.
-   * @param {int} indexedField - a regular integer field, but queries testing indexed fields will be faster
-   * @param childField - a pseudo 'ChildClass' object.  Although you can assign to it, the object won't be available.
-   *        That is, you will always need to call 'childField.get()' and wait for the promise, even if you just
-   *        assigned to it.
-   * @param {int} childField.id - the key of the child object pointed to.  Note that the member 'id' is because 
-   *        ChildClass's key is named 'id'; similarly the type is inherited from ChildClass's key type.  This 
-   *        is the only part of the reference that is stored on the object.
-   * @see ClassTemplate, ClassFactory
-   * @example
-   *  var ChildClass = store.createClass({
-   *    tableName: 'childClass',
-   *    columns: {
-   *      id: { type: 'int', key: true },
-   *      intField: { type: 'int', index: true }
-   *    }
-   *  });
-   *  var ExampleClass = store.createClass({
-   *    tableName: 'exampleClass',
+   * create a new type whose instances can be stored in a database
+   * @param {Updraft.ClassTemplate} templ
+   * @return {Model}
+   * @see ExampleModel
+   * @example 
+   *  var ExampleModel = store.createClass({
+   *    tableName: 'exampleModel',
    *    columns: {
    *      keyField: { type: 'int', key: true },
    *      stringField: { type: 'text' },
@@ -168,551 +114,27 @@ Updraft.Store = function () {
    *      childField: { type: 'ptr', ref: ChildClass }
    *    }
    *  });
-   *
-   *  var child = new ChildClass({id: 321, intField: 456});
-   *
-   *  var x = new ExampleClass();
-   *  x.keyField = 123;
-   *  x.stringField = 'string example';
-   *  x.jsonField = { x: 1, y: 'a', z: { foo: 'bar' } };
-   *  console.log(x.changes());
-   *  // -> ['keyField', 'stringField', 'jsonField']
-   *
-   *  // the following lines are exactly equivalent:
-   *  x.childField = child;
-   *  x.childField = child.id;
-   *  x.childField = 321;
-   *
-   *  console.log(x.childField.id); // -> 321
-   *
-   *  x.childField.get().then(function(c) {
-   *    // child was never saved, so c is null, unless there was
-   *    // already a ChildClass with id=321 in the db');
-   *  });
-   *
-   *  // ... assume more objects have been created and saved ...
-   *
-   *  ExampleClass.all.where('childField.intField', '=', 456).get()
-   *  .then(function(results) {
-   *    // results is an array containing (a copy of) x and anything
-   *    // else that has the same 
-   *  });
    */
-
-  
-  /**
-   * Create a class.  Instances of this class are the only objects that can be stored.  Implicitly creates
-   * the associated table.
-   *
-   * @param {ClassTemplate} templ - A class template
-   * @return {ClassFactory} class factory
-   */
-  this.createClass = function (templ) {
-    console.assert(templ.tableName);
-    console.assert(templ.tableName[0] !== '_');
-    console.assert(templ.columns);
-    console.assert(Object.keys(templ.columns).length < 64);
-    console.assert(!('changes' in templ.columns));
-    console.assert(!('template' in templ.columns));
-    console.assert(!templ.renamedColumns || Object.keys(templ.renamedColumns).every(function (old) { return !(old in templ.columns); }));
-
-    /**
-     * Instances of this type will have properties for all the columns defined in {@link Store#createClass}.
-     * You can add additional properties, but they will not be saved.  Object will track which properties have changed
-     * since the last save.  Fields of type 'ptr' will return an object { [table's key]:[value], get: [function returning promise evaluating to object] }
-     *
-     * @class
-     * @name ClassFactory
-     * @property {string} tableName - the name of the table in which entities of this type will be stored.  Cannot begin with underscore.
-     * @property {bool} [recreate=false] - whether the table should be recreated (dropped) if it exists.  All data will be lost.
-     * @property {bool} [temp=false] - whether the table should be created as temporary (will not persist)
-     * @property {Object} columns - an object describing the fields of objects of this type
-     * @property {string} columns.key - name of the field
-     * @property {object} columns.value
-     * @property {columnType} columns.value.type - 'int', 'bool', etc.
-     * @property {bool} [columns.value.key=false] - set to true on the field that should be the primary key.  Only set one.
-     * @property {bool} [columns.value.index=false] - create an index on this field
-     * @property {object} [renamedColumns] - old column name is the key, new column name is the value
-     * @property {QueryBuilder} all - use to construct a query
-     * @see ExampleClass
-     */
-    var Factory = function (props) {
-      var o = this;
-      o._changes = 0;
-      Object.keys(templ.columns).forEach(function(col) {
-        if(templ.columns[col].type === 'list') {
-          o['_' + col] = [];
-
-          // allow client to do object.field.push(otherobject); we'll transform it to object.field.push(otherobject.key())
-          o['_' + col].push = function() {
-            var args = Array.prototype.slice.call(arguments).map(function(arg) {
-              if(typeof arg === 'object') {
-                return arg.key();
-              } else {
-                return arg;
-              }
-            });
-            var array = o['_' + col];
-            var ret = Array.prototype.push.apply(array, args);
-            o[col] = array; // this will mark it dirty
-            return ret;
-          };
-        }
-      });
-      props = props || {};
-      for (var key in props) {
-        o[key] = props[key];
-      }
-    };
-
-    for (var key in templ) {
-      Factory[key] = clone(templ[key]);
-    }
-
-    Factory.key = null;
-    Factory.keyType = null;
-    Factory.indices = Factory.indices || [];
-
-    Object.keys(Factory.columns).forEach(function (col) {
-      if (Factory.columns[col].key) {
-        Factory.key = col;
-        Factory.keyType = Factory.columns[col].type;
-      }
-      if (Factory.columns[col].index) {
-        Factory.indices.push([col]);
-      }
-    });
-
-    console.assert(Factory.key);
-
-
-    /**
-     * Get a single object from database by its key
-     *
-     * @method
-     * @name ClassFactory.get
-     * @param id - value to find in table's primary key
-     * @returns {Promise<object>} Promise that resolves with element or null if not found
-     * @example
-     *  Class.get(123).then(function(obj) {
-     *    if(obj) {
-     *      console.log('found object 123:', obj);
-     *    } else {
-     *      console.log('object 123 was not in db');
-     *    }
-     *  });
-     */
-    Factory.get = function (id) {
-      return Factory.all.where(Factory.key, '=', id).get()
-      .then(function(results) {
-        console.assert(results.length < 2);
-        if(results.length === 0) {
-          return null;
-        } else {
-          return results[0];
-        }
-      });
-    };
-
-    Factory.prototype.factory = Factory;
-    
-
-    Factory.prototype.key = function() {
-      var key = '_' + Factory.key;
-      console.assert(key in this);
-      return this[key];
-    };
-
-    /**
-     * Get the fields that have been changed since the object was last loaded/saved
-     *
-     * @method
-     * @name ClassFactory#changes
-     * @returns {string[]} Names of the fields that have changed
-     * @example
-     *  var x = new Class();
-     *  x.foo = 'bar';
-     *  console.log(x.changes());
-     *  // -> ['foo']
-     */
-    Factory.prototype.changes = function () {
-      var changes = [];
-      var propIdx = 0;
-      for (var col in Factory.columns) {
-        var propMask = (1 << propIdx++);
-        if (this._changes & propMask) {
-          changes.push(col);
-        }
-      }
-      return changes;
-    };
-
-    
-    var addClassProperty = function(factory, col, propMask) {
-      var prop = '_' + col;
-
-      switch(Factory.columns[col].type) {
-        default:
-          Object.defineProperty(factory.prototype, col, {
-            get: function () {
-              return this[prop];
-            },
-            set: function (val) {
-              if (this[prop] !== val) {
-                this[prop] = val;
-                this._changes |= propMask;
-              }
-            }
-          });
-          break;
-
-        case 'ptr':
-          Object.defineProperty(factory.prototype, col, {
-            get: function () {
-              var ref = Factory.columns[col].ref;
-              console.assert(ref.get);
-              var ret = {};
-              ret.ref = ref;
-              ret.own = this;
-              ret[ref.key] = this[prop];
-              ret.get = function () { return this.ref.get(this.own[prop]); };
-              return ret;
-            },
-            set: function (val) {
-              // allow client to do object.field = otherobject; we'll transform it to object.field = otherobject.key()
-              if(typeof val === 'object') {
-                val = val.key();
-              }
-              if (this[prop] !== val) {
-                this[prop] = val;
-                this._changes |= propMask;
-              }
-            }
-          });
-          break;
-
-        case 'list':
-          Object.defineProperty(factory.prototype, col, {
-            get: function() {
-              return this[prop];
-            },
-            set: function(val) {
-              // allow client to do object.field = [otherobject]; we'll transform it to object.field = [otherobject.key()]
-              val = val.map(function(arg) {
-                if(typeof arg === 'object') {
-                  return arg.key();
-                } else {
-                  return arg;
-                }
-              });
-              this[prop] = val;
-              this._changes |= propMask;
-            }
-          });
-          break;
-      }
-    };
-
-    var propIdx = 0;
-    for (var col in Factory.columns) {
-      var propMask = (1 << propIdx++);
-      addClassProperty(Factory, col, propMask);
-      if (propIdx >= 63) {
-        throw new Error("class has too many columns- max 63");
-      }
-    }
-    
-    
-    /**
-     * construct object from a database result row
-     *
-     * @param {SQLRow} row
-     * @return instance of Factory with fields initialized according to row, with _isInDb=true and no changes set
-     * @private
-     */
-    Factory.constructFromDb = function(row) {
-      var o = new Factory();
-      for(var col in row) {
-        var val = row[col];
-        var _col = '_' + col;
-        switch(Factory.columns[col].type) {
-          case 'json':
-            o[_col] = JSON.parse(val);
-            break;
-          case 'list':
-            o[_col].push(val);
-            break;
-          default:
-            o[_col] = val;
-            break;
-        }
-      }
-
-      o._isInDb = true;
-      return o;
-    };
-
-
-    /**
-     * Get all objects of this type from database
-     *
-     * @method
-     * @name ClassFactory.all
-     * @returns {Promise<object[]>} Promise that resolves with (possibly empty) array of all objects of this type
-     * @example
-     *  Class.all().then(function(results) {
-     *    console.log('all objects in db:', results);
-     *  });
-     */
-    Factory.all = function () {
-      return Factory.all.get();
-    };
-    
-    Object.defineProperty(Factory, 'all', {
-      get: function() {
-        var props = {
-          count: false,
-          tables: [Factory.tableName],
-          columns: [],
-          conditions: [],
-          order: undefined,
-          asc: true,
-          nocase: false,
-        };
-        
-        // add child tables
-        for(var col in Factory.columns) {
-          if(Factory.columns[col].type !== 'list') {
-            props.columns.push(Factory.tableName + '.' + col);
-          }
-        }
-        
-        /**
-         * @class
-         * @name QueryBuilder
-         */
-        var all = function() {
-          return all.get();
-        };
-        
-        var addCondition = function(conj, col, op, val) {
-          var fields = col.split(/\./);
-            var f = Factory;
-            for(var i=0; i<fields.length - 1; i++) {
-              var field = fields[i];
-              console.assert(field in f.columns);
-              var ref = f.columns[field].ref;
-              console.assert(ref);
-              if(props.tables.indexOf(ref.tableName)) {
-                props.tables.push(ref.tableName);
-                props.conditions.push({
-                  conj: 'AND',
-                  col: f.tableName + '.' + field,
-                  op: '=',
-                  val: ref.tableName + '.' + ref.key
-                });
-              }
-              f = ref;
-            }
-            props.conditions.push({
-              conj: conj,
-              col: f.tableName + '.' + fields[fields.length - 1],
-              op: op,
-              val: '?',
-              arg: val
-            });
-          return all;
-        };
-        
-        /**
-         * Adds an 'AND' condition to the query
-         *
-         * @method
-         * @name QueryBuilder#and
-         * @param {string} col - column field to match on
-         * @param {string} op - SQLite binary [operator]{@link https://www.sqlite.org/lang_expr.html}
-         * @param val - value to match against {@linkcode col}
-         * @return {QueryBuilder}
-         * @see QueryBuilder#or
-         * @example
-         *  return Class.all.where('col2', '>', 10).and('col2', '<', 30).get();
-         *  // -> SELECT ... WHERE col2 > 10 AND col2 < 30
-         */
-        all.and = function(col, op, val) {
-          return addCondition('AND', col, op, val);
-        };
-        
-        /**
-         * alias for {@link QueryBuilder#and}
-         *
-         * @method
-         * @name QueryBuilder#where
-         * @return {QueryBuilder}
-         * @example
-         *  return Class.all.where('col2', '>', 10).get();
-         */
-        all.where = all.and;
-        
-        /**
-         * Adds an 'OR' condition to the query
-         * @method
-         * @name QueryBuilder#or
-         * @param {string} col - column field to match on
-         * @param {string} op - SQLite binary [operator]{@link https://www.sqlite.org/lang_expr.html}
-         * @param val - value to match against {@linkcode col}
-         * @return {QueryBuilder}
-         * @see QueryBuilder#and
-         * @example
-         *  return Class.all.where('col2', '=', 10).and('col2', '=', 30).get();
-         *  // -> SELECT ... WHERE col2 = 10 OR col2 = 30
-         */
-        all.or = function(col, op, val) {
-          return addCondition('OR', col, op, val);
-        };
-        
-        /**
-         * Sort the results by specified field
-         *
-         * @method
-         * @name QueryBuilder#order
-         * @param {string} col - column to sort by
-         * @param {bool} [asc=true] - sort ascending (true, default) or descending (false)
-         * @return {QueryBuilder}
-         * @see QueryBuilder#nocase
-         * @example
-         *  return Class.all.order('x').get();
-         *  // -> SELECT ... ORDER BY x
-         */
-        all.order = function(col, asc) {
-          props.order = col;
-          if(typeof asc !== 'undefined') {
-            props.asc = asc;
-          }
-          return all;
-        };
-        
-        /**
-         * Changes the match collation to be case-insensitive.  Only applies to result sorting, as 'LIKE' is 
-         * always case-insensitive
-         *
-         * @method
-         * @name QueryBuilder#nocase
-         * @return {QueryBuilder}
-         * @see QueryBuilder#order
-         * @example
-         *  return Class.all.order('x').nocase().get();
-         *  // -> SELECT ... ORDER BY x COLLATE NOCASE
-         */
-        all.nocase = function() {
-          props.nocase = true;
-          return all;
-        };
-        
-        
-        /**
-         * Executes the query, returning a promise resolving with the count of objects that match
-         *
-         * @method
-         * @name QueryBuilder#count
-         * @return {Promise<int>}
-         * @see QueryBuilder#get
-         * @example
-         *  return Class.all.count()
-         *  .then(function(count) { console.log(count + " objects") });
-         *  // -> SELECT COUNT(*) FROM ...
-         */
-        all.count = function() {
-          props.count = true;
-          return all.get();
-        };
-        
-        
-        /**
-         * Executes the query, returning a promise resolving with the array of objects that match any conditions
-         * set on the QueryBuilder
-         *
-         * @method
-         * @name QueryBuilder#get
-         * @return {Promise<object[]>}
-         * @see QueryBuilder#count
-         * @example
-         *  return Class.all.where('x', '>', 0).get();
-         *  // -> SELECT ... WHERE x > 0
-         */
-        all.get = function() {
-          var countProp = 'COUNT(*)';
-          var stmt = 'SELECT ';
-          if(props.count) {
-            stmt += countProp;
-          } else {
-            stmt += props.columns.join(', ');
-          }
-          stmt += ' FROM ' + props.tables.join(', ');
-          var args = [];
-          for(var i=0; i<props.conditions.length; i++) {
-            var cond = props.conditions[i];
-            stmt += (i === 0) ? ' WHERE ' : (' ' + cond.conj + ' ');
-            stmt += cond.col + ' ' + cond.op + ' ' + cond.val;
-            if('arg' in cond) {
-              args.push(cond.arg);
-            }
-          }
-          if(props.order) {
-            stmt += ' ORDER BY ' + props.order;
-            stmt += (props.nocase ? ' COLLATE NOCASE' : '');
-            stmt += (props.asc ? ' ASC' : ' DESC');
-          }
-          
-          var objects = [];
-          return self.execRead(stmt, args, function (tx, results) {
-            if(props.count) {
-              return results.rows.item(0)[countProp];
-            }
-            for (var i = 0; i < results.rows.length; i++) {
-              var o = Factory.constructFromDb(results.rows.item(i));
-              objects.push(o);
-            }
-            return Promise.all(objects.map(function(o) {
-              return Promise.all(
-                Object.keys(Factory.columns)
-                .filter(function(col) {
-                  return (Factory.columns[col].type === 'list');
-                })
-                .map(function(col) {
-                  var listTable = Factory.columns[col].listTable;
-                  console.assert(listTable);
-                  var key = o.key();
-                  var s = 'SELECT ' + col;
-                  s += ' FROM ' + listTable.tableName;
-                  s += ' WHERE ' + Factory.key + ' = ?';
-                  return self.exec(tx, s, [key], function(tx, results) {
-                    for(var i=0; i<results.rows.length; i++) {
-                      var row = results.rows.item(i);
-                      o['_' + col].push(row[col]);
-                    }
-                    o._changes = 0;
-                  });
-                })
-              );
-            }))
-            .then(function() {
-              return objects;
-            });
-          });
-        };
-
-        return all;
-      }
-    });
-
-
-    self.tables.push(Factory);
-
-    return Factory;
+  this.createClass = function(templ) {
+    var m = new Model(self, templ);
+    //var m = Model.createModel(self, templ);
+    self.tables.push(m);
+    return m;
   };
   
+
   /**
-   * delete all tables in database
+   * Delete all tables in database.  For development purposes; you probably don't want to ship with this.
+   *
+   * @global
+   * @typedef
+   * @param {Updraft.StoreOptions} opts
+   * @return {Promise} a promise that resolves when all tables are deleted
+   * @see Updraft.Store#open
+   * @example
+   *    store.purge({name: 'my cool db'}).then(function() {
+   *      // everything is gone
+   *    });
    */
   this.purge = function(opts) {
     console.assert(!self.db);
@@ -740,8 +162,7 @@ Updraft.Store = function () {
   /**
    * open the database
    *
-   * @param {object} opts options for creating the db
-   * @param {string} opts.name name of db to be created
+   * @param {Updraft.StoreOptions} opts
    * @return {Promise} a promise that resolves with no parameters when the database is created and ready
    * @example
    *    store.open({name: 'my cool db'}).then(function() {
@@ -792,18 +213,6 @@ Updraft.Store = function () {
     self.triggers = {};
   };
 
-
-  /**
-   * convenience function to log a message after promise resolves
-   *
-   * @param message - message to log
-   * @private
-   */
-  //  function report(message) {
-  //    return function() {
-  //      console.log(message);
-  //    };
-  //  }
 
   /**
    * exec a sql statement within a given transaction
@@ -876,7 +285,7 @@ Updraft.Store = function () {
    * Note: tables or indices beginning with underscore or 'sqlite' will be ignored
    *
    * @typedef
-   * @name Schema
+   * @name Updraft.Schema
    * @example
    *    var schema = {
    *      'todos': {
@@ -900,7 +309,7 @@ Updraft.Store = function () {
   /**
    * get the existing database's schema in object form
    *
-   * @return {Promise} a promise that resolves with the {@link Schema}
+   * @return {Promise} a promise that resolves with the {@link Updraft.Schema}
    */
   this.readSchema = function () {
     function tableFromSql(sql) {
@@ -957,7 +366,7 @@ Updraft.Store = function () {
    * Check whether the tables in the current database match up with the ClassFactories.
    * They will be created or modified as needed.
    *
-   * @param {Schema} schema
+   * @param {Updraft.Schema} schema
    * @return {Promise} A promise that resolves with no parameters once all tables are up-to-date.
    * @private
    */
@@ -973,12 +382,12 @@ Updraft.Store = function () {
 
 
   /**
-   * Check whether an individual table in the current database matches up with its corresponding ClassFactory.
+   * Check whether an individual table in the current database matches up with its corresponding Model.
    * It will be created or modified as needed.
    *
    * @param {SQLTransaction} tx - a writeable transaction
-   * @param {Schema} schema
-   * @param {object} f - a {@link ClassFactory} or other object that describes a table
+   * @param {Updraft.Schema} schema
+   * @param {object} f - a {@link Model} or other object that describes a table
    * @return {Promise} A promise that resolves with no parameters once the table is up-to-date.
    * @private
    */
@@ -1142,11 +551,11 @@ Updraft.Store = function () {
    * Save all objects to database.  Atomic operation- all objects will be saved within the same transaction
    * or nothing will be written.  Objects can be heterogeneous.
    *
-   * @param {object[]} objects - array of instances of {@link ClassFactory}
+   * @param {Updraft.Instance[]} objects
    */
   this.save = function (objects) {
     objects.map(function (o) {
-      console.assert(('_' + o.factory.key) in o, "object must have a key");
+      console.assert(('_' + o.model.key) in o, "object must have a key");
     });
 
     return new Promise(function (resolve, reject) {
@@ -1161,7 +570,7 @@ Updraft.Store = function () {
         
         function insertLists(o, force) {
           var changes = o.changes();
-          var f = o.factory;
+          var f = o.model;
           var promises = [];
           Object.keys(f.columns)
           .filter(function(col) {
@@ -1183,7 +592,7 @@ Updraft.Store = function () {
         }
         
         function insert(o, callback) {
-          var f = o.factory;
+          var f = o.model;
           var isNotList = function(col) { return f.columns[col].type !== 'list'; };
           var cols = Object.keys(f.columns).filter(isNotList);
           var columns = cols.join(', ');
@@ -1196,7 +605,7 @@ Updraft.Store = function () {
         }
 
         function update(o, callback) {
-          var f = o.factory;
+          var f = o.model;
           var cols = o.changes();
           var isNotList = function(col) { return f.columns[col].type !== 'list'; };
           var isNotKey = function(col) { return col !== f.key; };
@@ -1233,11 +642,6 @@ Updraft.Store = function () {
           });
         };
 
-//        var p = Promise.resolve();
-//        objects.forEach(function(o) {
-//          p = p.then(function() { return upsert(o) });
-//        });
-//        return p.then(resolve, reject); // Promise.all(objects.map(upsert)).then(resolve, reject);
         return Promise.all(objects.map(upsert)).then(resolve, reject);
       });
     });
@@ -1246,9 +650,7 @@ Updraft.Store = function () {
 };
 
 
-// Version.
-Updraft.VERSION = '0.0.1';
-
+Updraft.Store = Store;
 
 module.exports = Updraft;
 

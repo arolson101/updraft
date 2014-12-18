@@ -39,7 +39,7 @@ function makeBundle(watch) {
       //.pipe(uglify())
       .pipe(sourcemaps.write('./'))
       .pipe(gulp.dest('./dist/'));
-  }
+  };
 
   if(watch) {
     b = watchify(b);
@@ -48,7 +48,7 @@ function makeBundle(watch) {
   
   b.add('./src/main.js');
   return bundle();
-};
+}
 
 gulp.task('bundle', function() {
   makeBundle(false);
