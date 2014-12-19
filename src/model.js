@@ -2,7 +2,8 @@
 
 var Util = require('./util');
 var Query = require('./query');
-
+/*jshint -W079 */
+var Set = require('./set');
 
 
 /**
@@ -22,20 +23,7 @@ var Query = require('./query');
 function Instance(props) {
   var o = this;
   o._changes = 0;
-  Object.keys(this.model.columns).forEach(function(col) {
-    if(o.model.columns[col].type === 'list') {
-      o['_' + col] = [];
 
-      // allow client to do object.field.push(otherobject); we'll transform it to object.field.push(otherobject.key())
-      o['_' + col].push = function() {
-        var args = Array.prototype.slice.call(arguments).map(Util.keyOf);
-        var array = o['_' + col];
-        var ret = Array.prototype.push.apply(array, args);
-        o[col] = array; // this will mark it dirty
-        return ret;
-      };
-    }
-  });
   props = props || {};
   for (var key in props) {
     o[key] = props[key];
@@ -85,6 +73,16 @@ Instance.prototype.changes = function () {
 
 
 
+Instance.prototype.clearChanges = function() {
+  this._changes = 0;
+  for (var col in this.model.columns) {
+    if(this.model.columns[col].type === 'set' && this['_' + col]) {
+      this[col].clearChanges();
+    }
+  }
+};
+
+
 var addClassProperty = function(model, proto, col, propMask) {
   var prop = '_' + col;
 
@@ -126,15 +124,21 @@ var addClassProperty = function(model, proto, col, propMask) {
       });
       break;
 
-    case 'list':
+    case 'set':
       Object.defineProperty(proto, col, {
         get: function() {
+          if(!(prop in this)) {
+            var o = this;
+            this[prop] = new Set(function() { o._changes |= propMask; });
+          }
           return this[prop];
         },
         set: function(val) {
-          // allow client to do object.field = [otherobject]; we'll transform it to object.field = [otherobject.key()]
-          val = val.map(Util.keyOf);
-          this[prop] = val;
+          if(!(prop in this)) {
+            var o = this;
+            this[prop] = new Set(function() { o._changes |= propMask; });
+          }
+          this[prop].assign(val);
           this._changes |= propMask;
         }
       });
@@ -288,7 +292,7 @@ Model.prototype.constructFromDb = function(row) {
       case 'json':
         o[_col] = JSON.parse(val);
         break;
-      case 'list':
+      case 'set':
         o[_col].push(val);
         break;
       default:
@@ -322,7 +326,7 @@ Model.prototype.constructFromDb = function(row) {
  * @property {int} childField.id - the key of the child object pointed to.  Note that the member 'id' is because 
  *           ChildClass's key is named 'id'; similarly the type is inherited from ChildClass's key type.  This 
  *           is the only part of the reference that is stored on the object.
- * @property {list} listField - a searchable collection of objects
+ * @property {set} setField - a searchable collection of objects
  * @see ClassTemplate, Model
  * @example
  *  var ChildClass = store.createClass({

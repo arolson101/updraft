@@ -17,7 +17,8 @@ if (window) {
 
 var Util = require('./util');
 var Query = require('./query');
-
+/*jshint -W079 */
+var Set = require('./set');
 
 
 /**
@@ -37,20 +38,7 @@ var Query = require('./query');
 function Instance(props) {
   var o = this;
   o._changes = 0;
-  Object.keys(this.model.columns).forEach(function(col) {
-    if(o.model.columns[col].type === 'list') {
-      o['_' + col] = [];
 
-      // allow client to do object.field.push(otherobject); we'll transform it to object.field.push(otherobject.key())
-      o['_' + col].push = function() {
-        var args = Array.prototype.slice.call(arguments).map(Util.keyOf);
-        var array = o['_' + col];
-        var ret = Array.prototype.push.apply(array, args);
-        o[col] = array; // this will mark it dirty
-        return ret;
-      };
-    }
-  });
   props = props || {};
   for (var key in props) {
     o[key] = props[key];
@@ -100,6 +88,16 @@ Instance.prototype.changes = function () {
 
 
 
+Instance.prototype.clearChanges = function() {
+  this._changes = 0;
+  for (var col in this.model.columns) {
+    if(this.model.columns[col].type === 'set' && this['_' + col]) {
+      this[col].clearChanges();
+    }
+  }
+};
+
+
 var addClassProperty = function(model, proto, col, propMask) {
   var prop = '_' + col;
 
@@ -141,15 +139,21 @@ var addClassProperty = function(model, proto, col, propMask) {
       });
       break;
 
-    case 'list':
+    case 'set':
       Object.defineProperty(proto, col, {
         get: function() {
+          if(!(prop in this)) {
+            var o = this;
+            this[prop] = new Set(function() { o._changes |= propMask; });
+          }
           return this[prop];
         },
         set: function(val) {
-          // allow client to do object.field = [otherobject]; we'll transform it to object.field = [otherobject.key()]
-          val = val.map(Util.keyOf);
-          this[prop] = val;
+          if(!(prop in this)) {
+            var o = this;
+            this[prop] = new Set(function() { o._changes |= propMask; });
+          }
+          this[prop].assign(val);
           this._changes |= propMask;
         }
       });
@@ -303,7 +307,7 @@ Model.prototype.constructFromDb = function(row) {
       case 'json':
         o[_col] = JSON.parse(val);
         break;
-      case 'list':
+      case 'set':
         o[_col].push(val);
         break;
       default:
@@ -337,7 +341,7 @@ Model.prototype.constructFromDb = function(row) {
  * @property {int} childField.id - the key of the child object pointed to.  Note that the member 'id' is because 
  *           ChildClass's key is named 'id'; similarly the type is inherited from ChildClass's key type.  This 
  *           is the only part of the reference that is stored on the object.
- * @property {list} listField - a searchable collection of objects
+ * @property {set} setField - a searchable collection of objects
  * @see ClassTemplate, Model
  * @example
  *  var ChildClass = store.createClass({
@@ -391,7 +395,7 @@ Model.prototype.constructFromDb = function(row) {
 
 module.exports = Model;
 
-},{"./query":"/Users/aolson/Developer/updraft/src/query.js","./util":"/Users/aolson/Developer/updraft/src/util.js"}],"/Users/aolson/Developer/updraft/src/query.js":[function(require,module,exports){
+},{"./query":"/Users/aolson/Developer/updraft/src/query.js","./set":"/Users/aolson/Developer/updraft/src/set.js","./util":"/Users/aolson/Developer/updraft/src/util.js"}],"/Users/aolson/Developer/updraft/src/query.js":[function(require,module,exports){
 'use strict';
 
 var Util = require('./util');
@@ -422,7 +426,7 @@ var Query = function(model, store) {
 
   // add child tables
   for(var col in model.columns) {
-    if(model.columns[col].type !== 'list') {
+    if(model.columns[col].type !== 'set') {
       this._columns.push(model.tableName + '.' + col);
     }
   }
@@ -461,23 +465,23 @@ Query.prototype.addCondition = function(conj, col, op, val) {
 
   switch(op) {
     case 'contains':
-      console.assert(f.columns[field].type === 'list');
-      var listTable = f.columns[field].listTable;
-      console.assert(listTable);
+      console.assert(f.columns[field].type === 'set');
+      var setTable = f.columns[field].setTable;
+      console.assert(setTable);
 
-      if(this._tables.indexOf(listTable.tableName) === -1) {
-        this._tables.push(listTable.tableName);
+      if(this._tables.indexOf(setTable.tableName) === -1) {
+        this._tables.push(setTable.tableName);
         this._conditions.push({
           conj: 'AND',
           col: f.tableName + '.' + f.key,
           op: '=',
-          val: listTable.tableName + '.' + f.key
+          val: setTable.tableName + '.' + f.key
         });
       }
 
       this._conditions.push({
         conj: conj,
-        col: listTable.tableName + '.' + field,
+        col: setTable.tableName + '.' + field,
         op: '=',
         val: '?',
         arg: val
@@ -485,7 +489,7 @@ Query.prototype.addCondition = function(conj, col, op, val) {
       break;
 
     default:
-      console.assert(f.columns[field].type !== 'list');
+      console.assert(f.columns[field].type !== 'set');
       this._conditions.push({
         conj: conj,
         col: f.tableName + '.' + field,
@@ -682,21 +686,19 @@ Query.prototype.get = function() {
       return Promise.all(
         Object.keys(model.columns)
         .filter(function(col) {
-          return (model.columns[col].type === 'list');
+          return (model.columns[col].type === 'set');
         })
         .map(function(col) {
-          var listTable = model.columns[col].listTable;
-          console.assert(listTable);
+          var setTable = model.columns[col].setTable;
+          console.assert(setTable);
           var key = o.key();
           var s = 'SELECT ' + col;
-          s += ' FROM ' + listTable.tableName;
+          s += ' FROM ' + setTable.tableName;
           s += ' WHERE ' + query._model.key + ' = ?';
           return query._store.exec(tx, s, [key], function(tx, results) {
-            for(var i=0; i<results.rows.length; i++) {
-              var row = results.rows.item(i);
-              o['_' + col].push(row[col]);
+            if(results.rows.length > 0) {
+              o[col].initFromDb(results);
             }
-            o._changes = 0;
           });
         })
       );
@@ -709,6 +711,178 @@ Query.prototype.get = function() {
 
 
 module.exports = Query;
+
+},{"./util":"/Users/aolson/Developer/updraft/src/util.js"}],"/Users/aolson/Developer/updraft/src/set.js":[function(require,module,exports){
+'use strict';
+
+var Util = require('./util');
+
+/**
+ * State that a value can be in
+ * @private
+ * @enum
+ */
+var State = {
+  saved:    1 << 1,
+  added:    1 << 2,
+  removed:  1 << 3
+};
+
+
+/**
+ * @class
+ * @param {function} dirtyFcn - function to call when set's state changes
+ */
+function Set(dirtyFcn) {
+  this.dirtyFcn = dirtyFcn;
+  this._values = {};
+}
+
+
+/**
+ * load values from a database; initialize values
+ * @private
+ * @param {SQLResultSet} results - database row
+ */
+Set.prototype.initFromDb = function(results) {
+  for(var i=0; i<results.rows.length; i++) {
+    var row = results.rows.item(i);
+    console.assert(Object.keys(row).length === 1);
+    var item = row[Object.keys(row)[0]];
+    this._values[item] = State.saved;
+  }
+};
+
+
+/**
+ * Set all values from an array.  <tt>Add</tt>s all values, and <tt>remove</tt>s any existing set values that are
+ * not in <tt>arr</tt>
+ * @param {Array} arr - array of values to assign.  If values are {@link Instance}s, assign their <tt>key()</tt>s instead
+ */
+Set.prototype.assign = function(arr) {
+  this.clear();
+  this.add.apply(this, arr);
+};
+
+
+/**
+ * Removes all objects from set
+ */
+Set.prototype.clear = function() {
+  for(var val in this._values) {
+    this._values[val] = State.removed;
+  }
+};
+
+
+/**
+ * Adds value(s) to set
+ * @param {object[]} arguments - values to add
+ */
+Set.prototype.add = function() {
+  var dirty = false;
+  var self = this;
+  Array.prototype.slice.call(arguments)
+  .map(Util.keyOf)
+  .forEach(function(arg) {
+    console.assert(typeof(arg) !== 'object');
+    if(self._values[arg] !== State.saved) {
+      self._values[arg] = State.added;
+      dirty = true;
+    }
+  });
+  if(dirty) {
+    this.dirtyFcn();
+  }
+};
+
+
+/**
+ * Alias for {@link Set#add}
+ * @param {object[]} arguments - values to add
+ */
+Set.prototype.push = function() {
+  return this.add.apply(this, arguments);
+};
+
+
+/**
+ * Removes value(s) from set
+ * @param {object[]} arguments - values to remove
+ */
+Set.prototype.remove = function() {
+  var dirty = false;
+  var self = this;
+  Array.prototype.slice.call(arguments)
+  .map(Util.keyOf)
+  .forEach(function(arg) {
+    self._values[arg] = State.removed;
+    dirty = true;
+  });
+  if(dirty) {
+    this.dirtyFcn();
+  }
+};
+
+
+/**
+ * Gets values from set which match the given <tt>stateMask</tt>
+ * @param {int} stateMask - states of objects to return
+ * @return {Array} - values that match <tt>stateMask</tt>
+ * @private
+ */
+Set.prototype.which = function(stateMask) {
+  var self = this;
+  return Object.keys(this._values)
+  .filter(function(val) {
+    return (self._values[val] & stateMask);
+  });
+};
+
+
+/**
+ * Gets valid (added or saved) values of the set
+ * @return {Array}
+ */
+Set.prototype.values = function() {
+  return this.which(State.saved | State.added);
+};
+
+
+/**
+ * Gets the values that have been added to the set since it was last saved
+ * @return {Array}
+ */
+Set.prototype.getAdded = function() {
+  return this.which(State.added);
+};
+
+
+/**
+ * Gets the values that have been removed from the set since it was last saved
+ * @return {Array}
+ */
+Set.prototype.getRemoved = function() {
+  return this.which(State.removed);
+};
+
+
+/**
+ * Marks the values in the set as saved.  Any objects marked 'remove' will be
+ * expunged from the set.
+ */
+Set.prototype.clearChanges = function() {
+  var newValues = {};
+  for(var val in this._values) {
+    if(this._values[val] !== State.removed) {
+      newValues[val] = State.saved;
+    }
+  }
+  this._values = newValues;
+};
+
+
+module.exports = Set;
 
 },{"./util":"/Users/aolson/Developer/updraft/src/util.js"}],"/Users/aolson/Developer/updraft/src/store.js":[function(require,module,exports){
 'use strict';
@@ -739,11 +913,11 @@ var columnType = {
   /** object will be serialized & restored as JSON text */
   'json': 'TEXT',
 
-  /** points to an object in another table.  Its affinity will be that table's key's affinity */
+  /** points to an object in another table.  Set 'ref' to another {@link Model}.  Its affinity will be that table's key's affinity */
   'ptr': 'ref',
 
-  /** list of ptr */
-  'list': 'ref',
+  /** unordered collection.  Set 'ref' to be either a {@link Model} or another {@link columnType} */
+  'set': '',
 };
 
 
@@ -876,31 +1050,32 @@ var Store = function () {
     self.db = window.openDatabase(opts.name, '1.0', 'updraft created database', 5 * 1024 * 1024);
     console.assert(self.db);
     
-    // add list tables
-    var listTables = [];
+    // add set tables
+    var setTables = [];
     for(var i=0; i<self.tables.length; i++) {
       var table = self.tables[i];
       for(var col in table.columns) {
-        if(table.columns[col].type === 'list') {
+        if(table.columns[col].type === 'set') {
           var ref = table.columns[col].ref;
+          var type = (ref.keyType ? ref.keyType : type);
           console.assert(ref);
-          var listTable = {};
-          listTable.tableName = table.tableName + '_' + col;
-          listTable.recreate = table.recreate;
-          listTable.temp = table.temp;
-          listTable.key = '';
-          listTable.keyType = table.keyType;
-          listTable.columns = {};
-          listTable.columns[table.key] = { type: table.keyType }; // note: NOT setting key=true, as it would impose unique constraint
-          listTable.columns[col] = { type: ref.keyType };
-          listTable.indices = [ [table.key], [col] ];
-          table.columns[col].listTable = listTable;
-          listTables.push(listTable);
+          var setTable = {};
+          setTable.tableName = table.tableName + '_' + col;
+          setTable.recreate = table.recreate;
+          setTable.temp = table.temp;
+          setTable.key = '';
+          setTable.keyType = table.keyType;
+          setTable.columns = {};
+          setTable.columns[table.key] = { type: table.keyType }; // note: NOT setting key=true, as it would impose unique constraint
+          setTable.columns[col] = { type: type };
+          setTable.indices = [ [table.key], [col] ];
+          table.columns[col].setTable = setTable;
+          setTables.push(setTable);
         }
       }
     }
     
-    self.tables = self.tables.concat(listTables);
+    self.tables = self.tables.concat(setTables);
     
     return self.readSchema()
             .then(syncTables);
@@ -1114,7 +1289,7 @@ var Store = function () {
             cols.push(decl);
             break;
             
-          case 'list':
+          case 'set':
             break;
 
           default:
@@ -1271,33 +1446,39 @@ var Store = function () {
           return val;
         }
         
-        function insertLists(o, force) {
+        function insertSets(o, force) {
           var changes = o.changes();
           var f = o.model;
           var promises = [];
           Object.keys(f.columns)
           .filter(function(col) {
-            return (f.columns[col].type === 'list') && (force || changes.indexOf(col) > -1);
+            return (f.columns[col].type === 'set') && (force || changes.indexOf(col) > -1);
           })
           .forEach(function(col) {
             var ref = f.columns[col].ref;
-            var listTable = f.columns[col].listTable;
+            var setTable = f.columns[col].setTable;
             console.assert(ref);
-            console.assert(listTable);
-            var values = o['_' + col];
-            var key = o[f.key];
-            promises.push( self.exec(tx, 'DELETE FROM ' + listTable.tableName + ' WHERE ' + f.key + '=?', [ key ]) );
-            values.forEach(function(value) {
-              promises.push( self.exec(tx, 'INSERT INTO ' + listTable.tableName + ' (' + f.key + ', ' + col + ') VALUES (?, ?)', [key, value]) );
-            });
+            console.assert(setTable);
+            var set = o['_' + col];
+            if(set) {
+              var key = o.key();
+              var deletions = set.getRemoved();
+              var additions = set.getAdded();
+              deletions.forEach(function(del) {
+                promises.push( self.exec(tx, 'DELETE FROM ' + setTable.tableName + ' WHERE ' + f.key + '=? AND ' + col + '=?', [ key, del ]) );
+              });
+              additions.forEach(function(add) {
+                promises.push( self.exec(tx, 'INSERT INTO ' + setTable.tableName + ' (' + f.key + ', ' + col + ') VALUES (?, ?)', [key, add]) );
+              });
+            }
           });
           return Promise.all(promises);
         }
         
         function insert(o, callback) {
           var f = o.model;
-          var isNotList = function(col) { return f.columns[col].type !== 'list'; };
-          var cols = Object.keys(f.columns).filter(isNotList);
+          var isNotSet = function(col) { return f.columns[col].type !== 'set'; };
+          var cols = Object.keys(f.columns).filter(isNotSet);
           var columns = cols.join(', ');
           var values = cols.map(function () { return '?'; }).join(', ');
           var args = cols.map(function(col) { return value(o, col); });
@@ -1310,15 +1491,15 @@ var Store = function () {
         function update(o, callback) {
           var f = o.model;
           var cols = o.changes();
-          var isNotList = function(col) { return f.columns[col].type !== 'list'; };
+          var isNotSet = function(col) { return f.columns[col].type !== 'set'; };
           var isNotKey = function(col) { return col !== f.key; };
           var assignments = cols
-            .filter(isNotList)
+            .filter(isNotSet)
             .filter(isNotKey)
             .map(function (col) { return col + '=?'; })
             .join(', ');
           var values = cols
-            .filter(isNotList)
+            .filter(isNotSet)
             .filter(isNotKey)
             .map(function(col) { return value(o, col); });
           values.push(o['_' + f.key]); // for WHERE clause
@@ -1331,15 +1512,15 @@ var Store = function () {
         var upsert = function (o) {
           var p;
           if (o._isInDb) {
-            p = update(o, function (changed) { return changed ? insertLists(o, false) : insert(o); });
+            p = update(o, function (changed) { return changed ? insertSets(o, false) : insert(o); });
           } else {
-            p = insert(o, function (changed) { return changed ? insertLists(o, true) : update(o); });
+            p = insert(o, function (changed) { return changed ? insertSets(o, true) : update(o); });
           }
           return p
           .then(function (changed) {
             console.assert(changed);
             if(changed) {
-              o._changes = 0;
+              o.clearChanges();
               o._isInDb = true;
             }
           });

@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8">
-	<title>Updraft Class: Store</title>
+	<title>Updraft Class: Set</title>
 
 	<!--[if lt IE 9]>
 	<script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
@@ -69,12 +69,12 @@
 					
 
 
-	<h1 class="page-title">Class: Store</h1>
+	<h1 class="page-title">Class: Set</h1>
 <section>
 
 <header>
     <h2>
-    Store
+    Set
     </h2>
     
 </header>
@@ -86,33 +86,23 @@
     
         
 <dt>
-    <h4 class="name" id="Store"><span class="type-signature"></span>new Store<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="Set"><span class="type-signature"></span>new Set<span class="signature">(dirtyFcn)</span><span class="type-signature"></span></h4>
     
     
 </dt>
 <dd>
     
     
-    <div class="description">
-        Interface for creating classes & database interaction
-    </div>
-    
 
     
     
     
     
     
-    
-    
-<dl class="details">
-    
+        <h5>Parameters:</h5>
+        
 
-        <h5 class="subsection-title">Properties:</h5>
-
-        <dl>
-
-<table class="props table table-striped">
+<table class="params table table-striped">
     <thead>
 	<tr>
 		
@@ -122,11 +112,7 @@
 		<th>Type</th>
 
 		
-		<th>Argument</th>
-		
 
-		
-		<th>Default</th>
 		
 
 		<th class="last">Description</th>
@@ -138,44 +124,33 @@
 
         <tr>
             
-                <td class="name"><code>logSql</code></td>
+                <td class="name"><code>dirtyFcn</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">bool</span>
+<span class="param-type">function</span>
 
 
             
             </td>
 
             
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-                </td>
-            
 
             
-                <td class="default">
-                
-                    false
-                
-                </td>
-            
 
-            <td class="description last">log sql statements to console.log</td>
+            <td class="description last">function to call when set's state changes</td>
         </tr>
 
 	
 	</tbody>
 </table>
-</dl>
 
+    
+    
+    
+<dl class="details">
     
 
     
@@ -197,7 +172,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        store.js, line 84
+        set.js, line 21
     </li></ul></dd>
     
 
@@ -243,7 +218,7 @@
         <dl>
             
 <dt>
-    <h4 class="name" id="close"><span class="type-signature"></span>close<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="add"><span class="type-signature"></span>add<span class="signature">(arguments)</span><span class="type-signature"></span></h4>
     
     
 </dt>
@@ -251,76 +226,7 @@
     
     
     <div class="description">
-        close the database
-    </div>
-    
-
-    
-    
-    
-    
-    
-    
-    
-<dl class="details">
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        store.js, line 201
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-    
-    
-
-    
-
-    
-    
-    
-    
-    
-    
-    
-</dd>
-
-        
-            
-<dt>
-    <h4 class="name" id="createClass"><span class="type-signature"></span>createClass<span class="signature">(templ)</span><span class="type-signature"> &rarr; {<a href="Model.html">Model</a>}</span></h4>
-    
-    
-</dt>
-<dd>
-    
-    
-    <div class="description">
-        create a new type whose instances can be stored in a database
+        Adds value(s) to set
     </div>
     
 
@@ -354,13 +260,13 @@
 
         <tr>
             
-                <td class="name"><code>templ</code></td>
+                <td class="name"><code>arguments</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><a href="global.html#ClassTemplate">ClassTemplate</a></span>
+<span class="param-type">object[]</span>
 
 
             
@@ -370,7 +276,7 @@
 
             
 
-            <td class="description last"></td>
+            <td class="description last">values to add</td>
         </tr>
 
 	
@@ -402,20 +308,13 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        store.js, line 109
+        set.js, line 67
     </li></ul></dd>
     
 
     
 
     
-    <dt class="tag-see">See:</dt>
-    <dd class="tag-see">
-        <ul>
-            <li><a href="ExampleModel.html">ExampleModel</a></li>
-        </ul>
-    </dd>
-    
 
     
 </dl>
@@ -430,49 +329,14 @@
     
     
     
-    <h5>Returns:</h5>
     
-            
-
-
-<dl>
-	<dt>
-		Type
-	</dt>
-	<dd>
-		
-<span class="param-type"><a href="Model.html">Model</a></span>
-
-
-	</dd>
-</dl>
-
-
-        
-    
-    
-        <h5>Example</h5>
-        
-    <pre class="sunlight-highlight-javascript">
-var ExampleModel = store.createClass({
-  tableName: 'exampleModel',
-  columns: {
-    keyField: { type: 'int', key: true },
-    stringField: { type: 'text' },
-    jsonField: { type: 'json' },
-    indexedField: { type: 'int', index: true },
-    childField: { type: 'ptr', ref: ChildClass }
-  }
-});</pre>
-
-
     
 </dd>
 
         
             
 <dt>
-    <h4 class="name" id="open"><span class="type-signature"></span>open<span class="signature">(opts)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
+    <h4 class="name" id="assign"><span class="type-signature"></span>assign<span class="signature">(arr)</span><span class="type-signature"></span></h4>
     
     
 </dt>
@@ -480,7 +344,8 @@ var ExampleModel = store.createClass({
     
     
     <div class="description">
-        open the database
+        Set all values from an array.  <tt>Add</tt>s all values, and <tt>remove</tt>s any existing set values that are
+not in <tt>arr</tt>
     </div>
     
 
@@ -514,13 +379,13 @@ var ExampleModel = store.createClass({
 
         <tr>
             
-                <td class="name"><code>opts</code></td>
+                <td class="name"><code>arr</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><a href="global.html#StoreOptions">StoreOptions</a></span>
+<span class="param-type">Array</span>
 
 
             
@@ -530,7 +395,7 @@ var ExampleModel = store.createClass({
 
             
 
-            <td class="description last"></td>
+            <td class="description last">array of values to assign.  If values are <a href="Instance.html">Instance</a>s, assign their <tt>key()</tt>s instead</td>
         </tr>
 
 	
@@ -562,7 +427,7 @@ var ExampleModel = store.createClass({
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        store.js, line 162
+        set.js, line 47
     </li></ul></dd>
     
 
@@ -583,45 +448,14 @@ var ExampleModel = store.createClass({
     
     
     
-    <h5>Returns:</h5>
     
-            
-<div class="param-desc">
-    a promise that resolves with no parameters when the database is created and ready
-</div>
-
-
-
-<dl>
-	<dt>
-		Type
-	</dt>
-	<dd>
-		
-<span class="param-type">Promise</span>
-
-
-	</dd>
-</dl>
-
-
-        
-    
-    
-        <h5>Example</h5>
-        
-    <pre class="sunlight-highlight-javascript">store.open({name: 'my cool db'}).then(function() {
-  // start loading & saving objects
-});</pre>
-
-
     
 </dd>
 
         
             
 <dt>
-    <h4 class="name" id="readSchema"><span class="type-signature"></span>readSchema<span class="signature">()</span><span class="type-signature"> &rarr; {Promise}</span></h4>
+    <h4 class="name" id="clear"><span class="type-signature"></span>clear<span class="signature">()</span><span class="type-signature"></span></h4>
     
     
 </dt>
@@ -629,7 +463,7 @@ var ExampleModel = store.createClass({
     
     
     <div class="description">
-        get the existing database's schema in object form
+        Removes all objects from set
     </div>
     
 
@@ -662,7 +496,146 @@ var ExampleModel = store.createClass({
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        store.js, line 305
+        set.js, line 56
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <h4 class="name" id="clearChanges"><span class="type-signature"></span>clearChanges<span class="signature">()</span><span class="type-signature"></span></h4>
+    
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        Marks the values in the set as saved.  Any objects marked 'remove' will be
+expunged from the set.
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        set.js, line 159
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <h4 class="name" id="getAdded"><span class="type-signature"></span>getAdded<span class="signature">()</span><span class="type-signature"> &rarr; {Array}</span></h4>
+    
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        Gets the values that have been added to the set since it was last saved
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        set.js, line 141
     </li></ul></dd>
     
 
@@ -686,10 +659,6 @@ var ExampleModel = store.createClass({
     <h5>Returns:</h5>
     
             
-<div class="param-desc">
-    a promise that resolves with the <a href="global.html#Schema">Schema</a>
-</div>
-
 
 
 <dl>
@@ -698,7 +667,7 @@ var ExampleModel = store.createClass({
 	</dt>
 	<dd>
 		
-<span class="param-type">Promise</span>
+<span class="param-type">Array</span>
 
 
 	</dd>
@@ -713,7 +682,7 @@ var ExampleModel = store.createClass({
         
             
 <dt>
-    <h4 class="name" id="save"><span class="type-signature"></span>save<span class="signature">(objects)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="getRemoved"><span class="type-signature"></span>getRemoved<span class="signature">()</span><span class="type-signature"> &rarr; {Array}</span></h4>
     
     
 </dt>
@@ -721,8 +690,95 @@ var ExampleModel = store.createClass({
     
     
     <div class="description">
-        Save all objects to database.  Atomic operation- all objects will be saved within the same transaction
-or nothing will be written.  Objects can be heterogeneous.
+        Gets the values that have been removed from the set since it was last saved
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        set.js, line 150
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+            
+
+
+<dl>
+	<dt>
+		Type
+	</dt>
+	<dd>
+		
+<span class="param-type">Array</span>
+
+
+	</dd>
+</dl>
+
+
+        
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <h4 class="name" id="push"><span class="type-signature"></span>push<span class="signature">(arguments)</span><span class="type-signature"></span></h4>
+    
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        Alias for <a href="Set.html#add">Set#add</a>
     </div>
     
 
@@ -756,13 +812,13 @@ or nothing will be written.  Objects can be heterogeneous.
 
         <tr>
             
-                <td class="name"><code>objects</code></td>
+                <td class="name"><code>arguments</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">Instance[]</span>
+<span class="param-type">object[]</span>
 
 
             
@@ -772,7 +828,7 @@ or nothing will be written.  Objects can be heterogeneous.
 
             
 
-            <td class="description last"></td>
+            <td class="description last">values to add</td>
         </tr>
 
 	
@@ -804,7 +860,7 @@ or nothing will be written.  Objects can be heterogeneous.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        store.js, line 547
+        set.js, line 89
     </li></ul></dd>
     
 
@@ -825,6 +881,212 @@ or nothing will be written.  Objects can be heterogeneous.
     
     
     
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <h4 class="name" id="remove"><span class="type-signature"></span>remove<span class="signature">(arguments)</span><span class="type-signature"></span></h4>
+    
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        Removes value(s) from set
+    </div>
+    
+
+    
+    
+    
+    
+    
+        <h5>Parameters:</h5>
+        
+
+<table class="params table table-striped">
+    <thead>
+	<tr>
+		
+		<th>Name</th>
+		
+
+		<th>Type</th>
+
+		
+
+		
+
+		<th class="last">Description</th>
+	</tr>
+	</thead>
+
+	<tbody>
+	
+
+        <tr>
+            
+                <td class="name"><code>arguments</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object[]</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">values to remove</td>
+        </tr>
+
+	
+	</tbody>
+</table>
+
+    
+    
+    
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        set.js, line 98
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    
+    
+</dd>
+
+        
+            
+<dt>
+    <h4 class="name" id="values"><span class="type-signature"></span>values<span class="signature">()</span><span class="type-signature"> &rarr; {Array}</span></h4>
+    
+    
+</dt>
+<dd>
+    
+    
+    <div class="description">
+        Gets valid (added or saved) values of the set
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        set.js, line 132
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+    
+    
+
+    
+
+    
+    
+    
+    
+    
+    <h5>Returns:</h5>
+    
+            
+
+
+<dl>
+	<dt>
+		Type
+	</dt>
+	<dd>
+		
+<span class="param-type">Array</span>
+
+
+	</dd>
+</dl>
+
+
+        
     
     
 </dd>

@@ -26,11 +26,11 @@ var columnType = {
   /** object will be serialized & restored as JSON text */
   'json': 'TEXT',
 
-  /** points to an object in another table.  Its affinity will be that table's key's affinity */
+  /** points to an object in another table.  Set 'ref' to another {@link Model}.  Its affinity will be that table's key's affinity */
   'ptr': 'ref',
 
-  /** list of ptr */
-  'list': 'ref',
+  /** unordered collection.  Set 'ref' to be either a {@link Model} or another {@link columnType} */
+  'set': '',
 };
 
 
@@ -163,31 +163,32 @@ var Store = function () {
     self.db = window.openDatabase(opts.name, '1.0', 'updraft created database', 5 * 1024 * 1024);
     console.assert(self.db);
     
-    // add list tables
-    var listTables = [];
+    // add set tables
+    var setTables = [];
     for(var i=0; i<self.tables.length; i++) {
       var table = self.tables[i];
       for(var col in table.columns) {
-        if(table.columns[col].type === 'list') {
+        if(table.columns[col].type === 'set') {
           var ref = table.columns[col].ref;
+          var type = (ref.keyType ? ref.keyType : type);
           console.assert(ref);
-          var listTable = {};
-          listTable.tableName = table.tableName + '_' + col;
-          listTable.recreate = table.recreate;
-          listTable.temp = table.temp;
-          listTable.key = '';
-          listTable.keyType = table.keyType;
-          listTable.columns = {};
-          listTable.columns[table.key] = { type: table.keyType }; // note: NOT setting key=true, as it would impose unique constraint
-          listTable.columns[col] = { type: ref.keyType };
-          listTable.indices = [ [table.key], [col] ];
-          table.columns[col].listTable = listTable;
-          listTables.push(listTable);
+          var setTable = {};
+          setTable.tableName = table.tableName + '_' + col;
+          setTable.recreate = table.recreate;
+          setTable.temp = table.temp;
+          setTable.key = '';
+          setTable.keyType = table.keyType;
+          setTable.columns = {};
+          setTable.columns[table.key] = { type: table.keyType }; // note: NOT setting key=true, as it would impose unique constraint
+          setTable.columns[col] = { type: type };
+          setTable.indices = [ [table.key], [col] ];
+          table.columns[col].setTable = setTable;
+          setTables.push(setTable);
         }
       }
     }
     
-    self.tables = self.tables.concat(listTables);
+    self.tables = self.tables.concat(setTables);
     
     return self.readSchema()
             .then(syncTables);
@@ -401,7 +402,7 @@ var Store = function () {
             cols.push(decl);
             break;
             
-          case 'list':
+          case 'set':
             break;
 
           default:
@@ -558,33 +559,39 @@ var Store = function () {
           return val;
         }
         
-        function insertLists(o, force) {
+        function insertSets(o, force) {
           var changes = o.changes();
           var f = o.model;
           var promises = [];
           Object.keys(f.columns)
           .filter(function(col) {
-            return (f.columns[col].type === 'list') && (force || changes.indexOf(col) > -1);
+            return (f.columns[col].type === 'set') && (force || changes.indexOf(col) > -1);
           })
           .forEach(function(col) {
             var ref = f.columns[col].ref;
-            var listTable = f.columns[col].listTable;
+            var setTable = f.columns[col].setTable;
             console.assert(ref);
-            console.assert(listTable);
-            var values = o['_' + col];
-            var key = o[f.key];
-            promises.push( self.exec(tx, 'DELETE FROM ' + listTable.tableName + ' WHERE ' + f.key + '=?', [ key ]) );
-            values.forEach(function(value) {
-              promises.push( self.exec(tx, 'INSERT INTO ' + listTable.tableName + ' (' + f.key + ', ' + col + ') VALUES (?, ?)', [key, value]) );
-            });
+            console.assert(setTable);
+            var set = o['_' + col];
+            if(set) {
+              var key = o.key();
+              var deletions = set.getRemoved();
+              var additions = set.getAdded();
+              deletions.forEach(function(del) {
+                promises.push( self.exec(tx, 'DELETE FROM ' + setTable.tableName + ' WHERE ' + f.key + '=? AND ' + col + '=?', [ key, del ]) );
+              });
+              additions.forEach(function(add) {
+                promises.push( self.exec(tx, 'INSERT INTO ' + setTable.tableName + ' (' + f.key + ', ' + col + ') VALUES (?, ?)', [key, add]) );
+              });
+            }
           });
           return Promise.all(promises);
         }
         
         function insert(o, callback) {
           var f = o.model;
-          var isNotList = function(col) { return f.columns[col].type !== 'list'; };
-          var cols = Object.keys(f.columns).filter(isNotList);
+          var isNotSet = function(col) { return f.columns[col].type !== 'set'; };
+          var cols = Object.keys(f.columns).filter(isNotSet);
           var columns = cols.join(', ');
           var values = cols.map(function () { return '?'; }).join(', ');
           var args = cols.map(function(col) { return value(o, col); });
@@ -597,15 +604,15 @@ var Store = function () {
         function update(o, callback) {
           var f = o.model;
           var cols = o.changes();
-          var isNotList = function(col) { return f.columns[col].type !== 'list'; };
+          var isNotSet = function(col) { return f.columns[col].type !== 'set'; };
           var isNotKey = function(col) { return col !== f.key; };
           var assignments = cols
-            .filter(isNotList)
+            .filter(isNotSet)
             .filter(isNotKey)
             .map(function (col) { return col + '=?'; })
             .join(', ');
           var values = cols
-            .filter(isNotList)
+            .filter(isNotSet)
             .filter(isNotKey)
             .map(function(col) { return value(o, col); });
           values.push(o['_' + f.key]); // for WHERE clause
@@ -618,15 +625,15 @@ var Store = function () {
         var upsert = function (o) {
           var p;
           if (o._isInDb) {
-            p = update(o, function (changed) { return changed ? insertLists(o, false) : insert(o); });
+            p = update(o, function (changed) { return changed ? insertSets(o, false) : insert(o); });
           } else {
-            p = insert(o, function (changed) { return changed ? insertLists(o, true) : update(o); });
+            p = insert(o, function (changed) { return changed ? insertSets(o, true) : update(o); });
           }
           return p
           .then(function (changed) {
             console.assert(changed);
             if(changed) {
-              o._changes = 0;
+              o.clearChanges();
               o._isInDb = true;
             }
           });

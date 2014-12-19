@@ -523,8 +523,8 @@ describe("child objects", function() {
           imageId: { key: true, type: 'int' },
           name: { type: 'text' },
           artist: { type: 'ptr' },
-          tags: { type: 'list' },
-          colors: { type: 'list' }
+          tags: { type: 'set' },
+          colors: { type: 'set' }
         }
       });
 
@@ -623,15 +623,15 @@ describe("child objects", function() {
   });
   
   
-  it("should retrieve lists", function() {
+  it("should retrieve sets", function() {
     return Image.get(3)
     .then(function(result) {
-      expect(result.tags).to.have.length(2);
+      expect(result.tags.values()).to.have.length(2);
     });
   });
   
   
-  it("should search in lists", function() {
+  it("should search in sets", function() {
     return Image.all.where('tags', 'contains', favorite).order('imageId').get()
     .then(function(results) {
       expect(results).to.have.length(2);
@@ -641,7 +641,7 @@ describe("child objects", function() {
   });
 
   
-  it("should search in multiple lists", function() {
+  it("should search in multiple sets", function() {
     return Image.all.where('tags', 'contains', favorite).and('colors', 'contains', 302).order('imageId').get()
     .then(function(results) {
       expect(results).to.have.length(1);
@@ -650,7 +650,7 @@ describe("child objects", function() {
   });
 
 
-  it("should search in childrens' lists", function() {
+  it("should search in childrens' sets", function() {
     return Artist.all.where('masterpiece.tags', 'contains', favorite).order('name').get()
     .then(function(results) {
       expect(results).to.have.length(1);

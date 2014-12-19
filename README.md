@@ -6,6 +6,10 @@ node.js, or in a [Cordova](https://cordova.apache.org/) app using the [SQLitePlu
 (basically, anywhere WebSQL or a WebSQL-like interface is supported).  It does not support MySQL, in-memory, 
 local storage, or IndexedDB.
 
+#### TODO
+* key/value store
+* sync
+
 ## Motivations
 * Automatic schema migration (within reason)
 * Syncing with cloud-based databases, like [Dropbox's Sync API](https://www.dropbox.com/developers/sync) or [iCloud's CloudKit](https://developer.apple.com/icloud/documentation/cloudkit-storage/)

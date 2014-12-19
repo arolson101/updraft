@@ -28,7 +28,7 @@ var Query = function(model, store) {
 
   // add child tables
   for(var col in model.columns) {
-    if(model.columns[col].type !== 'list') {
+    if(model.columns[col].type !== 'set') {
       this._columns.push(model.tableName + '.' + col);
     }
   }
@@ -67,23 +67,23 @@ Query.prototype.addCondition = function(conj, col, op, val) {
 
   switch(op) {
     case 'contains':
-      console.assert(f.columns[field].type === 'list');
-      var listTable = f.columns[field].listTable;
-      console.assert(listTable);
+      console.assert(f.columns[field].type === 'set');
+      var setTable = f.columns[field].setTable;
+      console.assert(setTable);
 
-      if(this._tables.indexOf(listTable.tableName) === -1) {
-        this._tables.push(listTable.tableName);
+      if(this._tables.indexOf(setTable.tableName) === -1) {
+        this._tables.push(setTable.tableName);
         this._conditions.push({
           conj: 'AND',
           col: f.tableName + '.' + f.key,
           op: '=',
-          val: listTable.tableName + '.' + f.key
+          val: setTable.tableName + '.' + f.key
         });
       }
 
       this._conditions.push({
         conj: conj,
-        col: listTable.tableName + '.' + field,
+        col: setTable.tableName + '.' + field,
         op: '=',
         val: '?',
         arg: val
@@ -91,7 +91,7 @@ Query.prototype.addCondition = function(conj, col, op, val) {
       break;
 
     default:
-      console.assert(f.columns[field].type !== 'list');
+      console.assert(f.columns[field].type !== 'set');
       this._conditions.push({
         conj: conj,
         col: f.tableName + '.' + field,
@@ -288,21 +288,19 @@ Query.prototype.get = function() {
       return Promise.all(
         Object.keys(model.columns)
         .filter(function(col) {
-          return (model.columns[col].type === 'list');
+          return (model.columns[col].type === 'set');
         })
         .map(function(col) {
-          var listTable = model.columns[col].listTable;
-          console.assert(listTable);
+          var setTable = model.columns[col].setTable;
+          console.assert(setTable);
           var key = o.key();
           var s = 'SELECT ' + col;
-          s += ' FROM ' + listTable.tableName;
+          s += ' FROM ' + setTable.tableName;
           s += ' WHERE ' + query._model.key + ' = ?';
           return query._store.exec(tx, s, [key], function(tx, results) {
-            for(var i=0; i<results.rows.length; i++) {
-              var row = results.rows.item(i);
-              o['_' + col].push(row[col]);
+            if(results.rows.length > 0) {
+              o[col].initFromDb(results);
             }
-            o._changes = 0;
           });
         })
       );
