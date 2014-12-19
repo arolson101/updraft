@@ -2,7 +2,6 @@
 'use strict';
 
 var Updraft = {
-  VERSION : '0.4.0',
   Store : require('./store')
 };
 
@@ -87,7 +86,11 @@ Instance.prototype.changes = function () {
 };
 
 
-
+/**
+ * Set state to be have no changes
+ *
+ * @private
+ */
 Instance.prototype.clearChanges = function() {
   this._changes = 0;
   for (var col in this.model.columns) {
@@ -98,6 +101,15 @@ Instance.prototype.clearChanges = function() {
 };
 
 
+/**
+ * Add a get/set property to the class
+ *
+ * @param {Model} model
+ * @param proto - function prototype
+ * @param {string} col - the column/field to set the property on
+ * @param {int} propMask - the bits to set on <tt>_changes</tt>
+ * @private
+ */
 var addClassProperty = function(model, proto, col, propMask) {
   var prop = '_' + col;
 
@@ -341,7 +353,7 @@ Model.prototype.constructFromDb = function(row) {
  * @property {int} childField.id - the key of the child object pointed to.  Note that the member 'id' is because 
  *           ChildClass's key is named 'id'; similarly the type is inherited from ChildClass's key type.  This 
  *           is the only part of the reference that is stored on the object.
- * @property {set} setField - a searchable collection of objects
+ * @property {Set} setField - a searchable collection of objects
  * @see ClassTemplate, Model
  * @example
  *  var ChildClass = store.createClass({

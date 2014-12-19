@@ -1,6 +1,6 @@
 {
   "name": "updraft",
-  "version": "0.0.0",
+  "version": "0.4.0",
   "main": "dist/updraft.js",
   "description": "Javascript ORM-like storage in SQLite (WebSQL or other), synced to the cloud",
   "repository": {
@@ -11,15 +11,13 @@
   "author": "Andrew Olson",
   "license": "MIT",
   "readmeFilename": "README.md",
-  "dependencies": {
-    "sinon": "^1.12.1"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "brfs": "^1.2.0",
     "browserify": "^7.0.0",
     "chai": "^1.10.0",
     "chai-as-promised": "^4.1.1",
     "gulp": "^3.8.10",
+    "gulp-config-sync": "0.0.1",
     "gulp-jsdoc": "^0.1.4",
     "gulp-jshint": "^1.9.0",
     "gulp-mocha-phantomjs": "^0.5.1",
@@ -29,7 +27,7 @@
     "gulp-util": "^3.0.1",
     "lie": "^2.8.0",
     "mocha": "^2.0.1",
-    "q": "^1.1.2",
+    "sinon": "^1.12.1",
     "vinyl-buffer": "^1.0.0",
     "vinyl-source-stream": "^1.0.0",
     "watchify": "^2.1.1"

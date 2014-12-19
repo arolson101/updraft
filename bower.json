@@ -1,6 +1,6 @@
 {
   "name": "updraft",
-  "version": "0.0.0",
+  "version": "0.4.0",
   "main": "dist/updraft.min.js",
   "ignore": [
     "**/.*",
@@ -8,5 +8,8 @@
     "bower_components",
     "test"
   ],
-  "dependencies": {}
+  "dependencies": {},
+  "description": "Javascript ORM-like storage in SQLite (WebSQL or other), synced to the cloud",
+  "keywords": [],
+  "license": "MIT"
 }

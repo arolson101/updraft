@@ -11,6 +11,7 @@ var mochaPhantomJS = require('gulp-mocha-phantomjs');
 var uglify = require('gulp-uglify');
 var buffer = require('vinyl-buffer');
 var sourcemaps = require('gulp-sourcemaps');
+var sync = require('gulp-config-sync');
 
 function makeBundle(watch, minify) {
   var b = browserify({
@@ -103,5 +104,10 @@ gulp.task('test', ['bundle'], function() {
         .pipe(mochaPhantomJS({ 'webSecurityEnabled': false, "outputEncoding": "utf8", "localToRemoteUrlAccessEnabled": true }));
 });
 
+gulp.task('sync', function() {
+  return gulp.src(['bower.json', 'component.json'])
+    .pipe(sync())
+    .pipe(gulp.dest('.')); // write it to the same dir
+});
 
-gulp.task('default', ['bundle', 'lint', 'test', 'jsdoc']);
+gulp.task('default', ['bundle', 'lint', 'test', 'jsdoc', 'sync']);
