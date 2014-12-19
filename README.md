@@ -6,9 +6,11 @@ node.js, or in a [Cordova](https://cordova.apache.org/) app using the [SQLitePlu
 (basically, anywhere WebSQL or a WebSQL-like interface is supported).  It does not support MySQL, in-memory, 
 local storage, or IndexedDB.
 
-#### TODO
-* key/value store
-* sync
+## Status
+`Updraft` has not yet been used in any project and is still under heavy development.  Expect bugs.
+You shouldn't use it if you know nothing about SQL.
+
+Sync is planned but not implemented.
 
 ## Motivations
 * Automatic schema migration (within reason)
@@ -23,8 +25,8 @@ framework.  Objects won't be cached or saved unless you do it yourself.  You wil
 (probably `id`) as well as create and assign a unique `id` (more on that later).
 
 You also won't find one-to-one or many-to-many or other SQL-centric ideas.  You can define a field of type 'ptr', 
-where its value will be another object's key, or of type 'list' where you can have a (homogeneous) list of object 
-keys.  You will be responsible for tracking object lifetimes and deleting any orphaned entities.
+where its value will be another object's key, or of type 'set' where you can have a (homogeneous) set of values or
+object keys.  You will be responsible for tracking object lifetimes and deleting any orphaned entities.
 
 ## Dependencies
 You need a JS environment that [supports Promises](http://caniuse.com/#feat=promises) or you can use a library like 
@@ -57,6 +59,9 @@ Basic usage is as follows:
     
     store.open({name: 'my database'})
       .then(function() {
+      
+        store.set('username', 'John Smith');
+        store.set('favoriteTags', ['happy', 'sad']);
       
         var task = new Task();
         task.name = "create a task";

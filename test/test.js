@@ -10,7 +10,43 @@ chai.should();
 // to clear the cache, go to %APPDATA%\..\Local\Ofi Labs\PhantomJS
 var storeProps = {name: 'test db 1'};
 
-describe("basic usage", function () {
+var updraft_kv = {
+  _indices: {},
+  _triggers: {},
+  key: 'TEXT PRIMARY KEY',
+  value: 'TEXT'
+};
+
+describe("key/value storage", function() {
+  it("should save and restore keys", function() {
+    var store = new Updraft.Store();
+    return store.open(storeProps).then(function() {
+      return Promise.all([
+        store.set('foo', 'foo 1'),
+        store.set('bar', 123),
+        store.set('baz', {test1: true, test2: 'string', test3: [1, 2, 3]})
+      ])
+      .then(function() {
+        store.close();
+      });
+    })
+    .then(function() {
+      return store.open(storeProps);
+    })
+    .then(function() {
+      var foo = store.get('foo');
+      expect(foo).to.equal('foo 1');
+      
+      var bar = store.get('bar');
+      expect(bar).to.equal(123);
+      
+      var baz = store.get('baz');
+      expect(baz).to.deep.equal({test1: true, test2: 'string', test3: [1, 2, 3]});
+    });
+  });
+});
+
+describe("simple models", function () {
   var store, Class,
 
   Template = {
@@ -40,7 +76,7 @@ describe("basic usage", function () {
     return store.purge(storeProps)
       .then(function () { return store.open(storeProps); })
       .then(store.readSchema)
-      .should.eventually.deep.equal({});
+      .should.eventually.deep.equal({updraft_kv: updraft_kv});
   });
 
   it("should be able to create instances", function () {
@@ -197,6 +233,7 @@ describe('migrations', function() {
     }
   };
   var readSchema = /SELECT .* FROM sqlite_master/i;
+  var loadKeyValues = /SELECT .* FROM updraft_kv/i;
   
   before(function() {
     store = new Updraft.Store();
@@ -222,6 +259,7 @@ describe('migrations', function() {
   });
 
   var expectedSchemaV1 = {
+    updraft_kv: updraft_kv,
     template: {
       _indices: {},
       _triggers: {},
@@ -242,6 +280,7 @@ describe('migrations', function() {
   
   var runMigration = function(message, newTemplate, expectedSchema, sqls, debug) {
     if(debug) {
+      store.logSql = true;
       console.log("*** " + message + " begin");
     }
     store.createClass(newTemplate);
@@ -263,7 +302,7 @@ describe('migrations', function() {
   };
 
   describe("simple migrations", function() {
-    it("add a columns", function() {
+    it("add a column", function() {
       var newTemplate = {
         tableName: 'template',
         columns: {
@@ -275,6 +314,7 @@ describe('migrations', function() {
         }
       };
       var expectedSchema = {
+        updraft_kv: updraft_kv,
         template: {
           _indices: {},
           _triggers: {},
@@ -289,6 +329,7 @@ describe('migrations', function() {
       return runMigration("add a column", newTemplate, expectedSchema, [
         readSchema,
         /ALTER TABLE template ADD COLUMN new5/i,
+        loadKeyValues,
         readSchema
       ], false);
     });
@@ -307,6 +348,7 @@ describe('migrations', function() {
         }
       };
       var expectedSchema = {
+        updraft_kv: updraft_kv,
         template: {
           _indices: {},
           _triggers: {},
@@ -325,6 +367,7 @@ describe('migrations', function() {
         /ALTER TABLE template ADD COLUMN new5/i,
         /ALTER TABLE template ADD COLUMN new6/i,
         /ALTER TABLE template ADD COLUMN new7/i,
+        loadKeyValues,
         readSchema
       ], false);
     });
@@ -340,6 +383,7 @@ describe('migrations', function() {
         }
       };
       var expectedSchema = {
+        updraft_kv: updraft_kv,
         template: {
           _indices: {
             'index_template__col2': "CREATE INDEX index_template__col2 ON template (col2)"
@@ -355,6 +399,7 @@ describe('migrations', function() {
       return runMigration("add and remove an index", newTemplate, expectedSchema, [
         readSchema,
         /CREATE INDEX index_template__col2 ON template/i,
+        loadKeyValues,
         readSchema
       ], false)
       .then(function() {
@@ -363,6 +408,7 @@ describe('migrations', function() {
         return runMigration("remove an index", TemplateV1, expectedSchemaV1, [
           readSchema,
           /DROP INDEX .*/i,
+          loadKeyValues,
           readSchema
         ], false);
       });
@@ -385,6 +431,7 @@ describe('migrations', function() {
         }
       };
       var expectedSchema = {
+        updraft_kv: updraft_kv,
         template: {
           _indices: {},
           _triggers: {},
@@ -401,6 +448,7 @@ describe('migrations', function() {
         /INSERT INTO new_template \(col1, col2, new3, col4\) SELECT col1, col2, col3, col4 FROM template/i,
         /DROP TABLE template/i,
         /ALTER TABLE new_template RENAME TO template/i,
+        loadKeyValues,
         readSchema
       ], false);
     });
@@ -423,6 +471,7 @@ describe('migrations', function() {
         }
       };
       var expectedSchema = {
+        updraft_kv: updraft_kv,
         template: {
           _indices: {},
           _triggers: {},
@@ -439,6 +488,7 @@ describe('migrations', function() {
         /INSERT INTO new_template \(new1, new2, new3, new4\) SELECT col1, col2, col3, col4 FROM template/i,
         /DROP TABLE template/i,
         /ALTER TABLE new_template RENAME TO template/i,
+        loadKeyValues,
         readSchema
       ], false);
     });
@@ -453,6 +503,7 @@ describe('migrations', function() {
         }
       };
       var expectedSchema = {
+        updraft_kv: updraft_kv,
         template: {
           _indices: {},
           _triggers: {},
@@ -467,6 +518,7 @@ describe('migrations', function() {
         /INSERT INTO new_template \(col1, col2\) SELECT col1, col2 FROM template/i,
         /DROP TABLE template/i,
         /ALTER TABLE new_template RENAME TO template/i,
+        loadKeyValues,
         readSchema
       ], false);
     });
@@ -486,6 +538,7 @@ describe('migrations', function() {
         }
       };
       var expectedSchema = {
+        updraft_kv: updraft_kv,
         template: {
           _indices: {},
           _triggers: {},
@@ -502,6 +555,7 @@ describe('migrations', function() {
         /INSERT INTO new_template \(col1, col2, new3\) SELECT col1, col2, col3 FROM template/i,
         /DROP TABLE template/i,
         /ALTER TABLE new_template RENAME TO template/i,
+        loadKeyValues,
         readSchema
       ], false);
     });

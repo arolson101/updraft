@@ -918,6 +918,7 @@ var columnType = {
   'bool': 'BOOL',
   'real': 'REAL',
   'text': 'TEXT',
+  'string': 'TEXT',
   'blob': 'BLOB',
   'date': 'DATE',
   'datetime': 'DATETIME',
@@ -982,11 +983,23 @@ var columnType = {
  */
 var Store = function () {
   var self = this;
-  this.tables = [];
-  this.triggers = {};
   this.logSql = false;
-
   this.columnType = columnType;
+  
+  function init() {
+    self.tables = [];
+    self.triggers = {};
+    self.kv = {};
+
+    self.KeyValue = self.createClass({
+      tableName: 'updraft_kv',
+      columns: {
+        key: { type: 'string', key: 'true' },
+        value: { type: 'string' }
+      }
+    });
+  }
+
   
   /**
    * create a new type whose instances can be stored in a database
@@ -1010,6 +1023,48 @@ var Store = function () {
     self.tables.push(m);
     return m;
   };
+  
+
+  /**
+   * set a key/value pair
+   *
+   * @param {string} key
+   * @param {object} value - value will be stored as JSON text, so value can be any object that will 
+   *        survive serialization
+   * @return {Promise} a promise that will resolve once the value is saved.  Key/values are cached
+   *         on the <tt>Store</tt>, so you can use the value immediately and don't need to wait for
+   *         the promise to resolve.
+   */
+  this.set = function(key, value) {
+    this.kv[key] = value;
+    var pair = new this.KeyValue({key: key, value: JSON.stringify(value)});
+    return this.save(pair);
+  };
+  
+  
+  /**
+   * gets a key/value pair.  Values are cached on the <tt>Store</tt> so they are immediately available
+   *
+   * @param {string} key
+   * @return {object} value
+   */
+  this.get = function(key) {
+    return this.kv[key];
+  };
+
+  
+  /**
+   * read the key/value pairs from the database, caching them on the <tt>Store</tt>
+   * @private
+   */
+  function loadKeyValues() {
+    return self.KeyValue.all.get().then(function(vals) {
+      for(var i=0; i<vals.length; i++) {
+        var val = vals[i];
+        self.kv[val.key] = JSON.parse(val.value);
+      }
+    });
+  }
   
 
   /**
@@ -1090,7 +1145,8 @@ var Store = function () {
     self.tables = self.tables.concat(setTables);
     
     return self.readSchema()
-            .then(syncTables);
+            .then(syncTables)
+            .then(loadKeyValues);
   };
 
 
@@ -1099,8 +1155,7 @@ var Store = function () {
    */
   this.close = function () {
     self.db = null;
-    self.tables = [];
-    self.triggers = {};
+    init();
   };
 
 
@@ -1444,6 +1499,10 @@ var Store = function () {
    * @param {Instance[]} objects
    */
   this.save = function (objects) {
+    if(!(objects instanceof Array)) {
+      objects = [objects];
+    }
+    
     objects.map(function (o) {
       console.assert(('_' + o.model.key) in o, "object must have a key");
     });
@@ -1542,6 +1601,8 @@ var Store = function () {
       });
     });
   };
+  
+  init();
 };
 
 
