@@ -319,6 +319,10 @@ Model.prototype.constructFromDb = function(row) {
       case 'json':
         o[_col] = JSON.parse(val);
         break;
+      case 'date':
+      case 'datetime':
+        o[_col] = new Date(val * 1000);
+        break;
       case 'set':
         o[_col].push(val);
         break;
@@ -920,7 +924,11 @@ var columnType = {
   'text': 'TEXT',
   'string': 'TEXT',
   'blob': 'BLOB',
+  
+  /** a javascript Date objct, stored in db as seconds since Unix epoch (time_t) [note: precision is seconds] */
   'date': 'DATE',
+
+  /** a javascript Date objct, stored in db as seconds since Unix epoch (time_t) [note: precision is seconds] */
   'datetime': 'DATETIME',
   
   /** object will be serialized & restored as JSON text */
@@ -1511,8 +1519,22 @@ var Store = function () {
       self.db.transaction(function (tx) {
         function value(o, col) {
           var val = o['_' + col];
-          if(typeof val === 'object') {
-            val = JSON.stringify(val);
+          switch(o.model.columns[col].type) {
+            case 'date':
+            case 'datetime':
+              if(typeof val !== 'undefined') {
+                console.assert(val instanceof Date);
+                val = Math.floor(val.getTime() / 1000);
+              }
+              break;
+
+            case 'json':
+              val = JSON.stringify(val);
+              break;
+              
+            default:
+              console.assert(typeof val !== 'object');
+              break;
           }
           return val;
         }

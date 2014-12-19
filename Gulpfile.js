@@ -81,11 +81,11 @@ gulp.task('jsdoc', function() {
   var template = {
     path            : 'ink-docstrap',
     systemName      : 'Updraft',
-    footer          : "Something",
-    copyright       : "Something",
+    //footer          : "Updraft",
+    //copyright       : "Something",
     navType         : "vertical",
     theme           : "journal",
-    linenums        : true,
+    linenums        : false,
     collapseSymbols : false,
     inverseNav      : false
   };

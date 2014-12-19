@@ -305,6 +305,10 @@ Model.prototype.constructFromDb = function(row) {
       case 'json':
         o[_col] = JSON.parse(val);
         break;
+      case 'date':
+      case 'datetime':
+        o[_col] = new Date(val * 1000);
+        break;
       case 'set':
         o[_col].push(val);
         break;

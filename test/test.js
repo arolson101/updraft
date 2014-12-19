@@ -1,4 +1,5 @@
 /*global Updraft, chai, sinon, describe, before, beforeEach, after, afterEach, it */
+/*jshint -W106*/
 
 'use strict';
 
@@ -54,8 +55,8 @@ describe("simple models", function () {
     columns: {
       col1: { key: true, type: 'int' },
       col2: { type: 'int' },
-      col3: { type: 'int' },
-      col4: { type: 'int' }
+      col3: { type: 'date' },
+      col4: { type: 'datetime' }
     }
   };
 
@@ -96,7 +97,7 @@ describe("simple models", function () {
   it("should be able to store & retrieve instances", function () {
     var x1 = new Class({col1: 1, col2: 10});
     var x2 = new Class({col1: 2, col2: 20});
-    var x3 = new Class({col1: 3, col2: 30});
+    var x3 = new Class({col1: 3, col2: 30, col3: new Date(2001, 12, 25, 12, 30)});
 
     return store.open(storeProps)
       .then(function () {
@@ -107,11 +108,15 @@ describe("simple models", function () {
         assert.deepEqual(x2.changes(), [], "changes should be reset");
         assert.deepEqual(x3.changes(), [], "changes should be reset");
 
-      
         return Promise.all([
           Class.get(1).should.eventually.have.property('col2', 10),
           Class.get(2).should.eventually.have.property('col2', 20),
-          Class.get(3).should.eventually.have.property('col2', 30),
+          Class.get(3).then(function(r3) {
+            var d3 = new Date(2001, 12, 25, 12, 30);
+            expect(r3.col3.getFullYear()).to.equal(d3.getFullYear());
+            expect(r3.col3.getMonth()).to.equal(d3.getMonth());
+            expect(r3.col3).to.deep.equal(d3);
+          }),
           Class.get(4).should.eventually.be.null
         ]);
       });
