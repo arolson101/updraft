@@ -6,7 +6,12 @@
     "**/.*",
     "node_modules",
     "bower_components",
-    "test"
+    "test",
+    "src",
+    "docs",
+    "demo",
+    "*.html",
+    "*.js"
   ],
   "dependencies": {},
   "description": "Javascript ORM-like storage in SQLite (WebSQL or other), synced to the cloud",
