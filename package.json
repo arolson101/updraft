@@ -7,7 +7,7 @@
     "type": "git",
     "url": "git://github.com/arolson101/updraft.git"
   },
-  "keywords": [],
+  "keywords": ["orm", "sqlite", "websql", "schema", "dropbox", "iCloud", "CloudKit"],
   "author": "Andrew Olson",
   "license": "MIT",
   "readmeFilename": "README.md",

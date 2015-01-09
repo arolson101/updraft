@@ -10,6 +10,11 @@
   ],
   "dependencies": {},
   "description": "Javascript ORM-like storage in SQLite (WebSQL or other), synced to the cloud",
-  "keywords": [],
+  "keywords": [
+    "orm",
+    "sqlite",
+    "websql",
+    "schema"
+  ],
   "license": "MIT"
 }
