@@ -19,7 +19,10 @@
     "orm",
     "sqlite",
     "websql",
-    "schema"
+    "schema",
+    "dropbox",
+    "iCloud",
+    "CloudKit"
   ],
   "license": "MIT"
 }

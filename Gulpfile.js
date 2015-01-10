@@ -18,6 +18,7 @@ function makeBundle(watch, minify) {
     debug: true,
     cache: {},
     packageCache: {},
+    standalone: 'Updraft',
     fullPaths: true
   });
   

@@ -5,7 +5,3 @@ var Updraft = {
 };
 
 module.exports = Updraft;
-
-if (window) {
-  window.Updraft = Updraft;
-}
