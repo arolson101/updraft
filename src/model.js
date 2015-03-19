@@ -309,6 +309,11 @@ Model.prototype.constructFromDb = function(row) {
       case 'datetime':
         o[_col] = new Date(val * 1000);
         break;
+      case 'enum':
+        var enumClass = o.model.columns[col].enum;
+        console.assert(enumClass && enumClass.get);
+        o[_col] = enumClass.get(val);
+        break;
       case 'set':
         o[_col].push(val);
         break;

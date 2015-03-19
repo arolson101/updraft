@@ -22,8 +22,13 @@ function clone(obj) {
     return copy;
   }
 
-  // Handle Object
-  if (obj instanceof Object) {
+  // Handle complicated (read: enum) objects
+  if (obj instanceof Object && obj.constructor.name !== "Object") {
+    return obj;
+  }
+  
+  // Handle simple Objects
+  if (obj instanceof Object && obj.constructor.name === "Object") {
     copy = {};
     for (var attr in obj) {
       if (obj.hasOwnProperty(attr)) {
@@ -32,7 +37,7 @@ function clone(obj) {
     }
     return copy;
   }
-
+  
   throw new Error("Unable to copy obj! Its type isn't supported.");
 }
 
@@ -40,6 +45,9 @@ function clone(obj) {
 function keyOf(obj) {
   if(typeof(obj.key) === 'function') {
     return obj.key();
+  }
+  if(typeof(obj) === 'object' && typeof(obj.toString) === 'function') {
+    return obj.toString();
   }
   return obj;
 }

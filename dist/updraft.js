@@ -319,6 +319,11 @@ Model.prototype.constructFromDb = function(row) {
       case 'datetime':
         o[_col] = new Date(val * 1000);
         break;
+      case 'enum':
+        var enumClass = o.model.columns[col].enum;
+        console.assert(enumClass && enumClass.get);
+        o[_col] = enumClass.get(val);
+        break;
       case 'set':
         o[_col].push(val);
         break;
@@ -921,6 +926,9 @@ var columnType = {
   'string': 'TEXT',
   'blob': 'BLOB',
   
+  /** a javascript object with instance method 'toString' and class method 'get' (e.g. {@link https://github.com/adrai/enum}).  Set 'enum' key to the enum class. */
+  'enum': 'TEXT',
+  
   /** a javascript Date objct, stored in db as seconds since Unix epoch (time_t) [note: precision is seconds] */
   'date': 'DATE',
 
@@ -1452,9 +1460,11 @@ var Store = function () {
           var copyData = function (oldName, newName) {
             var oldTableColumns = Object.keys(columns).filter(function (col) { return (col in f.columns) || (col in renamedColumns); });
             var newTableColumns = oldTableColumns.map(function (col) { return (col in renamedColumns) ? renamedColumns[col] : col; });
-            var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
-            stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
-            return self.exec(tx, stmt);
+            if(oldTableColumns.length && newTableColumns.length) {
+              var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
+              stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
+              return self.exec(tx, stmt);
+            }
           };
 
           var renameTable = function (oldName, newName) {
@@ -1526,6 +1536,11 @@ var Store = function () {
 
             case 'json':
               val = JSON.stringify(val);
+              break;
+              
+            case 'enum':
+              console.assert(o.model.columns[col].enum);
+              val = val.toString();
               break;
               
             default:
@@ -1651,8 +1666,13 @@ function clone(obj) {
     return copy;
   }
 
-  // Handle Object
-  if (obj instanceof Object) {
+  // Handle complicated (read: enum) objects
+  if (obj instanceof Object && obj.constructor.name !== "Object") {
+    return obj;
+  }
+  
+  // Handle simple Objects
+  if (obj instanceof Object && obj.constructor.name === "Object") {
     copy = {};
     for (var attr in obj) {
       if (obj.hasOwnProperty(attr)) {
@@ -1661,7 +1681,7 @@ function clone(obj) {
     }
     return copy;
   }
-
+  
   throw new Error("Unable to copy obj! Its type isn't supported.");
 }
 
@@ -1669,6 +1689,9 @@ function clone(obj) {
 function keyOf(obj) {
   if(typeof(obj.key) === 'function') {
     return obj.key();
+  }
+  if(typeof(obj) === 'object' && typeof(obj.toString) === 'function') {
+    return obj.toString();
   }
   return obj;
 }

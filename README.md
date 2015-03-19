@@ -83,6 +83,29 @@ Basic usage is as follows:
 
 For advanced usage, see the documentation.
 
+## Enums
+
+Updraft supports enum-like objects, such as those created using the [enum](https://github.com/adrai/enum) library, though
+there's no dependency on any specific library.  They will be saved as the object's 'toString()' value and restored using the
+class's 'get(value)' method.  If you use the aforementioned enum library, they will be saved in the db as strings.
+
+    var store = new Updraft.Store();
+    
+    var ColorTemperature = new Enum({'Cool', 'Neutral', 'Warm'});
+    
+    var Paint = store.createClass({
+      tableName: 'paints',
+      columns: {
+        name: { type: 'text', key: true },
+        colorTemp: { type: 'enum', enum: ColorTemperature }
+      }
+    });
+    
+    var paint = new Paint();
+    paint.colorTemp = ColorTemperature.Cool;
+    ...
+    Paint.all.where('colorTemp', '=', ColorTemperature.Cool).get().then(...);
+
 ## Schemas and Migration
 For most simple changes, `Updraft` will have you covered.  You can feel free to add a new field, a new class, remove
 fields or classes, add or remove indices, and rename fields without needing to do any extra work.  You can also change

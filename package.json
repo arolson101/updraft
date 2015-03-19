@@ -1,13 +1,21 @@
 {
   "name": "updraft",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "main": "dist/updraft.js",
   "description": "Javascript ORM-like storage in SQLite (WebSQL or other), synced to the cloud",
   "repository": {
     "type": "git",
     "url": "git://github.com/arolson101/updraft.git"
   },
-  "keywords": ["orm", "sqlite", "websql", "schema", "dropbox", "iCloud", "CloudKit"],
+  "keywords": [
+    "orm",
+    "sqlite",
+    "websql",
+    "schema",
+    "dropbox",
+    "iCloud",
+    "CloudKit"
+  ],
   "author": "Andrew Olson",
   "license": "MIT",
   "readmeFilename": "README.md",
@@ -16,6 +24,7 @@
     "browserify": "^7.0.0",
     "chai": "^1.10.0",
     "chai-as-promised": "^4.1.1",
+    "enum": "^2.0.2",
     "gulp": "^3.8.10",
     "gulp-config-sync": "0.0.1",
     "gulp-jsdoc": "^0.1.4",

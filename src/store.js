@@ -22,6 +22,9 @@ var columnType = {
   'string': 'TEXT',
   'blob': 'BLOB',
   
+  /** a javascript object with instance method 'toString' and class method 'get' (e.g. {@link https://github.com/adrai/enum}).  Set 'enum' key to the enum class. */
+  'enum': 'TEXT',
+  
   /** a javascript Date objct, stored in db as seconds since Unix epoch (time_t) [note: precision is seconds] */
   'date': 'DATE',
 
@@ -553,9 +556,11 @@ var Store = function () {
           var copyData = function (oldName, newName) {
             var oldTableColumns = Object.keys(columns).filter(function (col) { return (col in f.columns) || (col in renamedColumns); });
             var newTableColumns = oldTableColumns.map(function (col) { return (col in renamedColumns) ? renamedColumns[col] : col; });
-            var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
-            stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
-            return self.exec(tx, stmt);
+            if(oldTableColumns.length && newTableColumns.length) {
+              var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
+              stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
+              return self.exec(tx, stmt);
+            }
           };
 
           var renameTable = function (oldName, newName) {
@@ -627,6 +632,11 @@ var Store = function () {
 
             case 'json':
               val = JSON.stringify(val);
+              break;
+              
+            case 'enum':
+              console.assert(o.model.columns[col].enum);
+              val = val.toString();
               break;
               
             default:

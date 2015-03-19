@@ -12,6 +12,10 @@
         obj.__proto__ = proto;
         return obj; 
       }
+      
+      // disable enum freezing in phantomjs to prevent error:
+      // TypeError: 'undefined' is not a function (evaluating 'getPropertyValue.bind(null, o[key])')
+      Object.isFrozen = null;
     </script>
   </head>
   <body>
@@ -22,6 +26,7 @@
     <script src="../node_modules/chai/chai.js"></script>
     <script src="../node_modules/chai-as-promised/lib/chai-as-promised.js"></script>
     <script src="../node_modules/sinon/pkg/sinon.js"></script>
+    <script src="./enum-2.0.2.js"></script>
     <script src="../dist/updraft.js"></script>
     <script>
       mocha.setup('bdd');

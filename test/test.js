@@ -1,4 +1,4 @@
-/*global Updraft, chai, sinon, describe, before, beforeEach, after, afterEach, it */
+/*global Updraft, Enum, chai, sinon, describe, before, beforeEach, after, afterEach, it */
 /*jshint -W106*/
 
 'use strict';
@@ -120,6 +120,57 @@ describe("simple models", function () {
           Class.get(4).should.eventually.be.null
         ]);
       });
+  });
+});
+
+describe('enum support', function() {
+  var store, Class;
+  var x1, x2, x3, x4;
+  
+  var Colors = new Enum(['Red', 'Green', 'Blue']);
+
+  var Template = {
+    tableName: 'template',
+    columns: {
+      id: { key: true, type: 'int' },
+      color: { type: 'enum', enum: Colors },
+    }
+  };
+
+  before(function () {
+    store = new Updraft.Store();
+    Class = store.createClass(Template);
+    return store.open(storeProps)
+      .then(function () {
+        x1 = new Class({id: 1, color: Colors.Red});
+        x2 = new Class({id: 2, color: Colors.Blue});
+        x3 = new Class({id: 3, color: Colors.Green});
+        x4 = new Class({id: 4, color: Colors.Blue});
+        return store.save([x1, x2, x3, x4]);
+      });
+  });
+
+  after(function () {
+    store.close();
+  });
+
+  var checkQuery = function (expected) {
+    return function (results) {
+      expect(results).to.have.length(expected.length);
+      expected.forEach(function(e, i) {
+        var r = results[i];
+        expect(r.Color).to.equal(e.Color);
+      });
+    };
+  };
+  
+  it("save/load", function() {
+    return Class.all.get().then(checkQuery([x1, x2, x3, x4]));
+  });
+  
+  it("query", function() {
+    store.logSql = true;
+    return Class.all.where('color', '=', Colors.Blue).get().then(checkQuery([x2, x4]));
   });
 });
 
