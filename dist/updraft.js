@@ -216,6 +216,9 @@ function Model(store, templ) {
   
   var ModelInstance = function() {
     Instance.apply(this, arguments);
+    if(typeof templ.constructor === 'function') {
+      templ.constructor.call(this);
+    }
   };
 
   ModelInstance.prototype = Object.create(Instance.prototype);
@@ -961,6 +964,7 @@ var columnType = {
  * @property {bool} [columns.value.key=false] - set to true on the field that should be the primary key.  Only set one.
  * @property {bool} [columns.value.index=false] - create an index on this field
  * @property {object} [renamedColumns] - old column name is the key, new column name is the value
+ * @property {function} [constructor] - a function to call when an object is created
  * @example
  *  {
  *    tableName: 'users',
@@ -973,6 +977,9 @@ var columnType = {
  *      // migrate 'address2' column data into column 'address3'
  *      // the column must be specified in 'columns'
  *      'address2': 'address3'
+ *    },
+ *    constructor: function() {
+ *      name = 'foo';
  *    }
  *  }
  */

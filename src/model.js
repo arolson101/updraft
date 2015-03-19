@@ -206,6 +206,9 @@ function Model(store, templ) {
   
   var ModelInstance = function() {
     Instance.apply(this, arguments);
+    if(typeof templ.constructor === 'function') {
+      templ.constructor.call(this);
+    }
   };
 
   ModelInstance.prototype = Object.create(Instance.prototype);

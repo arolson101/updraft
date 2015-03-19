@@ -48,15 +48,26 @@ describe("key/value storage", function() {
 });
 
 describe("simple models", function () {
-  var store, Class,
+  var store, Class, ClassCtor;
 
-  Template = {
+  var Template = {
     tableName: 'template',
     columns: {
       col1: { key: true, type: 'int' },
       col2: { type: 'int' },
       col3: { type: 'date' },
       col4: { type: 'datetime' }
+    }
+  };
+  
+  var TemplateCtor = {
+    tableName: 'templateCtor',
+    columns: {
+      col1: { key: true, type: 'int' },
+      col2: { type: 'int' },
+    },
+    constructor: function() {
+      this.col2 = -1;
     }
   };
 
@@ -66,10 +77,17 @@ describe("simple models", function () {
 
   beforeEach(function () {
     Class = store.createClass(Template);
+    ClassCtor = store.createClass(TemplateCtor);
   });
 
   afterEach(function () {
     store.close();
+  });
+  
+  it("constructor should initialize values", function() {
+    var x = new ClassCtor();
+    assert.equal(x.col2, -1, "constructor should initialize this value");
+    assert.deepEqual(x.changes(), ['col2'], "values set in the constructor should be marked as changed");
   });
 
   it("#purge should delete all tables", function () {
