@@ -248,7 +248,12 @@ function Model(store, templ) {
   m.indices = [];
 
   for (var key in templ) {
-    m[key] = Util.clone(templ[key]);
+    var val = templ[key];
+    if(typeof val === 'function') {
+      ModelInstance.prototype[key] = val;
+    } else {
+      m[key] = Util.clone(val);
+    }
   }
 
   m.key = null;

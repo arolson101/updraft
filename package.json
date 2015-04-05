@@ -1,6 +1,6 @@
 {
   "name": "updraft",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "main": "src/main.js",
   "description": "Javascript ORM-like storage in SQLite (WebSQL or other), synced to the cloud",
   "repository": {

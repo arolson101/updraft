@@ -57,6 +57,9 @@ describe("simple models", function () {
       col2: { type: 'int' },
       col3: { type: 'date' },
       col4: { type: 'datetime' }
+    },
+    foo: function() {
+      this.col4 = 'foo';
     }
   };
   
@@ -110,6 +113,9 @@ describe("simple models", function () {
     var x2 = new Class({col1: 123});
     assert.equal(x2.col1, 123, "constructer properties should be stored on the new object");
     assert.deepEqual(x2.changes(), ['col1'], "object should be flagged with changed fields");
+    
+    x1.foo();
+    assert.equal(x1.col4, 'foo', "functions should be installed as methods");
   });
 
   it("should be able to store & retrieve instances", function () {
