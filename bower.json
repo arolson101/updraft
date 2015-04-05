@@ -1,6 +1,6 @@
 {
   "name": "updraft",
-  "version": "0.4.2",
+  "version": "0.4.4",
   "main": "dist/updraft.min.js",
   "ignore": [
     "**/.*",

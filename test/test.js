@@ -87,7 +87,7 @@ describe("simple models", function () {
   it("constructor should initialize values", function() {
     var x = new ClassCtor();
     assert.equal(x.col2, -1, "constructor should initialize this value");
-    assert.deepEqual(x.changes(), ['col2'], "values set in the constructor should be marked as changed");
+    assert.deepEqual(x.changes(), [], "values set in the constructor should not be marked as changed");
   });
 
   it("#purge should delete all tables", function () {

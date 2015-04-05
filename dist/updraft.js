@@ -30,9 +30,14 @@ var Set = require('./set');
  *  var Model = store.createClass(...);
  *  var i = new Model(); // i is an Instance
  */
-function Instance(props) {
+function Instance(constructor, props) {
   var o = this;
   o._changes = 0;
+
+  if(typeof constructor === 'function') {
+    constructor.call(o);
+    o._changes = 0;
+  }
 
   props = props || {};
   for (var key in props) {
@@ -214,11 +219,8 @@ function Model(store, templ) {
   console.assert(!('template' in templ.columns));
   console.assert(!templ.renamedColumns || Object.keys(templ.renamedColumns).every(function (old) { return !(old in templ.columns); }));
   
-  var ModelInstance = function() {
-    Instance.apply(this, arguments);
-    if(typeof templ.constructor === 'function') {
-      templ.constructor.call(this);
-    }
+  var ModelInstance = function(props) {
+    Instance.apply(this, [templ.constructor, props]);
   };
 
   ModelInstance.prototype = Object.create(Instance.prototype);
@@ -964,7 +966,7 @@ var columnType = {
  * @property {bool} [columns.value.key=false] - set to true on the field that should be the primary key.  Only set one.
  * @property {bool} [columns.value.index=false] - create an index on this field
  * @property {object} [renamedColumns] - old column name is the key, new column name is the value
- * @property {function} [constructor] - a function to call when an object is created
+ * @property {function} [constructor] - a function to call when an object is created.  Any fields initialized will not be marked as changed.
  * @example
  *  {
  *    tableName: 'users',
