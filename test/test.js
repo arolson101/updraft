@@ -11,6 +11,8 @@ chai.should();
 // to clear the cache, go to %APPDATA%\..\Local\Ofi Labs\PhantomJS
 var storeProps = {name: 'test db 1'};
 
+var Column = Updraft.Column;
+
 var updraft_kv = {
   _indices: {},
   _triggers: {},
@@ -48,39 +50,42 @@ describe("key/value storage", function() {
 });
 
 describe("simple models", function () {
-  var store, Class, ClassCtor;
+  var store;
 
-  var Template = {
+  function Class() { Updraft.Instance.apply(this, arguments); }
+  Updraft.createClass(Class, {
     tableName: 'template',
     columns: {
-      col1: { key: true, type: 'int' },
-      col2: { type: 'int' },
-      col3: { type: 'date' },
-      col4: { type: 'datetime' }
+        col1: Column.Int().Key(),
+        col2: Column.Int(),
+        col3: Column.Date(),
+        col4: Column.DateTime()
     },
     foo: function() {
       this.col4 = 'foo';
     }
-  };
+  });
   
-  var TemplateCtor = {
+  function ClassCtor() {
+    Updraft.Instance.apply(this, arguments);
+    this.col2 = -1; // TODO
+    this._clearChanges();
+  }
+  Updraft.createClass(ClassCtor, {
     tableName: 'templateCtor',
     columns: {
-      col1: { key: true, type: 'int' },
-      col2: { type: 'int' },
-    },
-    constructor: function() {
-      this.col2 = -1;
+      col1: Column.Int().Key(),
+      col2: Column.Int().Default(-1),
     }
-  };
+  });
 
   before(function () {
     store = new Updraft.Store();
   });
 
   beforeEach(function () {
-    Class = store.createClass(Template);
-    ClassCtor = store.createClass(TemplateCtor);
+    store.addClass(Class);
+    store.addClass(ClassCtor);
   });
 
   afterEach(function () {
@@ -90,29 +95,29 @@ describe("simple models", function () {
   it("constructor should initialize values", function() {
     var x = new ClassCtor();
     assert.equal(x.col2, -1, "constructor should initialize this value");
-    assert.deepEqual(x.changes(), [], "values set in the constructor should not be marked as changed");
+    assert.deepEqual(x._changes(), [], "values set in the constructor should not be marked as changed");
   });
 
   it("#purge should delete all tables", function () {
     store.close();
     return store.purge(storeProps)
       .then(function () { return store.open(storeProps); })
-      .then(store.readSchema)
+      .then(store.readSchema.bind(store))
       .should.eventually.deep.equal({updraft_kv: updraft_kv});
   });
 
   it("should be able to create instances", function () {
     var x1 = new Class();
     assert(x1, "empty object");
-    assert.deepEqual(x1.changes(), [], "empty object should not have any changes");
+    assert.deepEqual(x1._changes(), [], "empty object should not have any changes");
 
     x1.col1 = 1;
     x1.col2 = 2;
-    assert.deepEqual(x1.changes(), ['col1', 'col2'], "object should track changed fields");
+    assert.deepEqual(x1._changes(), ['col1', 'col2'], "object should track changed fields");
 
     var x2 = new Class({col1: 123});
     assert.equal(x2.col1, 123, "constructer properties should be stored on the new object");
-    assert.deepEqual(x2.changes(), ['col1'], "object should be flagged with changed fields");
+    assert.deepEqual(x2._changes(), ['col1'], "object should be flagged with changed fields");
     
     x1.foo();
     assert.equal(x1.col4, 'foo', "functions should be installed as methods");
@@ -125,12 +130,12 @@ describe("simple models", function () {
 
     return store.open(storeProps)
       .then(function () {
-        return store.save([x1, x2, x3]);
+        return store.save(x1, x2, x3);
       })
       .then(function () {
-        assert.deepEqual(x1.changes(), [], "changes should be reset");
-        assert.deepEqual(x2.changes(), [], "changes should be reset");
-        assert.deepEqual(x3.changes(), [], "changes should be reset");
+        assert.deepEqual(x1._changes(), [], "changes should be reset");
+        assert.deepEqual(x2._changes(), [], "changes should be reset");
+        assert.deepEqual(x3._changes(), [], "changes should be reset");
 
         return Promise.all([
           Class.get(1).should.eventually.have.property('col2', 10),
@@ -148,29 +153,30 @@ describe("simple models", function () {
 });
 
 describe('enum support', function() {
-  var store, Class;
+  var store;
   var x1, x2, x3, x4;
   
   var Colors = new Enum(['Red', 'Green', 'Blue']);
 
-  var Template = {
+  function Class() { Updraft.Instance.apply(this, arguments); }
+  Updraft.createClass(Class, {
     tableName: 'template',
     columns: {
-      id: { key: true, type: 'int' },
-      color: { type: 'enum', enum: Colors },
+      id: Column.Int().Key(),
+      color: Column.Enum(Colors),
     }
-  };
+  });
 
   before(function () {
     store = new Updraft.Store();
-    Class = store.createClass(Template);
+    store.addClass(Class);
     return store.open(storeProps)
       .then(function () {
         x1 = new Class({id: 1, color: Colors.Red});
         x2 = new Class({id: 2, color: Colors.Blue});
         x3 = new Class({id: 3, color: Colors.Green});
         x4 = new Class({id: 4, color: Colors.Blue});
-        return store.save([x1, x2, x3, x4]);
+        return store.save(x1, x2, x3, x4);
       });
   });
 
@@ -193,33 +199,33 @@ describe('enum support', function() {
   });
   
   it("query", function() {
-    store.logSql = true;
     return Class.all.where('color', '=', Colors.Blue).get().then(checkQuery([x2, x4]));
   });
 });
 
 describe('query interface', function () {
-  var store, Class;
+  var store;
   var x1, x2, x3;
 
-  var Template = {
+  function Class() { Updraft.Instance.apply(this, arguments); }
+  Updraft.createClass(Class, {
     tableName: 'template',
     columns: {
-      col1: { key: true, type: 'int' },
-      col2: { type: 'int' },
-      col3: { type: 'text' }
+      col1: Column.Int().Key(),
+      col2: Column.Int(),
+      col3: Column.Text()
     }
-  };
+  });
 
   before(function () {
     store = new Updraft.Store();
-    Class = store.createClass(Template);
+    store.addClass(Class);
     return store.open(storeProps)
       .then(function () {
         x1 = new Class({col1: 1, col2: 10, col3: 'foo'});
         x2 = new Class({col1: 2, col2: 20, col3: 'bar'});
         x3 = new Class({col1: 3, col2: 30, col3: 'baz'});
-        return store.save([x1, x2, x3]);
+        return store.save(x1, x2, x3);
       });
   });
 
@@ -232,7 +238,7 @@ describe('query interface', function () {
       expect(results).to.have.length(expected.length);
       expected.forEach(function(e, i) {
         var r = results[i];
-        Object.keys(e.factory.columns).forEach(function (prop) {
+        Object.keys(e._model.columns).forEach(function (prop) {
           expect(r).to.have.property(prop, e[prop], 'object index '+i);
         });
       });
@@ -289,15 +295,16 @@ describe('migrations', function() {
   var store;
   var sqlSpy;
   
-  var TemplateV1 = {
+  function ClassV1() { Updraft.Instance.apply(this, arguments); }
+  Updraft.createClass(ClassV1, {
     tableName: 'template',
     columns: {
-      col1: { key: true, type: 'int' },
-      col2: { type: 'int' },
-      col3: { type: 'int' },
-      col4: { type: 'int' },
+      col1: Column.Int().Key(),
+      col2: Column.Int(),
+      col3: Column.Int(),
+      col4: Column.Int(),
     }
-  };
+  });
 
   var checkSql = function(message, regexs) {
     assert.equal(sqlSpy.callCount, regexs.length, message + " call count");
@@ -324,7 +331,7 @@ describe('migrations', function() {
     // init a v1 table
     return store.purge(storeProps)
       .then(function() {
-        store.createClass(TemplateV1);
+        store.addClass(ClassV1);
         return store.open(storeProps)
           .then(function() {
             store.close();
@@ -353,7 +360,7 @@ describe('migrations', function() {
   it("should start with a known schema state", function() {
 
     return store.open(storeProps)
-      .then(store.readSchema)
+      .then(store.readSchema.bind(store))
       .should.eventually.deep.equal(expectedSchemaV1);
   });
 
@@ -363,9 +370,9 @@ describe('migrations', function() {
       store.logSql = true;
       console.log("*** " + message + " begin");
     }
-    store.createClass(newTemplate);
+    store.addClass(newTemplate);
     return store.open(storeProps)
-    .then(store.readSchema)
+    .then(store.readSchema.bind(store))
     .then(function(schema) {
       if(debug) {
         console.log("*** new schema: ", schema);
@@ -383,16 +390,17 @@ describe('migrations', function() {
 
   describe("simple migrations", function() {
     it("add a column", function() {
-      var newTemplate = {
+      function NewClass() { Updraft.Instance.apply(this, arguments); }
+      Updraft.createClass(NewClass, {
         tableName: 'template',
         columns: {
-          col1: { key: true, type: 'int' },
-          col2: { type: 'int' },
-          col3: { type: 'int' },
-          col4: { type: 'int' },
-          new5: { type: 'int' },
+          col1: Column.Int().Key(),
+          col2: Column.Int(),
+          col3: Column.Int(),
+          col4: Column.Int(),
+          new5: Column.Int(),
         }
-      };
+      });
       var expectedSchema = {
         updraft_kv: updraft_kv,
         template: {
@@ -406,7 +414,7 @@ describe('migrations', function() {
         }
       };
 
-      return runMigration("add a column", newTemplate, expectedSchema, [
+      return runMigration("add a column", NewClass, expectedSchema, [
         readSchema,
         /ALTER TABLE template ADD COLUMN new5/i,
         loadKeyValues,
@@ -415,18 +423,19 @@ describe('migrations', function() {
     });
 
     it("add 3 columns", function() {
-      var newTemplate = {
+      function NewClass() { Updraft.Instance.apply(this, arguments); }
+      Updraft.createClass(NewClass, {
         tableName: 'template',
         columns: {
-          col1: { key: true, type: 'int' },
-          col2: { type: 'int' },
-          col3: { type: 'int' },
-          col4: { type: 'int' },
-          new5: { type: 'int' },
-          new6: { type: 'int' },
-          new7: { type: 'int' },
+          col1: Column.Int().Key(),
+          col2: Column.Int(),
+          col3: Column.Int(),
+          col4: Column.Int(),
+          new5: Column.Int(),
+          new6: Column.Int(),
+          new7: Column.Int(),
         }
-      };
+      });
       var expectedSchema = {
         updraft_kv: updraft_kv,
         template: {
@@ -442,7 +451,7 @@ describe('migrations', function() {
         }
       };
 
-      return runMigration("add 3 columns", newTemplate, expectedSchema, [
+      return runMigration("add 3 columns", NewClass, expectedSchema, [
         readSchema,
         /ALTER TABLE template ADD COLUMN new5/i,
         /ALTER TABLE template ADD COLUMN new6/i,
@@ -453,15 +462,16 @@ describe('migrations', function() {
     });
     
     it("add an index", function() {
-      var newTemplate = {
+      function NewClass() { Updraft.Instance.apply(this, arguments); }
+      Updraft.createClass(NewClass, {
         tableName: 'template',
         columns: {
-          col1: { key: true, type: 'int' },
-          col2: { type: 'int', index: true },
-          col3: { type: 'int' },
-          col4: { type: 'int' },
+          col1: Column.Int().Key(),
+          col2: Column.Int().Index(),
+          col3: Column.Int(),
+          col4: Column.Int(),
         }
-      };
+      });
       var expectedSchema = {
         updraft_kv: updraft_kv,
         template: {
@@ -476,7 +486,7 @@ describe('migrations', function() {
         }
       };
 
-      return runMigration("add and remove an index", newTemplate, expectedSchema, [
+      return runMigration("add and remove an index", NewClass, expectedSchema, [
         readSchema,
         /CREATE INDEX index_template__col2 ON template/i,
         loadKeyValues,
@@ -485,7 +495,7 @@ describe('migrations', function() {
       .then(function() {
         store.close();
         sqlSpy.reset();
-        return runMigration("remove an index", TemplateV1, expectedSchemaV1, [
+        return runMigration("remove an index", ClassV1, expectedSchemaV1, [
           readSchema,
           /DROP INDEX .*/i,
           loadKeyValues,
@@ -498,18 +508,19 @@ describe('migrations', function() {
 
   describe("complex migrations", function() {
     it("rename column", function() {
-      var newTemplate = {
+      function NewClass() { Updraft.Instance.apply(this, arguments); }
+      Updraft.createClass(NewClass, {
         tableName: 'template',
         columns: {
-          col1: { key: true, type: 'int' },
-          col2: { type: 'int' },
-          new3: { type: 'int' },
-          col4: { type: 'int' },
+          col1: Column.Int().Key(),
+          col2: Column.Int(),
+          new3: Column.Int(),
+          col4: Column.Int(),
         },
         renamedColumns: {
           'col3': 'new3'
         }
-      };
+      });
       var expectedSchema = {
         updraft_kv: updraft_kv,
         template: {
@@ -522,7 +533,7 @@ describe('migrations', function() {
         }
       };
 
-      return runMigration("rename column", newTemplate, expectedSchema, [
+      return runMigration("rename column", NewClass, expectedSchema, [
         readSchema,
         /CREATE TABLE new_template/i,
         /INSERT INTO new_template \(col1, col2, new3, col4\) SELECT col1, col2, col3, col4 FROM template/i,
@@ -535,13 +546,14 @@ describe('migrations', function() {
     
     
     it("rename everything", function() {
-      var newTemplate = {
+      function NewClass() { Updraft.Instance.apply(this, arguments); }
+      Updraft.createClass(NewClass, {
         tableName: 'template',
         columns: {
-          new1: { key: true, type: 'int' },
-          new2: { type: 'int' },
-          new3: { type: 'int' },
-          new4: { type: 'int' },
+          new1: Column.Int().Key(),
+          new2: Column.Int(),
+          new3: Column.Int(),
+          new4: Column.Int(),
         },
         renamedColumns: {
           'col1': 'new1',
@@ -549,7 +561,7 @@ describe('migrations', function() {
           'col3': 'new3',
           'col4': 'new4'
         }
-      };
+      });
       var expectedSchema = {
         updraft_kv: updraft_kv,
         template: {
@@ -562,7 +574,7 @@ describe('migrations', function() {
         }
       };
 
-      return runMigration("rename everything", newTemplate, expectedSchema, [
+      return runMigration("rename everything", NewClass, expectedSchema, [
         readSchema,
         /CREATE TABLE new_template/i,
         /INSERT INTO new_template \(new1, new2, new3, new4\) SELECT col1, col2, col3, col4 FROM template/i,
@@ -575,13 +587,14 @@ describe('migrations', function() {
     
     
     it("delete column", function() {
-      var newTemplate = {
+      function NewClass() { Updraft.Instance.apply(this, arguments); }
+      Updraft.createClass(NewClass, {
         tableName: 'template',
         columns: {
-          col1: { key: true, type: 'int' },
-          col2: { type: 'int' },
+          col1: Column.Int().Key(),
+          col2: Column.Int(),
         }
-      };
+      });
       var expectedSchema = {
         updraft_kv: updraft_kv,
         template: {
@@ -592,7 +605,7 @@ describe('migrations', function() {
         }
       };
 
-      return runMigration("delete column", newTemplate, expectedSchema, [
+      return runMigration("delete column", NewClass, expectedSchema, [
         readSchema,
         /CREATE TABLE new_template/i,
         /INSERT INTO new_template \(col1, col2\) SELECT col1, col2 FROM template/i,
@@ -605,18 +618,19 @@ describe('migrations', function() {
     
     
     it("delete and rename and add", function() {
-      var newTemplate = {
+      function NewClass() { Updraft.Instance.apply(this, arguments); }
+      Updraft.createClass(NewClass, {
         tableName: 'template',
         columns: {
-          col1: { key: true, type: 'int' },
-          col2: { type: 'int' },
-          new3: { type: 'int' },
-          new4: { type: 'int' },
+          col1: Column.Int().Key(),
+          col2: Column.Int(),
+          new3: Column.Int(),
+          new4: Column.Int(),
         },
         renamedColumns: {
           'col3': 'new3',
         }
-      };
+      });
       var expectedSchema = {
         updraft_kv: updraft_kv,
         template: {
@@ -629,7 +643,7 @@ describe('migrations', function() {
         }
       };
 
-      return runMigration("delete and rename and add", newTemplate, expectedSchema, [
+      return runMigration("delete and rename and add", NewClass, expectedSchema, [
         readSchema,
         /CREATE TABLE new_template/i,
         /INSERT INTO new_template \(col1, col2, new3\) SELECT col1, col2, col3 FROM template/i,
@@ -644,63 +658,70 @@ describe('migrations', function() {
 
 
 describe("child objects", function() {
-  var store, Image, Artist, City, Tag, Color;
+  var store;
   var favorite;
+  
+  function Image() { Updraft.Instance.apply(this, arguments); }
+  function Artist() { Updraft.Instance.apply(this, arguments); }
+  function City() { Updraft.Instance.apply(this, arguments); }
+  function Tag() { Updraft.Instance.apply(this, arguments); }
+  function Color() { Updraft.Instance.apply(this, arguments); }
+
+  Updraft.createClass(Image, {
+    tableName: 'images',
+    columns: {
+      imageId: Column.Int().Key(),
+      name: Column.Text(),
+      artist: Column.Ptr(Artist),
+      tags: Column.Set(Tag),
+      colors: Column.Set(Color)
+    }
+  });
+
+  Updraft.createClass(Artist, {
+    tableName: 'artists',
+    columns: {
+      artistId: Column.Int().Key(),
+      name: Column.Text(),
+      city: Column.Ptr(City),
+      masterpiece: Column.Ptr(Image)
+    }
+  });
+
+  Updraft.createClass(City, {
+    tableName: 'city',
+    columns: {
+      cityId: Column.Int().Key(),
+      name: Column.Text()
+    }
+  });
+  
+  Updraft.createClass(Tag, {
+    tableName: 'tags',
+    columns: {
+      tagId: Column.Int().Key(),
+      name: Column.Text()
+    }
+  });
+  
+  Updraft.createClass(Color, {
+    tableName: 'colors',
+    columns: {
+      colorId: Column.Int().Key(),
+      name: Column.Text()
+    }
+  });
+  
   
   before(function() {
     store = new Updraft.Store();
     return store.purge(storeProps)
     .then(function() {
-      Image = store.createClass({
-        tableName: 'images',
-        columns: {
-          imageId: { key: true, type: 'int' },
-          name: { type: 'text' },
-          artist: { type: 'ptr' },
-          tags: { type: 'set' },
-          colors: { type: 'set' }
-        }
-      });
-
-      Artist = store.createClass({
-        tableName: 'artists',
-        columns: {
-          artistId: { type: 'int', key: true },
-          name: { type: 'text' },
-          city: { type: 'ptr' },
-          masterpiece: { type: 'ptr' }
-        }
-      });
-
-      City = store.createClass({
-        tableName: 'city',
-        columns: {
-          cityId: { key: true, type: 'int' },
-          name: { type: 'text' }
-        }
-      });
-      
-      Tag = store.createClass({
-        tableName: 'tags',
-        columns: {
-          tagId: { key: true, type: 'int' },
-          name: { type: 'text' }
-        }
-      });
-      
-      Color = store.createClass({
-        tableName: 'colors',
-        columns: {
-          colorId: { key: true, type: 'int' },
-          name: { type: 'text' }
-        }
-      });
-      
-      Image.columns.artist.ref = Artist;
-      Image.columns.tags.ref = Tag;
-      Image.columns.colors.ref = Color;
-      Artist.columns.city.ref = City;
-      Artist.columns.masterpiece.ref = Image;
+      store.addClass(Image);
+      store.addClass(Artist);
+      store.addClass(City);
+      store.addClass(Tag);
+      store.addClass(Color);
       
       var red = new Color({colorId: 300, name: 'red'});
       var green = new Color({colorId: 301, name: 'green'});
@@ -733,12 +754,12 @@ describe("child objects", function() {
       
       return store.open(storeProps)
       .then(function() {
-        store.save([venice, paris,
+        store.save(venice, paris,
                     monet, daVinci, vanGogh,
                     monaLisa, lastSupper, waterLillies, starryNight,
                     plants, favorite,
                     red, green, blue
-                   ]);
+                   );
       });
     });
   });

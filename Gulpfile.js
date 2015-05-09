@@ -1,106 +1,56 @@
 'use strict';
 
 var gulp = require('gulp');
-var gutil = require('gulp-util');
-var jshint = require('gulp-jshint');
-var jsdoc = require("gulp-jsdoc");
-var source = require('vinyl-source-stream');
-var watchify = require('watchify');
-var browserify = require('browserify');
+var merge = require('merge2');
 var mochaPhantomJS = require('gulp-mocha-phantomjs');
-var uglify = require('gulp-uglify');
-var buffer = require('vinyl-buffer');
 var sourcemaps = require('gulp-sourcemaps');
 var sync = require('gulp-config-sync');
+var ts = require('gulp-typescript');
+var typedoc = require("gulp-typedoc");
+var uglify = require('gulp-uglify');
 
-function makeBundle(watch, minify) {
-  var b = browserify({
-    debug: true,
-    cache: {},
-    packageCache: {},
-    standalone: 'Updraft',
-    fullPaths: true
-  });
-  
-  var bundle = function(file) {
-    if(file) {
-      file.map(function (fileName) {
-        gutil.log('File updated', gutil.colors.yellow(fileName));
-      });
-    }
-    
-    var ret = b
-      .bundle()
-      .on('error', function(err) {
-        gutil.log("Browserify error:", err.message);
-      });
-    
-    ret = ret
-      .pipe(source(minify ? 'updraft.min.js' : 'updraft.js'));
-    
-    ret = ret
-      .pipe(buffer())
-      .pipe(sourcemaps.init({loadMaps: true}));
-    
+var minify = true;
+
+gulp.task('compile', function() {
+    var tsProject = ts.createProject('tsconfig.json');
+    var tsResult = tsProject.src() // instead of gulp.src(...)
+        .pipe(sourcemaps.init())
+        .pipe(ts(tsProject));
+
+    var dts = tsResult.dts.pipe(gulp.dest('./dist'));
+    var js = tsResult.js;
+
     if(minify) {
-      ret = ret
-        // Add transformation tasks to the pipeline here.
-        .pipe(uglify());
+        js = js.pipe(uglify());
     }
-    
-    ret = ret
-      .pipe(sourcemaps.write('./'))
-      .pipe(gulp.dest('./dist/'));
-  };
 
-  if(watch) {
-    b = watchify(b);
-    b.on('update', bundle);
-  }
-  
-  b.add('./src/main.js');
-  return bundle();
-}
+    js = js
+        .pipe(sourcemaps.write('./'))
+        .pipe(gulp.dest('./dist'));
 
-gulp.task('bundle', function() {
-  makeBundle(false, false);
-  makeBundle(false, true);
+    return merge([dts, js]);
 });
 
-gulp.task('watch', function() {
-  makeBundle(true);
+gulp.task("typedoc", function() {
+    return gulp
+        .src(["src/*.ts"])
+        .pipe(typedoc({
+            module: "commonjs",
+            out: "./doc",
+            theme: "minimal",
+            name: "Updraft",
+            target: "es5",
+            mode: "file",
+            includeDeclarations: true
+        }))
+    ;
 });
 
-gulp.task('lint', function() {
-  return gulp.src('./src/*.js')
-    .pipe(jshint())
-    .pipe(jshint.reporter('default'));
+gulp.task('watch', ['compile'], function() {
+    gulp.watch('src/*.ts', ['compile']);
 });
 
-gulp.task('jsdoc', function() {
-  var infos = null;
-  var template = {
-    path            : 'ink-docstrap',
-    systemName      : 'Updraft',
-    //footer          : "Updraft",
-    //copyright       : "Something",
-    navType         : "vertical",
-    theme           : "journal",
-    linenums        : false,
-    collapseSymbols : false,
-    inverseNav      : false
-  };
-  var options = {
-    'private': true,
-    'outputSourceFiles': false,
-    debug: true,
-    verbose: true
-  };
-  return gulp.src(['./src/*.js', 'README.md'])
-    .pipe(jsdoc('./docs', template, infos, options));
-});
-
-gulp.task('test', ['bundle'], function() {
+gulp.task('test', ['compile'], function() {
      return gulp.src('./test/test.html')
         .pipe(mochaPhantomJS({ 'webSecurityEnabled': false, "outputEncoding": "utf8", "localToRemoteUrlAccessEnabled": true }));
 });
@@ -111,4 +61,4 @@ gulp.task('sync', function() {
     .pipe(gulp.dest('.')); // write it to the same dir
 });
 
-gulp.task('default', ['bundle', 'lint', 'test', 'jsdoc', 'sync']);
+gulp.task('default', ['compile', 'test', 'typedoc', 'sync']);

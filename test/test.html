@@ -10,9 +10,9 @@
       // polyfill
       Object.setPrototypeOf = Object.setPrototypeOf || function(obj, proto) {
         obj.__proto__ = proto;
-        return obj; 
+        return obj;
       }
-      
+
       // disable enum freezing in phantomjs to prevent error:
       // TypeError: 'undefined' is not a function (evaluating 'getPropertyValue.bind(null, o[key])')
       Object.isFrozen = null;
@@ -20,7 +20,6 @@
   </head>
   <body>
     <div id="mocha"></div>
-    <!--<script src="../node_modules/q/q.js"></script>-->
     <script src="../node_modules/lie/dist/lie.js"></script>
     <script src="../node_modules/mocha/mocha.js"></script>
     <script src="../node_modules/chai/chai.js"></script>

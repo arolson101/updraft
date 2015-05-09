@@ -1,0 +1,28 @@
+{
+    "version": "1.5.0-alpha",
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "declaration": true,
+        "noImplicitAny": true,
+        "removeComments": false,
+        "noLib": false,
+        "preserveConstEnums": true,
+        "suppressImplicitAnyIndexErrors": true,
+        "sourceMap": true,
+        "out": "./dist/updraft.js"
+    },
+    "filesGlob": [
+        "./src/**/*.ts",
+        "!./node_modules/**/*.ts"
+    ],
+    "files": [
+        "./src/main.ts",
+        "./src/model.ts",
+        "./src/query.ts",
+        "./src/set.ts",
+        "./src/store.ts",
+        "./src/util.ts",
+        "./src/websql.d.ts"
+    ]
+}
