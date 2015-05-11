@@ -53,7 +53,7 @@ Or grab the [source](https://github.com/arolson101/updraft/dist/updraft.js) ([mi
 Basic usage is as follows:
 ```javascript
 function Task() { Updraft.Instance.apply(this, arguments); }
-var Task = Updraft.createClass({
+Updraft.createClass(Task, {
   tableName: 'tasks',
   columns: {
     name: Updraft.Column.Text().Key(),
@@ -91,7 +91,7 @@ store.open({name: 'my database'})
   });
 ```
 
-If you use TypeScript, you can use inheritance:
+If you use TypeScript, you can use inheritance instead:
 
 ```ts
 class Task extends Updraft.Instance {
