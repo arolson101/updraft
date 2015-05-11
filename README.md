@@ -46,8 +46,6 @@ Bower:
 
     bower install --save updraft
 
-Or grab the [source](https://github.com/arolson101/updraft/dist/updraft.js) ([minified](https://github.com/arolson101/updraft/dist/updraft.min.js)).
-
 ## Usage
 
 Basic usage is as follows:
