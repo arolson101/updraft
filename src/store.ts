@@ -42,8 +42,8 @@ module Updraft {
     public isKey: boolean;
     public isIndex: boolean;
     public type: ColumnType;
-    public ref: ClassTemplate /*| ColumnType*/; // TODO: add set(string|number|etc)
-    public setTable: ClassTemplate;
+    public ref: ClassTemplate<Instance> /*| ColumnType*/; // TODO: add set(string|number|etc)
+    public setTable: ClassTemplate<Instance>;
     public defaultValue: number | boolean | string;
     public enum: EnumClass | TypeScriptEnum;
 
@@ -130,14 +130,14 @@ module Updraft {
     }
 
     /** points to an object in another table.  Its affinity will automatically be that table's key's affinity */
-    static Ptr(ref: ClassTemplate): Column {
+    static Ptr(ref: ClassTemplate<Instance>): Column {
       var c = new Column(ColumnType.ptr);
       c.ref = ref;
       return c;
     }
 
     /** unordered collection */
-    static Set(ref: ClassTemplate /*| ColumnType*/): Column {
+    static Set(ref: ClassTemplate<Instance> /*| ColumnType*/): Column {
       var c = new Column(ColumnType.set);
       c.ref = ref;
       return c;
@@ -236,7 +236,7 @@ module Updraft {
       key: Column.String().Key(),
       value: Column.String(),
     };
-    static all: Query;
+    static all: Query<KeyValue>;
     static get(id: string): Promise<Instance> { return null; }
 
     key: string;
@@ -266,8 +266,8 @@ module Updraft {
    */
   export class Store {
     logSql: boolean;
-    tables: ClassTemplate[];
-    KeyValue: ClassTemplate;
+    tables: ClassTemplate<Instance>[];
+    KeyValue: ClassTemplate<Instance>;
     kv: Object;
     db: Database;
 
@@ -285,7 +285,7 @@ module Updraft {
      * create a new type whose instances can be stored in a database
      * @param templ
      */
-     addClass(templ: ClassTemplate) {
+     addClass(templ: ClassTemplate<Instance>) {
        MakeClassTemplate(templ, this);
        this.tables.push(templ);
      }
@@ -393,14 +393,14 @@ module Updraft {
       console.assert(this.db != null);
 
       // add tables for 'set' columns
-      var setTables: ClassTemplate[] = [];
+      var setTables: ClassTemplate<Instance>[] = [];
       for(var i=0; i<this.tables.length; i++) {
         var table = this.tables[i];
         for(var col in table.columns) {
           if(table.columns[col].type === ColumnType.set) {
             var ref = table.columns[col].ref;
             console.assert(ref != null);
-            var setTable: ClassTemplate = {
+            var setTable: ClassTemplate<Instance> = {
               tableName: table.tableName + '_' + col,
               recreate: table.recreate,
               temp: table.temp,
@@ -589,7 +589,7 @@ module Updraft {
      * @return A promise that resolves with no parameters once the table is up-to-date.
      * @private
      */
-    syncTable(tx: SQLTransaction, schema: Schema, f: ClassTemplate) {
+    syncTable(tx: SQLTransaction, schema: Schema, f: ClassTemplate<any>): Promise<any> {
       var self = this;
       // execute CREATE TABLE statement
       function createTable(name: string): Promise<any> {
@@ -802,15 +802,15 @@ module Updraft {
               var setTable = f.columns[col].setTable;
               console.assert(ref != null);
               console.assert(setTable != null);
-              var set: Set = o['_' + col];
+              var set: Set<any> = o['_' + col];
               if(set) {
                 var key = o._primaryKey();
-                var deletions = set.getRemoved();
-                var additions = set.getAdded();
-                deletions.forEach(function(del) {
+                var deletions: string[] = set.getRemoved();
+                var additions: string[] = set.getAdded();
+                deletions.forEach(function(del: string) {
                   promises.push( self.exec<void>(tx, 'DELETE FROM ' + setTable.tableName + ' WHERE ' + f.key + '=? AND ' + col + '=?', [ key, del ]) );
                 });
-                additions.forEach(function(add) {
+                additions.forEach(function(add: string) {
                   promises.push( self.exec<void>(tx, 'INSERT INTO ' + setTable.tableName + ' (' + f.key + ', ' + col + ') VALUES (?, ?)', [key, add]) );
                 });
               }

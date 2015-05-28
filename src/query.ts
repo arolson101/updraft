@@ -16,8 +16,8 @@ module Updraft {
    * Do not construct objects of type Query directly- instead, use {@link ClassTemplate}.all
    * @constructor
    */
-  export class Query {
-    private _model: ClassTemplate;
+  export class Query<I extends Instance> {
+    private _model: ClassTemplate<I>;
     private _store: Store;
     private _justCount: boolean;
     private _tables: string[];
@@ -29,7 +29,7 @@ module Updraft {
     private _asc: boolean;
     private _nocase: boolean;
 
-    constructor(model: ClassTemplate, store: Store) {
+    constructor(model: ClassTemplate<I>, store: Store) {
       console.assert(model != null);
       console.assert(store != null);
       this._model = model;
@@ -53,12 +53,12 @@ module Updraft {
     }
 
 
-    all(): Promise<Instance[]> {
+    all(): Promise<I[]> {
       return this.get();
     }
 
 
-    private addCondition(conj: string, col: string, op: string, val: string): Query {
+    private addCondition(conj: string, col: string, op: string, val: string): Query<I> {
       var fields = col.split(/\./);
       var field: string;
       var f = this._model;
@@ -137,7 +137,7 @@ module Updraft {
      *  // -> SELECT ... WHERE col2 > 10 AND col2 < 30
      * ```
      */
-    and(col: string, op: string, val: any): Query {
+    and(col: string, op: string, val: any): Query<I> {
       return this.addCondition('AND', col, op, val);
     }
 
@@ -151,7 +151,7 @@ module Updraft {
      *  return Class.all.where('col2', '>', 10).get();
      * ```
      */
-    where(): Query {
+    where(): Query<I> {
       return this.and.apply(this, arguments);
     }
 
@@ -170,7 +170,7 @@ module Updraft {
      *  // -> SELECT ... WHERE col2 = 10 OR col2 = 30
      * ```
      */
-    or(col: string, op: string, val: any): Query {
+    or(col: string, op: string, val: any): Query<I> {
       return this.addCondition('OR', col, op, val);
     }
 
@@ -188,7 +188,7 @@ module Updraft {
      *  // -> SELECT ... ORDER BY x
      * ```
      */
-    order(col: string, asc: boolean): Query {
+    order(col: string, asc: boolean): Query<I> {
       this._order = this._model.tableName + '.' + col;
       if(typeof asc !== 'undefined') {
         this._asc = asc;
@@ -208,7 +208,7 @@ module Updraft {
      *  // -> SELECT ... ORDER BY x COLLATE NOCASE
      * ```
      */
-    nocase(): Query {
+    nocase(): Query<I> {
       this._nocase = true;
       return this;
     }
@@ -225,7 +225,7 @@ module Updraft {
      *  // -> SELECT ... FROM ... LIMIT 5
      * ```
      */
-    limit(count: number): Query {
+    limit(count: number): Query<I> {
       this._limit = count;
       return this;
     }
@@ -242,7 +242,7 @@ module Updraft {
      *  // -> SELECT ... FROM ... LIMIT 10 OFFSET 50
      * ```
      */
-    offset(count: number): Query {
+    offset(count: number): Query<I> {
       this._offset = count;
       return this;
     }
@@ -278,10 +278,10 @@ module Updraft {
      *  // -> SELECT ... WHERE x > 0
      * ```
      */
-    get(): Promise<Instance[]> {
+    get(): Promise<I[]> {
       var countProp = 'COUNT(*)';
       var stmt = 'SELECT ';
-      var model: ClassTemplate = this._model;
+      var model: ClassTemplate<I> = this._model;
       if(this._justCount) {
         stmt += countProp;
       } else {
@@ -310,21 +310,21 @@ module Updraft {
         }
       }
 
-      var objects: Instance[] = [];
+      var objects: I[] = [];
       var query = this;
       return this._store.execRead(stmt, args, function (tx: SQLTransaction, results: SQLResultSet) {
         if(query._justCount) {
           return results.rows.item(0)[countProp];
         }
         for (var i = 0; i < results.rows.length; i++) {
-          var o = constructFromDb(model, results.rows.item(i));
+          var o = constructFromDb<I>(model, results.rows.item(i));
           objects.push(o);
         }
         var setcols = Object.keys(model.columns)
         .filter(function(col: string): boolean {
           return (model.columns[col].type === ColumnType.set);
         });
-        return Promise.all(objects.map(function(o: Instance) {
+        return Promise.all(objects.map(function(o: I) {
           return Promise.all(
             setcols.map(function(col: string): Promise<any> {
               var setTable = model.columns[col].setTable;

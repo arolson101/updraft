@@ -29,13 +29,13 @@ declare module Updraft {
      *   });
      * ```
      */
-    function createClass(proto: Function, descriptor: ClassTemplate): Function;
+    function createClass(proto: Function, descriptor: ClassTemplate<Instance>): Function;
 }
 declare module Updraft {
     interface DirtyFunc {
         (): void;
     }
-    class Set {
+    class Set<K> {
         private _dirtyFcn;
         private _states;
         /**
@@ -53,7 +53,7 @@ declare module Updraft {
          * not in <tt>arr</tt>
          * @param objects - array of values to assign.  If values are {@link Instance}s, assign their <tt>_primaryKey()</tt>s instead
          */
-        assign(objects: string[]): void;
+        assign(objects: K[]): void;
         /**
          * Removes all objects from set
          */
@@ -62,17 +62,17 @@ declare module Updraft {
          * Adds value(s) to set
          * @param objects - array of values to assign.  If values are {@link Instance}s, assign their <tt>_primaryKey()</tt>s instead
          */
-        add(...objects: string[]): void;
+        add(...objects: K[]): void;
         /**
          * Alias for {@link add}
          * @param objects - values to add
          */
-        push(...objects: string[]): void;
+        push(...objects: K[]): void;
         /**
          * Removes value(s) from set
          * @param objects - values to remove
          */
-        remove(...objects: string[]): void;
+        remove(...objects: K[]): void;
         /**
          * Gets values from set which match the given <tt>stateMask</tt>
          * @param stateMask - states of objects to return
@@ -104,7 +104,7 @@ declare module Updraft {
      * Do not construct objects of type Query directly- instead, use {@link ClassTemplate}.all
      * @constructor
      */
-    class Query {
+    class Query<I extends Instance> {
         private _model;
         private _store;
         private _justCount;
@@ -116,8 +116,8 @@ declare module Updraft {
         private _offset;
         private _asc;
         private _nocase;
-        constructor(model: ClassTemplate, store: Store);
-        all(): Promise<Instance[]>;
+        constructor(model: ClassTemplate<I>, store: Store);
+        all(): Promise<I[]>;
         private addCondition(conj, col, op, val);
         /**
          * Adds an 'AND' condition to the query
@@ -133,7 +133,7 @@ declare module Updraft {
          *  // -> SELECT ... WHERE col2 > 10 AND col2 < 30
          * ```
          */
-        and(col: string, op: string, val: any): Query;
+        and(col: string, op: string, val: any): Query<I>;
         /**
          * alias for {@link and}
          *
@@ -143,7 +143,7 @@ declare module Updraft {
          *  return Class.all.where('col2', '>', 10).get();
          * ```
          */
-        where(): Query;
+        where(): Query<I>;
         /**
          * Adds an 'OR' condition to the query
          *
@@ -158,7 +158,7 @@ declare module Updraft {
          *  // -> SELECT ... WHERE col2 = 10 OR col2 = 30
          * ```
          */
-        or(col: string, op: string, val: any): Query;
+        or(col: string, op: string, val: any): Query<I>;
         /**
          * Sort the results by specified field
          *
@@ -172,7 +172,7 @@ declare module Updraft {
          *  // -> SELECT ... ORDER BY x
          * ```
          */
-        order(col: string, asc: boolean): Query;
+        order(col: string, asc: boolean): Query<I>;
         /**
          * Changes the match collation to be case-insensitive.  Only applies to result sorting, as 'LIKE' is
          * always case-insensitive
@@ -185,7 +185,7 @@ declare module Updraft {
          *  // -> SELECT ... ORDER BY x COLLATE NOCASE
          * ```
          */
-        nocase(): Query;
+        nocase(): Query<I>;
         /**
          * Limits the result set to a certain number.  Useful in pagination
          *
@@ -197,7 +197,7 @@ declare module Updraft {
          *  // -> SELECT ... FROM ... LIMIT 5
          * ```
          */
-        limit(count: number): Query;
+        limit(count: number): Query<I>;
         /**
          * Skip a number of results.  Useful in pagination
          *
@@ -209,7 +209,7 @@ declare module Updraft {
          *  // -> SELECT ... FROM ... LIMIT 10 OFFSET 50
          * ```
          */
-        offset(count: number): Query;
+        offset(count: number): Query<I>;
         /**
          * Executes the query, returning a promise resolving with the count of objects that match
          *
@@ -235,7 +235,7 @@ declare module Updraft {
          *  // -> SELECT ... WHERE x > 0
          * ```
          */
-        get(): Promise<Instance[]>;
+        get(): Promise<I[]>;
     }
 }
 declare module Updraft {
@@ -246,7 +246,7 @@ declare module Updraft {
      * Describes the static members of a class used to create {@link Instance}s
      * @see {link @createClass}
      */
-    interface ClassTemplate {
+    interface ClassTemplate<I extends Instance> {
         tableName: string;
         recreate?: boolean;
         temp?: boolean;
@@ -255,8 +255,8 @@ declare module Updraft {
         indices?: string[][];
         key?: string;
         keyType?: ColumnType;
-        all?: Query;
-        get(id: string): Promise<Instance>;
+        all?: Query<I>;
+        get(id: string): Promise<I>;
     }
     /**
      * Instances of this type will have properties for all the columns defined in its {@link ClassTemplate}.
@@ -288,7 +288,7 @@ declare module Updraft {
     class Instance {
         _changeMask: number;
         _isInDb: boolean;
-        _model: ClassTemplate;
+        _model: ClassTemplate<Instance>;
         _store: Store;
         constructor(props?: any);
         /**
@@ -331,14 +331,14 @@ declare module Updraft {
      * Add properties to a provided {@link Instance} subclass that can be created, saved and retrieved from the db
      * @private
      */
-    function MakeClassTemplate(templ: ClassTemplate, store: Store): void;
+    function MakeClassTemplate<I extends Instance>(templ: ClassTemplate<I>, store: Store): void;
     /**
      * construct object from a database result row
      *
      * @return Instance with fields initialized according to row, with _isInDb=true and no changes set
      * @private
      */
-    function constructFromDb(model: ClassTemplate, row: Object): Instance;
+    function constructFromDb<I extends Instance>(model: ClassTemplate<I>, row: Object): I;
 }
 declare module Updraft {
     /**
@@ -373,8 +373,8 @@ declare module Updraft {
         isKey: boolean;
         isIndex: boolean;
         type: ColumnType;
-        ref: ClassTemplate;
-        setTable: ClassTemplate;
+        ref: ClassTemplate<Instance>;
+        setTable: ClassTemplate<Instance>;
         defaultValue: number | boolean | string;
         enum: EnumClass | TypeScriptEnum;
         constructor(type: ColumnType);
@@ -411,9 +411,9 @@ declare module Updraft {
         /** object will be serialized & restored as JSON text */
         static JSON(): Column;
         /** points to an object in another table.  Its affinity will automatically be that table's key's affinity */
-        static Ptr(ref: ClassTemplate): Column;
+        static Ptr(ref: ClassTemplate<Instance>): Column;
         /** unordered collection */
-        static Set(ref: ClassTemplate): Column;
+        static Set(ref: ClassTemplate<Instance>): Column;
         static sqlType(type: ColumnType): string;
     }
     interface ColumnSet {
@@ -477,8 +477,8 @@ declare module Updraft {
      */
     class Store {
         logSql: boolean;
-        tables: ClassTemplate[];
-        KeyValue: ClassTemplate;
+        tables: ClassTemplate<Instance>[];
+        KeyValue: ClassTemplate<Instance>;
         kv: Object;
         db: Database;
         constructor();
@@ -486,7 +486,7 @@ declare module Updraft {
          * create a new type whose instances can be stored in a database
          * @param templ
          */
-        addClass(templ: ClassTemplate): void;
+        addClass(templ: ClassTemplate<Instance>): void;
         /**
          * set a key/value pair
          *
@@ -590,7 +590,7 @@ declare module Updraft {
          * @return A promise that resolves with no parameters once the table is up-to-date.
          * @private
          */
-        syncTable(tx: SQLTransaction, schema: Schema, f: ClassTemplate): Promise<any[]>;
+        syncTable(tx: SQLTransaction, schema: Schema, f: ClassTemplate<any>): Promise<any>;
         /**
          * Save all objects to database.  Atomic operation- all objects will be saved within the same transaction
          * or nothing will be written.  Objects can be heterogeneous.
@@ -602,3 +602,4 @@ declare module Updraft {
 }
 declare module Updraft {
 }
+declare var module: any;

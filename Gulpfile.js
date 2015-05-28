@@ -25,7 +25,7 @@ gulp.task('compile', function() {
     }
 
     js = js
-        .pipe(sourcemaps.write('./'))
+        .pipe(sourcemaps.write('./'), {sourceRoot: "../"})
         .pipe(gulp.dest('./dist'));
 
     return merge([dts, js]);

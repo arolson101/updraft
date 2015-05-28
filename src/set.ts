@@ -24,7 +24,7 @@ module Updraft {
   }
 
 
-  export class Set {
+  export class Set<K> {
     private _dirtyFcn: DirtyFunc;
     private _states: StateMap;
 
@@ -57,7 +57,7 @@ module Updraft {
      * not in <tt>arr</tt>
      * @param objects - array of values to assign.  If values are {@link Instance}s, assign their <tt>_primaryKey()</tt>s instead
      */
-    assign(objects: string[]): void {
+    assign(objects: K[]): void {
       this.clear();
       this.add.apply(this, objects);
     }
@@ -77,7 +77,7 @@ module Updraft {
      * Adds value(s) to set
      * @param objects - array of values to assign.  If values are {@link Instance}s, assign their <tt>_primaryKey()</tt>s instead
      */
-    add(...objects: string[]): void {
+    add(...objects: K[]): void {
       var dirty = false;
       var self = this;
       objects
@@ -99,7 +99,7 @@ module Updraft {
      * Alias for {@link add}
      * @param objects - values to add
      */
-    push(...objects: string[]): void {
+    push(...objects: K[]): void {
       return this.add.apply(this, objects);
     }
 
@@ -108,7 +108,7 @@ module Updraft {
      * Removes value(s) from set
      * @param objects - values to remove
      */
-    remove(...objects: string[]): void {
+    remove(...objects: K[]): void {
       var dirty = false;
       var self = this;
       objects

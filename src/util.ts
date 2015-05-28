@@ -77,7 +77,7 @@ module Updraft {
    *   });
    * ```
    */
-  export function createClass(proto: Function, descriptor: ClassTemplate) {
+  export function createClass(proto: Function, descriptor: ClassTemplate<Instance>) {
     console.assert(typeof proto === 'function');
     console.assert(typeof descriptor === 'object');
 

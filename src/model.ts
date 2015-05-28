@@ -14,7 +14,7 @@ module Updraft {
    * Describes the static members of a class used to create {@link Instance}s
    * @see {link @createClass}
    */
-  export interface ClassTemplate {
+  export interface ClassTemplate<I extends Instance> {
     tableName: string;
     recreate?: boolean;
     temp?: boolean;
@@ -23,8 +23,8 @@ module Updraft {
     indices?: string[][];
     key?: string;
     keyType?: ColumnType;
-    all?: Query;
-    get(id: string): Promise<Instance>;
+    all?: Query<I>;
+    get(id: string): Promise<I>;
   }
 
 
@@ -58,7 +58,7 @@ module Updraft {
   export class Instance {
     _changeMask: number;
     _isInDb: boolean;
-    _model: ClassTemplate;
+    _model: ClassTemplate<Instance>;
     _store: Store;
 
     constructor(props?: any) {
@@ -142,8 +142,8 @@ module Updraft {
   }
 
 
-  interface Wrapper {
-    ref: ClassTemplate;
+  interface Wrapper<I extends Instance> {
+    ref: ClassTemplate<I>;
     own: Instance;
     get: () => Promise<Instance>;
   }
@@ -158,7 +158,7 @@ module Updraft {
    * @param propMask - the bits to set on <tt>_changes</tt>
    * @private
    */
-  function addClassProperty(model: ClassTemplate, proto: any, col: string, propMask: number) {
+  function addClassProperty<I extends Instance>(model: ClassTemplate<I>, proto: any, col: string, propMask: number) {
     var prop = '_' + col;
 
     switch(model.columns[col].type) {
@@ -181,12 +181,12 @@ module Updraft {
         Object.defineProperty(proto, col, {
           configurable: true,
           get: function () {
-            var ref: ClassTemplate = (<Instance>this)._model.columns[col].ref;
+            var ref: ClassTemplate<any> = (<Instance>this)._model.columns[col].ref;
             console.assert(ref.get != null);
-            var ret: Wrapper = {
+            var ret: Wrapper<any> = {
               ref: ref,
               own: (<Instance>this),
-              get: function () { return (<Wrapper>this).ref.get(this.own[prop]); }
+              get: function () { return (<Wrapper<any>>this).ref.get(this.own[prop]); }
             };
             ret[ref.key] = (<Instance>this)[prop];
             return ret;
@@ -231,7 +231,7 @@ module Updraft {
    * Add properties to a provided {@link Instance} subclass that can be created, saved and retrieved from the db
    * @private
    */
-  export function MakeClassTemplate(templ: ClassTemplate, store: Store) {
+  export function MakeClassTemplate<I extends Instance>(templ: ClassTemplate<I>, store: Store) {
     console.assert(store != null);
     console.assert(templ != null);
     console.assert(templ.tableName != null);
@@ -303,8 +303,8 @@ module Updraft {
    * @return Instance with fields initialized according to row, with _isInDb=true and no changes set
    * @private
    */
-  export function constructFromDb(model: ClassTemplate, row: Object): Instance {
-    var o: Instance = new (<any>model)();
+  export function constructFromDb<I extends Instance>(model: ClassTemplate<I>, row: Object): I {
+    var o: I = new (<any>model)();
     console.assert(o instanceof Instance);
     for(var col in row) {
       var val = row[col];
