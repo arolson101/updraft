@@ -9,10 +9,10 @@ var ts = require('gulp-typescript');
 var typedoc = require("gulp-typedoc");
 var uglify = require('gulp-uglify');
 
-var minify = true;
+//var minify = true;
 
 gulp.task('compile', function() {
-    var tsProject = ts.createProject('tsconfig.json');
+    var tsProject = ts.createProject('tsconfig.json', { sortOutput: true, typescript: require('typescript') });
     var tsResult = tsProject.src() // instead of gulp.src(...)
         .pipe(sourcemaps.init())
         .pipe(ts(tsProject));
@@ -20,12 +20,12 @@ gulp.task('compile', function() {
     var dts = tsResult.dts.pipe(gulp.dest('./dist'));
     var js = tsResult.js;
 
-    if(minify) {
-        js = js.pipe(uglify());
-    }
+    // if(minify) {
+    //     js = js.pipe(uglify());
+    // }
 
     js = js
-        .pipe(sourcemaps.write('./'), {sourceRoot: "../"})
+        .pipe(sourcemaps.write('./'))
         .pipe(gulp.dest('./dist'));
 
     return merge([dts, js]);

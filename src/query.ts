@@ -16,8 +16,8 @@ module Updraft {
    * Do not construct objects of type Query directly- instead, use {@link ClassTemplate}.all
    * @constructor
    */
-  export class Query<I extends Instance> {
-    private _model: ClassTemplate<I>;
+  export class Query<K, I extends Instance<any>> {
+    private _model: ClassTemplate<K>;
     private _store: Store;
     private _justCount: boolean;
     private _tables: string[];
@@ -29,7 +29,7 @@ module Updraft {
     private _asc: boolean;
     private _nocase: boolean;
 
-    constructor(model: ClassTemplate<I>, store: Store) {
+    constructor(model: ClassTemplate<K>, store: Store) {
       console.assert(model != null);
       console.assert(store != null);
       this._model = model;
@@ -58,7 +58,7 @@ module Updraft {
     }
 
 
-    private addCondition(conj: string, col: string, op: string, val: string): Query<I> {
+    private addCondition(conj: string, col: string, op: string, val: any): Query<K, I> {
       var fields = col.split(/\./);
       var field: string;
       var f = this._model;
@@ -137,7 +137,7 @@ module Updraft {
      *  // -> SELECT ... WHERE col2 > 10 AND col2 < 30
      * ```
      */
-    and(col: string, op: string, val: any): Query<I> {
+    and(col: string, op: string, val: any): Query<K, I> {
       return this.addCondition('AND', col, op, val);
     }
 
@@ -151,7 +151,7 @@ module Updraft {
      *  return Class.all.where('col2', '>', 10).get();
      * ```
      */
-    where(): Query<I> {
+    where(): Query<K, I> {
       return this.and.apply(this, arguments);
     }
 
@@ -170,7 +170,7 @@ module Updraft {
      *  // -> SELECT ... WHERE col2 = 10 OR col2 = 30
      * ```
      */
-    or(col: string, op: string, val: any): Query<I> {
+    or(col: string, op: string, val: any): Query<K, I> {
       return this.addCondition('OR', col, op, val);
     }
 
@@ -188,7 +188,7 @@ module Updraft {
      *  // -> SELECT ... ORDER BY x
      * ```
      */
-    order(col: string, asc: boolean): Query<I> {
+    order(col: string, asc: boolean): Query<K, I> {
       this._order = this._model.tableName + '.' + col;
       if(typeof asc !== 'undefined') {
         this._asc = asc;
@@ -208,7 +208,7 @@ module Updraft {
      *  // -> SELECT ... ORDER BY x COLLATE NOCASE
      * ```
      */
-    nocase(): Query<I> {
+    nocase(): Query<K, I> {
       this._nocase = true;
       return this;
     }
@@ -225,7 +225,7 @@ module Updraft {
      *  // -> SELECT ... FROM ... LIMIT 5
      * ```
      */
-    limit(count: number): Query<I> {
+    limit(count: number): Query<K, I> {
       this._limit = count;
       return this;
     }
@@ -242,7 +242,7 @@ module Updraft {
      *  // -> SELECT ... FROM ... LIMIT 10 OFFSET 50
      * ```
      */
-    offset(count: number): Query<I> {
+    offset(count: number): Query<K, I> {
       this._offset = count;
       return this;
     }
@@ -281,7 +281,7 @@ module Updraft {
     get(): Promise<I[]> {
       var countProp = 'COUNT(*)';
       var stmt = 'SELECT ';
-      var model: ClassTemplate<I> = this._model;
+      var model: ClassTemplate<K> = this._model;
       if(this._justCount) {
         stmt += countProp;
       } else {
@@ -317,7 +317,7 @@ module Updraft {
           return results.rows.item(0)[countProp];
         }
         for (var i = 0; i < results.rows.length; i++) {
-          var o = constructFromDb<I>(model, results.rows.item(i));
+          var o = constructFromDb<K, I>(model, results.rows.item(i));
           objects.push(o);
         }
         var setcols = Object.keys(model.columns)

@@ -1,2 +1,1618 @@
-var Updraft;!function(e){function t(e,t){return 0===e.lastIndexOf(t,0)}function n(e){var t;if(null===e||"object"!=typeof e)return e;if(e instanceof Array){t=[];for(var r=0,o=e.length;o>r;r++)t[r]=n(e[r]);return t}if(e instanceof Object&&"Object"!==e.constructor.name)return e;if(e instanceof Object&&"Object"===e.constructor.name){t={};for(var s in e)e.hasOwnProperty(s)&&(t[s]=n(e[s]));return t}throw new Error("Unable to copy obj! Its type isn't supported.")}function r(t){return t instanceof e.Instance?t._primaryKey():"object"==typeof t&&"function"==typeof t.toString?t.toString():t}function o(t,n){console.assert("function"==typeof t),console.assert("object"==typeof n),t.prototype=Object.create(e.Instance.prototype),t.prototype.constructor=t;for(var r in n){var o=n[r];"function"==typeof o?t.prototype[r]=o:t[r]=n[r]}return t}e.startsWith=t,e.clone=n,e.keyOf=r,e.createClass=o}(Updraft||(Updraft={}));var Updraft;!function(e){var t;!function(e){e[e.saved=2]="saved",e[e.added=4]="added",e[e.removed=8]="removed"}(t||(t={}));var n=function(){function n(e){this._dirtyFcn=e,this._states={}}return n.prototype.initFromDb=function(e){for(var n=0;n<e.rows.length;n++){var r=e.rows.item(n);console.assert(1===Object.keys(r).length);var o=r[Object.keys(r)[0]];this._states[o]=t.saved}},n.prototype.assign=function(e){this.clear(),this.add.apply(this,e)},n.prototype.clear=function(){for(var e in this._states)this._states[e]=t.removed},n.prototype.add=function(){for(var n=[],r=0;r<arguments.length;r++)n[r-0]=arguments[r];var o=!1,s=this;n.map(e.keyOf).forEach(function(e){console.assert("object"!=typeof e),s._states[e]!==t.saved&&(s._states[e]=t.added,o=!0)}),o&&this._dirtyFcn()},n.prototype.push=function(){for(var e=[],t=0;t<arguments.length;t++)e[t-0]=arguments[t];return this.add.apply(this,e)},n.prototype.remove=function(){for(var n=[],r=0;r<arguments.length;r++)n[r-0]=arguments[r];var o=!1,s=this;n.map(e.keyOf).forEach(function(e){s._states[e]=t.removed,o=!0}),o&&this._dirtyFcn()},n.prototype.which=function(e){var t=this;return Object.keys(this._states).filter(function(n,r,o){return t._states[n]&e?!0:!1})},n.prototype.values=function(){return this.which(t.saved|t.added)},n.prototype.getAdded=function(){return this.which(t.added)},n.prototype.getRemoved=function(){return this.which(t.removed)},n.prototype.clearChanges=function(){var e={};for(var n in this._states)this._states[n]!==t.removed&&(e[n]=t.saved);this._states=e},n}();e.Set=n}(Updraft||(Updraft={}));var Updraft;!function(e){var t=function(){function t(e,t){console.assert(null!=e),console.assert(null!=t),this._model=e,this._store=t,this._justCount=!1,this._tables=[e.tableName],this._columns=[],this._conditions=[],this._order=void 0,this._limit=void 0,this._offset=void 0,this._asc=!0,this._nocase=!1;for(var n in e.columns)10!==e.columns[n].type&&this._columns.push(e.tableName+"."+n)}return t.prototype.all=function(){return this.get()},t.prototype.addCondition=function(t,n,r,o){var s,a=n.split(/\./),i=this._model;o=e.keyOf(o);for(var c=0;c<a.length-1;c++){s=a[c],console.assert(s in i.columns);var u=i.columns[s].ref;console.assert(null!=u),-1===this._tables.indexOf(u.tableName)&&(this._tables.push(u.tableName),this._conditions.push({conj:"AND",col:i.tableName+"."+s,op:"=",val:u.tableName+"."+u.key})),i=u}switch(s=a[a.length-1],r){case"contains":console.assert(10===i.columns[s].type);var l=i.columns[s].setTable;console.assert(null!=l),-1===this._tables.indexOf(l.tableName)&&(this._tables.push(l.tableName),this._conditions.push({conj:"AND",col:i.tableName+"."+i.key,op:"=",val:l.tableName+"."+i.key})),this._conditions.push({conj:t,col:l.tableName+"."+s,op:"=",val:"?",arg:o});break;default:console.assert(10!==i.columns[s].type),this._conditions.push({conj:t,col:i.tableName+"."+s,op:r,val:"?",arg:o})}return this},t.prototype.and=function(e,t,n){return this.addCondition("AND",e,t,n)},t.prototype.where=function(){return this.and.apply(this,arguments)},t.prototype.or=function(e,t,n){return this.addCondition("OR",e,t,n)},t.prototype.order=function(e,t){return this._order=this._model.tableName+"."+e,"undefined"!=typeof t&&(this._asc=t),this},t.prototype.nocase=function(){return this._nocase=!0,this},t.prototype.limit=function(e){return this._limit=e,this},t.prototype.offset=function(e){return this._offset=e,this},t.prototype.count=function(){return this._justCount=!0,this.get()},t.prototype.get=function(){var t="COUNT(*)",n="SELECT ",r=this._model;n+=this._justCount?t:this._columns.join(", "),n+=" FROM "+this._tables.join(", ");for(var o=[],s=0;s<this._conditions.length;s++){var a=this._conditions[s];n+=0===s?" WHERE ":" "+a.conj+" ",n+=a.col+" "+a.op+" "+a.val,"arg"in a&&o.push(a.arg)}this._order&&(n+=" ORDER BY "+this._order,n+=this._nocase?" COLLATE NOCASE":"",n+=this._asc?" ASC":" DESC"),console.assert(!this._offset||this._limit),this._limit&&(n+=" LIMIT "+this._limit,this._offset&&(n+=" OFFSET "+this._offset));var i=[],c=this;return this._store.execRead(n,o,function(n,o){if(c._justCount)return o.rows.item(0)[t];for(var s=0;s<o.rows.length;s++){var a=e.constructFromDb(r,o.rows.item(s));i.push(a)}var u=Object.keys(r.columns).filter(function(e){return 10===r.columns[e].type});return Promise.all(i.map(function(e){return Promise.all(u.map(function(t){var o=r.columns[t].setTable;console.assert(null!=o);var s=e._primaryKey(),a="SELECT "+t;return a+=" FROM "+o.tableName,a+=" WHERE "+c._model.key+" = ?",c._store.exec(n,a,[s],function(n,r){r.rows.length>0&&e[t].initFromDb(r)})}))})).then(function(){return i})})},t}();e.Query=t}(Updraft||(Updraft={}));var Updraft;!function(e){function t(t,n,r,o){var s="_"+r;switch(t.columns[r].type){default:Object.defineProperty(n,r,{configurable:!0,get:function(){return this[s]},set:function(e){this[s]!==e&&(this[s]=e,this._changeMask|=o)}});break;case 9:Object.defineProperty(n,r,{configurable:!0,get:function(){var e=this._model.columns[r].ref;console.assert(null!=e.get);var t={ref:e,own:this,get:function(){return this.ref.get(this.own[s])}};return t[e.key]=this[s],t},set:function(t){t=e.keyOf(t),this[s]!==t&&(this[s]=t,this._changeMask|=o)}});break;case 10:Object.defineProperty(n,r,{configurable:!0,get:function(){if(!(s in this)){var t=this;this[s]=new e.Set(function(){t._changeMask|=o})}return this[s]},set:function(t){if(!(s in this)){var n=this;this[s]=new e.Set(function(){n._changeMask|=o})}this[s].assign(t),this._changeMask|=o}})}}function n(n,r){console.assert(null!=r),console.assert(null!=n),console.assert(null!=n.tableName),console.assert("_"!==n.tableName[0]),console.assert(null!=n.columns),console.assert(Object.keys(n.columns).length<64),console.assert(!("changes"in n.columns)),console.assert(!("template"in n.columns)),console.assert(!n.renamedColumns||Object.keys(n.renamedColumns).every(function(e){return!(e in n.columns)}));var o=n.prototype;Object.defineProperty(o,"_model",{configurable:!0,enumerable:!0,value:n}),Object.defineProperty(o,"_store",{configurable:!0,enumerable:!0,value:r}),n.get=function(e){return this.all.where(this.key,"=",e).get().then(function(e){return console.assert(e.length<2),0===e.length?null:e[0]})},Object.defineProperty(n,"all",{configurable:!0,get:function(){return new e.Query(this,r)}}),n.indices=n.indices||[];var s=null,a=null,i=0;for(var c in n.columns){n.columns[c].isKey&&(s=c,a=n.columns[c].type),n.columns[c].isIndex&&n.indices.push([c]);var u=1<<i++;if(t(n,o,c,u),i>=63)throw new Error("class has too many columns- max 63")}console.assert(null!=s),n.key=s,n.keyType=a}function r(e,t){var n=new e;console.assert(n instanceof o);for(var r in t){var s=t[r],a="_"+r;switch(e.columns[r].type){case 8:n[a]=JSON.parse(s);break;case 6:case 7:n[a]=new Date(1e3*s);break;case 5:var i=n._model.columns[r]["enum"];console.assert(null!=i),"object"==typeof i&&"function"==typeof i.get?n[a]=i.get(s):(console.assert(s in i),n[a]=i[s]);break;case 10:n[a].push(s);break;default:n[a]=s}}return n._isInDb=!0,console.assert(0===n._changeMask),n}var o=function(){function e(t){var n=this;n._changeMask=0,t=t||{};for(var r in t){var o=t[r];o instanceof e&&(o=o._primaryKey()),n[r]=o}}return e.prototype._primaryKey=function(){var e="_"+this._model.key;return console.assert(e in this),this[e]},e.prototype._changes=function(){var e=[],t=0;for(var n in this._model.columns){var r=1<<t++;this._changeMask&r&&e.push(n)}return e},e.prototype._clearChanges=function(){this._changeMask=0;for(var e in this._model.columns)e in this&&"undefined"!=typeof this[e]&&"function"==typeof this[e].clearChanges&&this[e].clearChanges()},e}();e.Instance=o,e.MakeClassTemplate=n,e.constructFromDb=r}(Updraft||(Updraft={}));var __extends=this.__extends||function(e,t){function n(){this.constructor=e}for(var r in t)t.hasOwnProperty(r)&&(e[r]=t[r]);n.prototype=t.prototype,e.prototype=new n},Updraft;!function(e){function t(e,t){}!function(e){e[e["int"]=0]="int",e[e.real=1]="real",e[e.bool=2]="bool",e[e.text=3]="text",e[e.blob=4]="blob",e[e["enum"]=5]="enum",e[e.date=6]="date",e[e.datetime=7]="datetime",e[e.json=8]="json",e[e.ptr=9]="ptr",e[e.set=10]="set"}(e.ColumnType||(e.ColumnType={}));var n=(e.ColumnType,function(){function e(e){this.type=e}return e.prototype.Key=function(e){return void 0===e&&(e=!0),this.isKey=e,this},e.prototype.Index=function(e){return void 0===e&&(e=!0),this.isIndex=e,this},e.prototype.Default=function(e){return this.defaultValue=e,this},e.Int=function(){return new e(0)},e.Real=function(){return new e(1)},e.Bool=function(){return new e(2)},e.Text=function(){return new e(3)},e.String=function(){return new e(3)},e.Blob=function(){var t=new e(4);return t},e.Enum=function(t){var n=new e(5);return n["enum"]=t,n},e.Date=function(){return new e(6)},e.DateTime=function(){return new e(7)},e.JSON=function(){return new e(8)},e.Ptr=function(t){var n=new e(9);return n.ref=t,n},e.Set=function(t){var n=new e(10);return n.ref=t,n},e.sqlType=function(e){switch(e){case 0:return"INTEGER";case 2:return"BOOL";case 1:return"REAL";case 3:case 8:case 5:return"TEXT";case 4:return"BLOB";case 6:return"DATE";case 7:return"DATETIME";default:throw new Error("unsupported type")}},e}());e.Column=n;var r=function(){function e(){}return e}();e.StoreOptions=r;var o=function(){function e(){}return e}();e.Schema=o;var s=function(){function e(){}return e}();e.SchemaTable=s;var a=function(e){function t(t){e.call(this,t)}return __extends(t,e),t.get=function(e){return null},t.tableName="updraft_kv",t.columns={key:n.String().Key(),value:n.String()},t}(e.Instance),i=function(){function r(){var e=this;this.logSql=!1,e.tables=[],e.kv={},this.addClass(a)}return r.prototype.addClass=function(t){e.MakeClassTemplate(t,this),this.tables.push(t)},r.prototype.set=function(e,t){this.kv[e]=t;var n=new a({key:e,value:JSON.stringify(t)});return this.save(n)},r.prototype.get=function(e){return this.kv[e]},r.prototype.loadKeyValues=function(){var e=this;return a.all.get().then(function(t){for(var n=0;n<t.length;n++){var r=t[n];e.kv[r.key]=JSON.parse(r.value)}})},r.prototype.purge=function(e){console.assert(!this.db),this.db=window.openDatabase(e.name,"1.0","updraft created database",5242880),console.assert(null!=this.db);var t=this;return console.assert(this instanceof r),t.readSchema().then(function(e){return new Promise(function(n,r){t.db.transaction(function(o){var s=[];return Object.keys(e).forEach(function(e){s.push(t.exec(o,"DROP TABLE "+e))}),Promise.all(s).then(function(){t.db=null}).then(n,r)})})})},r.prototype.open=function(e){this.db=window.openDatabase(e.name,"1.0","updraft created database",5242880),console.assert(null!=this.db);for(var t=[],o=0;o<this.tables.length;o++){var s=this.tables[o];for(var a in s.columns)if(10===s.columns[a].type){var i=s.columns[a].ref;console.assert(null!=i);var c={tableName:s.tableName+"_"+a,recreate:s.recreate,temp:s.temp,key:"",keyType:s.keyType,columns:{},indices:[[s.key],[a]],get:function(e){throw new Error("not callable")}};c.columns[s.key]=new n(s.keyType),c.columns[a]=new n(i.keyType),s.columns[a].setTable=c,t.push(c)}}this.tables=this.tables.concat(t);var u=this;return console.assert(this instanceof r),u.readSchema().then(u.syncTables.bind(u)).then(u.loadKeyValues.bind(u))},r.prototype.close=function(){this.db=null,this.constructor()},r.prototype.exec=function(e,n,r,o){void 0===o&&(o=t),this.logSql&&console.log(n,r);var s=this;return new Promise(function(t,a){try{e.executeSql(n,r,function(e,n){var r=o?o(e,n):null;return Promise.resolve(r).then(t,a)},function(e,t){return s.reportError(t),a(t),!1})}catch(i){throw console.log('Failed to exec "'+n+'":'+i),i}})},r.prototype.execRead=function(e,t,n){var r=this;return console.assert(null!=r.db),new Promise(function(o,s){r.db.readTransaction(function(a){return r.exec(a,e,t,n).then(o,s)})})},r.prototype.reportError=function(e){switch(e.code){case e.SYNTAX_ERR:console.log("Syntax error: "+e.message);break;default:console.log(e)}},r.prototype.readSchema=function(){function t(e){var t={_indices:{},_triggers:{}},n=e.match(/\((.*)\)/);if(n)for(var r=n[1].split(","),o=0;o<r.length;o++){var s=/^\s*(primary|foreign)\s+key/i;if(!r[o].match(s)){var a=/"(.+)"\s+(.*)/,i=/(\w+)\s+(.*)/,c=r[o].match(a);c||(c=r[o].match(i)),c&&(t[c[1]]=c[2])}}return t}return this.execRead("SELECT name, tbl_name, type, sql FROM sqlite_master",[],function(n,r){for(var o={},s=0;s<r.rows.length;s++){var a=r.rows.item(s);if("_"!=a.name[0]&&!e.startsWith(a.name,"sqlite"))switch(a.type){case"table":o[a.name]=t(a.sql);break;case"index":o[a.tbl_name]._indices=o[a.tbl_name]._indices||{},o[a.tbl_name]._indices[a.name]=a.sql;break;case"trigger":o[a.tbl_name]._triggers=o[a.tbl_name]._triggers||{},o[a.tbl_name]._triggers[a.name]=a.sql}}return o})},r.prototype.syncTables=function(e){var t=this;return console.assert(null!=t.db),new Promise(function(n,r){t.db.transaction(function(o){return Promise.all(t.tables.map(function(n){return t.syncTable(o,e,n)})).then(n,r)})})},r.prototype.syncTable=function(t,r,o){function s(e){var r=[];for(var s in o.columns){var a,i=o.columns[s];switch(i.type){case 9:console.assert(null!=i.ref),console.assert(null!=i.ref.columns),console.assert(null!=i.ref.tableName),console.assert(null!=i.ref.key);var u=i.ref.columns[i.ref.key].type;a=s+" "+n.sqlType(u),r.push(a);break;case 10:break;default:a=s+" "+n.sqlType(i.type),o.key===s&&(a+=" PRIMARY KEY"),r.push(a)}}return c.exec(t,"CREATE "+(o.temp?"TEMP ":"")+"TABLE "+e+" ("+r.join(", ")+")")}function a(e){return c.exec(t,"DROP TABLE "+e)}function i(n){void 0===n&&(n=!1);var s=[],a=o.tableName in r?e.clone(r[o.tableName]._indices):{};return o.indices.forEach(function(e){var i="index_"+o.tableName+"__"+e.join("_"),u="CREATE INDEX "+i+" ON "+o.tableName+" ("+e.join(", ")+")";delete a[i];var l=!0,f=!1;r[o.tableName]&&r[o.tableName]._indices&&r[o.tableName]._indices[i]&&(r[o.tableName]._indices[i]===u?l=!1:f=!0),f&&s.push(c.exec(t,"DROP INDEX "+i)),(l||n)&&s.push(c.exec(t,u))}),Object.keys(a).forEach(function(e){s.push(c.exec(t,"DROP INDEX "+e))}),Promise.all(s)}var c=this;if(o.tableName in r){if(o.recreate)return Promise.all([a(o.tableName),s(o.tableName),i(!0)]);var u=e.clone(r[o.tableName]);delete u._indices,delete u._triggers;var l,f=[],h=!1;for(l in o.columns)l in u||(f.push(l),o.columns[l].ref&&(h=!0));var p=e.clone(o.renamedColumns)||{};for(l in Object.keys(p))l in u||delete p[l];var m=Object.keys(u).filter(function(e){return!(e in o.columns)});if(h||Object.keys(p).length>0||m.length>0){var d=function(e,n){var r=Object.keys(u).filter(function(e){return e in o.columns||e in p}),s=r.map(function(e){return e in p?p[e]:e});if(r.length&&s.length){var a="INSERT INTO "+n+" ("+s.join(", ")+") ";return a+="SELECT "+r.join(", ")+" FROM "+e+";",c.exec(t,a)}},y=function(e,n){return c.exec(t,"ALTER TABLE "+e+" RENAME TO "+n)},v="new_"+o.tableName;return console.assert(!(v in r)),Promise.all([s(v),d(o.tableName,v),a(o.tableName),y(v,o.tableName),i(!0)])}if(f.length>0){var b=[];return f.forEach(function(e){var r=o.columns[e],s=e+" "+n.sqlType(r.type);b.push(c.exec(t,"ALTER TABLE "+o.tableName+" ADD COLUMN "+s))}),b.push(i()),Promise.all(b)}return i()}return Promise.all([s(o.tableName),i(!0)])},r.prototype.save=function(){for(var e=[],t=0;t<arguments.length;t++)e[t-0]=arguments[t];e.map(function(e){console.assert("_"+e._model.key in e,"object must have a key")});var n=this;return new Promise(function(t,r){n.db.transaction(function(o){function s(e,t){var n=e["_"+t];switch(e._model.columns[t].type){case 6:case 7:"undefined"!=typeof n&&(console.assert(n instanceof Date),n=Math.floor(n.getTime()/1e3));break;case 8:n=JSON.stringify(n);break;case 5:console.assert(null!=e._model.columns[t]["enum"]),n=n.toString();break;default:console.assert("object"!=typeof n)}return n}function a(e,t){var r=e._changes(),s=e._model,a=[];return Object.keys(s.columns).filter(function(e){return 10===s.columns[e].type&&(t||r.indexOf(e)>-1)}).forEach(function(t){var r=s.columns[t].ref,i=s.columns[t].setTable;console.assert(null!=r),console.assert(null!=i);var c=e["_"+t];if(c){var u=e._primaryKey(),l=c.getRemoved(),f=c.getAdded();l.forEach(function(e){a.push(n.exec(o,"DELETE FROM "+i.tableName+" WHERE "+s.key+"=? AND "+t+"=?",[u,e]))}),f.forEach(function(e){a.push(n.exec(o,"INSERT INTO "+i.tableName+" ("+s.key+", "+t+") VALUES (?, ?)",[u,e]))})}}),Promise.all(a).then(function(){return!0})}function i(e,t){void 0===t&&(t=null);var r=e._model,a=function(e){return 10!==r.columns[e].type},i=Object.keys(r.columns).filter(a),c=i.join(", "),u=i.map(function(){return"?"}).join(", "),l=i.map(function(t){return s(e,t)});return n.exec(o,"INSERT OR IGNORE INTO "+r.tableName+" ("+c+") VALUES ("+u+")",l,function(e,n){var r=0!==n.rowsAffected;return t?t(r):r})}function c(e,t){void 0===t&&(t=null);var r=e._model,a=e._changes(),i=function(e){return 10!==r.columns[e].type},c=function(e){return e!==r.key},u=a.filter(i).filter(c).map(function(e){return e+"=?"}).join(", "),l=a.filter(i).filter(c).map(function(t){return s(e,t)});return l.push(e["_"+r.key]),n.exec(o,"UPDATE OR IGNORE "+r.tableName+" SET "+u+" WHERE "+r.key+"=?",l,function(e,n){var r=0!==n.rowsAffected;return t?t(r):r})}var u=function(e){var t;return t=e._isInDb?c(e,function(t){return t?a(e,!1):i(e)}):i(e,function(t){return t?a(e,!0):c(e)}),t.then(function(t){console.assert(t),t&&(e._clearChanges(),e._isInDb=!0)})};return Promise.all(e.map(u)).then(t,r)})})},r}();e.Store=i}(Updraft||(Updraft={})),"undefined"!=typeof module&&(module.exports=Updraft);
+var Updraft;
+(function (Updraft) {
+    /**
+     * @private
+     */
+    function startsWith(str, val) {
+        return str.lastIndexOf(val, 0) === 0;
+    }
+    Updraft.startsWith = startsWith;
+    /**
+     * @private
+     */
+    function clone(obj) {
+        var copy;
+        // Handle the 3 simple types, and null or undefined
+        if (null === obj || "object" !== typeof obj) {
+            return obj;
+        }
+        // Handle Array
+        if (obj instanceof Array) {
+            copy = [];
+            for (var i = 0, len = obj.length; i < len; i++) {
+                copy[i] = clone(obj[i]);
+            }
+            return copy;
+        }
+        // Handle complicated (read: enum) objects
+        if (obj instanceof Object && obj.constructor.name !== "Object") {
+            return obj;
+        }
+        // Handle simple Objects
+        if (obj instanceof Object && obj.constructor.name === "Object") {
+            copy = {};
+            for (var attr in obj) {
+                if (obj.hasOwnProperty(attr)) {
+                    copy[attr] = clone(obj[attr]);
+                }
+            }
+            return copy;
+        }
+        throw new Error("Unable to copy obj! Its type isn't supported.");
+    }
+    Updraft.clone = clone;
+    /**
+     * @private
+     */
+    function keyOf(obj) {
+        if (obj instanceof Updraft.Instance) {
+            return obj._primaryKey();
+        }
+        if (typeof (obj) === 'object' && typeof (obj.toString) === 'function') {
+            return obj.toString();
+        }
+        return obj;
+    }
+    Updraft.keyOf = keyOf;
+    /**
+     * In non-typescript environments, use this function to derive a class from {@link Instance}
+     * @example
+     * ```
+     *
+     *   function Task() { Updraft.Instance.apply(this, arguments); }
+     *   var Task = Updraft.createClass({
+     *     tableName: 'tasks',
+     *     columns: {
+     *       name: Updraft.Column.Text().Key(),
+     *       description: Updraft.Column.Text(),
+     *       done: Updraft.Column.Bool()
+     *     }
+     *   });
+     * ```
+     */
+    function createClass(proto, descriptor) {
+        console.assert(typeof proto === 'function');
+        console.assert(typeof descriptor === 'object');
+        proto.prototype = Object.create(Updraft.Instance.prototype);
+        proto.prototype.constructor = proto;
+        for (var key in descriptor) {
+            var value = descriptor[key];
+            if (typeof value === 'function') {
+                proto.prototype[key] = value;
+            }
+            else {
+                proto[key] = descriptor[key];
+            }
+        }
+        return proto;
+    }
+    Updraft.createClass = createClass;
+})(Updraft || (Updraft = {}));
+/// <reference path="./websql.d.ts" />
+var Updraft;
+(function (Updraft) {
+    /**
+     * State that a value can be in
+     * @private
+     * @enum
+     */
+    var State;
+    (function (State) {
+        State[State["saved"] = 2] = "saved";
+        State[State["added"] = 4] = "added";
+        State[State["removed"] = 8] = "removed";
+    })(State || (State = {}));
+    var Set = (function () {
+        /**
+         * @param dirtyFcn - function to call when set's state changes
+         */
+        function Set(dirtyFcn) {
+            this._dirtyFcn = dirtyFcn;
+            this._states = {};
+        }
+        /**
+         * load values from a database; initialize values
+         * @private
+         * @param results - database row
+         */
+        Set.prototype.initFromDb = function (results) {
+            for (var i = 0; i < results.rows.length; i++) {
+                var row = results.rows.item(i);
+                console.assert(Object.keys(row).length === 1);
+                var item = row[Object.keys(row)[0]];
+                this._states[item] = State.saved;
+            }
+        };
+        /**
+         * Set all values from an array.  <tt>Add</tt>s all values, and <tt>remove</tt>s any existing set values that are
+         * not in <tt>arr</tt>
+         * @param objects - array of values to assign.  If values are {@link Instance}s, assign their <tt>_primaryKey()</tt>s instead
+         */
+        Set.prototype.assign = function (objects) {
+            this.clear();
+            this.add.apply(this, objects);
+        };
+        /**
+         * Removes all objects from set
+         */
+        Set.prototype.clear = function () {
+            for (var val in this._states) {
+                this._states[val] = State.removed;
+            }
+        };
+        /**
+         * Adds value(s) to set
+         * @param objects - array of values to assign.  If values are {@link Instance}s, assign their <tt>_primaryKey()</tt>s instead
+         */
+        Set.prototype.add = function () {
+            var objects = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                objects[_i - 0] = arguments[_i];
+            }
+            var dirty = false;
+            var self = this;
+            objects
+                .map(Updraft.keyOf)
+                .forEach(function (arg) {
+                console.assert(typeof (arg) !== 'object');
+                if (self._states[arg] !== State.saved) {
+                    self._states[arg] = State.added;
+                    dirty = true;
+                }
+            });
+            if (dirty) {
+                this._dirtyFcn();
+            }
+        };
+        /**
+         * Alias for {@link add}
+         * @param objects - values to add
+         */
+        Set.prototype.push = function () {
+            var objects = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                objects[_i - 0] = arguments[_i];
+            }
+            return this.add.apply(this, objects);
+        };
+        /**
+         * Removes value(s) from set
+         * @param objects - values to remove
+         */
+        Set.prototype.remove = function () {
+            var objects = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                objects[_i - 0] = arguments[_i];
+            }
+            var dirty = false;
+            var self = this;
+            objects
+                .map(Updraft.keyOf)
+                .forEach(function (arg) {
+                self._states[arg] = State.removed;
+                dirty = true;
+            });
+            if (dirty) {
+                this._dirtyFcn();
+            }
+        };
+        /**
+         * Gets values from set which match the given <tt>stateMask</tt>
+         * @param stateMask - states of objects to return
+         * @return values that match <tt>stateMask</tt>
+         * @private
+         */
+        Set.prototype.which = function (stateMask) {
+            var self = this;
+            return Object.keys(this._states)
+                .filter(function (element, index, array) {
+                return (self._states[element] & stateMask) ? true : false;
+            });
+        };
+        /**
+         * Gets valid (added or saved) values of the set
+         */
+        Set.prototype.values = function () {
+            return this.which(State.saved | State.added);
+        };
+        /**
+         * Gets the values that have been added to the set since it was last saved
+         */
+        Set.prototype.getAdded = function () {
+            return this.which(State.added);
+        };
+        /**
+         * Gets the values that have been removed from the set since it was last saved
+         */
+        Set.prototype.getRemoved = function () {
+            return this.which(State.removed);
+        };
+        /**
+         * Marks the values in the set as saved.  Any objects marked 'remove' will be
+         * expunged from the set.
+         */
+        Set.prototype.clearChanges = function () {
+            var newValues = {};
+            for (var val in this._states) {
+                if (this._states[val] !== State.removed) {
+                    newValues[val] = State.saved;
+                }
+            }
+            this._states = newValues;
+        };
+        return Set;
+    })();
+    Updraft.Set = Set;
+})(Updraft || (Updraft = {}));
+/// <reference path="../typings/tsd.d.ts" />
+/// <reference path="./store.ts" />
+var Updraft;
+(function (Updraft) {
+    /**
+     * Do not construct objects of type Query directly- instead, use {@link ClassTemplate}.all
+     * @constructor
+     */
+    var Query = (function () {
+        function Query(model, store) {
+            console.assert(model != null);
+            console.assert(store != null);
+            this._model = model;
+            this._store = store;
+            this._justCount = false;
+            this._tables = [model.tableName];
+            this._columns = [];
+            this._conditions = [];
+            this._order = undefined;
+            this._limit = undefined;
+            this._offset = undefined;
+            this._asc = true;
+            this._nocase = false;
+            // add child tables
+            for (var col in model.columns) {
+                if (model.columns[col].type !== Updraft.ColumnType.set) {
+                    this._columns.push(model.tableName + '.' + col);
+                }
+            }
+        }
+        Query.prototype.all = function () {
+            return this.get();
+        };
+        Query.prototype.addCondition = function (conj, col, op, val) {
+            var fields = col.split(/\./);
+            var field;
+            var f = this._model;
+            val = Updraft.keyOf(val);
+            for (var i = 0; i < fields.length - 1; i++) {
+                field = fields[i];
+                console.assert(field in f.columns);
+                var ref = f.columns[field].ref;
+                console.assert(ref != null);
+                if (this._tables.indexOf(ref.tableName) === -1) {
+                    this._tables.push(ref.tableName);
+                    this._conditions.push({
+                        conj: 'AND',
+                        col: f.tableName + '.' + field,
+                        op: '=',
+                        val: ref.tableName + '.' + ref.key
+                    });
+                }
+                f = ref;
+            }
+            field = fields[fields.length - 1];
+            switch (op) {
+                case 'contains':
+                    console.assert(f.columns[field].type === Updraft.ColumnType.set);
+                    var setTable = f.columns[field].setTable;
+                    console.assert(setTable != null);
+                    if (this._tables.indexOf(setTable.tableName) === -1) {
+                        this._tables.push(setTable.tableName);
+                        this._conditions.push({
+                            conj: 'AND',
+                            col: f.tableName + '.' + f.key,
+                            op: '=',
+                            val: setTable.tableName + '.' + f.key
+                        });
+                    }
+                    this._conditions.push({
+                        conj: conj,
+                        col: setTable.tableName + '.' + field,
+                        op: '=',
+                        val: '?',
+                        arg: val
+                    });
+                    break;
+                default:
+                    console.assert(f.columns[field].type !== Updraft.ColumnType.set);
+                    this._conditions.push({
+                        conj: conj,
+                        col: f.tableName + '.' + field,
+                        op: op,
+                        val: '?',
+                        arg: val
+                    });
+                    break;
+            }
+            return this;
+        };
+        /**
+         * Adds an 'AND' condition to the query
+         *
+         * @param col - column field to match on
+         * @param op - SQLite binary [operator]{@link https://www.sqlite.org/lang_expr.html}
+         * @param val - value to match against `col`
+         * @see {@link or}
+         * @example
+         * ```
+         *
+         *  return Class.all.where('col2', '>', 10).and('col2', '<', 30).get();
+         *  // -> SELECT ... WHERE col2 > 10 AND col2 < 30
+         * ```
+         */
+        Query.prototype.and = function (col, op, val) {
+            return this.addCondition('AND', col, op, val);
+        };
+        /**
+         * alias for {@link and}
+         *
+         * @example
+         * ```
+         *
+         *  return Class.all.where('col2', '>', 10).get();
+         * ```
+         */
+        Query.prototype.where = function () {
+            return this.and.apply(this, arguments);
+        };
+        /**
+         * Adds an 'OR' condition to the query
+         *
+         * @param col - column field to match on
+         * @param op - SQLite binary [operator]{@link https://www.sqlite.org/lang_expr.html}
+         * @param val - value to match against `col`
+         * @see {@link and}
+         * @example
+         * ```
+         *
+         *  return Class.all.where('col2', '=', 10).or('col2', '=', 30).get();
+         *  // -> SELECT ... WHERE col2 = 10 OR col2 = 30
+         * ```
+         */
+        Query.prototype.or = function (col, op, val) {
+            return this.addCondition('OR', col, op, val);
+        };
+        /**
+         * Sort the results by specified field
+         *
+         * @param col - column to sort by
+         * @param asc - sort ascending (true, default) or descending (false)
+         * @see {@link nocase}
+         * @example
+         * ```
+         *
+         *  return Class.all.order('x').get();
+         *  // -> SELECT ... ORDER BY x
+         * ```
+         */
+        Query.prototype.order = function (col, asc) {
+            this._order = this._model.tableName + '.' + col;
+            if (typeof asc !== 'undefined') {
+                this._asc = asc;
+            }
+            return this;
+        };
+        /**
+         * Changes the match collation to be case-insensitive.  Only applies to result sorting, as 'LIKE' is
+         * always case-insensitive
+         *
+         * @see {@link order}
+         * @example
+         * ```
+         *
+         *  return Class.all.order('x').nocase().get();
+         *  // -> SELECT ... ORDER BY x COLLATE NOCASE
+         * ```
+         */
+        Query.prototype.nocase = function () {
+            this._nocase = true;
+            return this;
+        };
+        /**
+         * Limits the result set to a certain number.  Useful in pagination
+         *
+         * @see {@link offset}
+         * @example
+         * ```
+         *
+         *  return Class.all.limit(5).get();
+         *  // -> SELECT ... FROM ... LIMIT 5
+         * ```
+         */
+        Query.prototype.limit = function (count) {
+            this._limit = count;
+            return this;
+        };
+        /**
+         * Skip a number of results.  Useful in pagination
+         *
+         * @see {@link limit}
+         * @example
+         * ```
+         *
+         *  return Class.all.limit(10).offset(50).get();
+         *  // -> SELECT ... FROM ... LIMIT 10 OFFSET 50
+         * ```
+         */
+        Query.prototype.offset = function (count) {
+            this._offset = count;
+            return this;
+        };
+        /**
+         * Executes the query, returning a promise resolving with the count of objects that match
+         *
+         * @see {@link get}
+         * @example
+         * ```
+         *
+         *  return Class.all.count()
+         *  .then(function(count) { console.log(count + " objects") });
+         *  // -> SELECT COUNT(*) FROM ...
+         * ```
+         */
+        Query.prototype.count = function () {
+            this._justCount = true;
+            return this.get();
+        };
+        /**
+         * Executes the query, returning a promise resolving with the array of objects that match any conditions
+         * set on the Query
+         *
+         * @see {@link count}
+         * @example
+         * ```
+         *
+         *  return Class.all.where('x', '>', 0).get();
+         *  // -> SELECT ... WHERE x > 0
+         * ```
+         */
+        Query.prototype.get = function () {
+            var countProp = 'COUNT(*)';
+            var stmt = 'SELECT ';
+            var model = this._model;
+            if (this._justCount) {
+                stmt += countProp;
+            }
+            else {
+                stmt += this._columns.join(', ');
+            }
+            stmt += ' FROM ' + this._tables.join(', ');
+            var args = [];
+            for (var i = 0; i < this._conditions.length; i++) {
+                var cond = this._conditions[i];
+                stmt += (i === 0) ? ' WHERE ' : (' ' + cond.conj + ' ');
+                stmt += cond.col + ' ' + cond.op + ' ' + cond.val;
+                if ('arg' in cond) {
+                    args.push(cond.arg);
+                }
+            }
+            if (this._order) {
+                stmt += ' ORDER BY ' + this._order;
+                stmt += (this._nocase ? ' COLLATE NOCASE' : '');
+                stmt += (this._asc ? ' ASC' : ' DESC');
+            }
+            console.assert(!this._offset || this._limit);
+            if (this._limit) {
+                stmt += ' LIMIT ' + this._limit;
+                if (this._offset) {
+                    stmt += ' OFFSET ' + this._offset;
+                }
+            }
+            var objects = [];
+            var query = this;
+            return this._store.execRead(stmt, args, function (tx, results) {
+                if (query._justCount) {
+                    return results.rows.item(0)[countProp];
+                }
+                for (var i = 0; i < results.rows.length; i++) {
+                    var o = Updraft.constructFromDb(model, results.rows.item(i));
+                    objects.push(o);
+                }
+                var setcols = Object.keys(model.columns)
+                    .filter(function (col) {
+                    return (model.columns[col].type === Updraft.ColumnType.set);
+                });
+                return Promise.all(objects.map(function (o) {
+                    return Promise.all(setcols.map(function (col) {
+                        var setTable = model.columns[col].setTable;
+                        console.assert(setTable != null);
+                        var key = o._primaryKey();
+                        var s = 'SELECT ' + col;
+                        s += ' FROM ' + setTable.tableName;
+                        s += ' WHERE ' + query._model.key + ' = ?';
+                        return query._store.exec(tx, s, [key], function (tx, results) {
+                            if (results.rows.length > 0) {
+                                o[col].initFromDb(results);
+                            }
+                        });
+                    }));
+                }))
+                    .then(function () {
+                    return objects;
+                });
+            });
+        };
+        return Query;
+    })();
+    Updraft.Query = Query;
+})(Updraft || (Updraft = {}));
+/// <reference path="./util.ts" />
+/// <reference path="./store.ts" />
+/// <reference path="./set.ts" />
+/// <reference path="./query.ts" />
+var Updraft;
+(function (Updraft) {
+    /**
+     * Instances of this type will have properties for all the columns defined in its {@link ClassTemplate}.
+     *  Do not create objects of type Instance directly; instead create subclassed objects
+     *
+     * @see {@link createClass}
+     * @example
+     * ```
+     *
+     *   // ------ typescript ------
+     *   class Task extends Updraft.Instance {
+     *     constructor() {
+     *       super.apply(this, arguments);
+     *     }
+     *
+     *     public name: string;
+     *     public description: string;
+     *     public done: boolean;
+     *
+     *     static tableName: string = 'tasks';
+     *     static columns: Updraft.ColumnSet = {
+     *       name: Updraft.Column.Text().Key(),
+     *       description: Updraft.Column.Text(),
+     *       done: Updraft.Column.Bool()
+     *     };
+     *   }
+     * ```
+     */
+    var Instance = (function () {
+        function Instance(props) {
+            var o = this;
+            o._changeMask = 0;
+            props = props || {};
+            for (var key in props) {
+                var value = props[key];
+                if (value instanceof Instance) {
+                    value = value._primaryKey();
+                }
+                o[key] = value;
+            }
+        }
+        /**
+         * Return the object's primary key's value
+         *
+         * @returns Value of primary key
+         * @private
+         * @example
+         * ```
+         *
+         *  var x = new Class();
+         *  x.id = 123;
+         *  console.log(x._primaryKey());
+         *  // -> '123'
+         * ```
+         */
+        Instance.prototype._primaryKey = function () {
+            var key = '_' + this._model.key;
+            console.assert(key in this);
+            return this[key];
+        };
+        /**
+         * Get the fields that have been changed since the object was last loaded/saved
+         *
+         * @returns Names of the fields that have changed
+         * @private
+         * @example
+         * ```
+         *
+         *  var x = new Class();
+         *  x.foo = 'bar';
+         *  console.log(x.changes());
+         *  // -> ['foo']
+         * ```
+         */
+        Instance.prototype._changes = function () {
+            var changes = [];
+            var propIdx = 0;
+            for (var col in this._model.columns) {
+                var propMask = (1 << propIdx++);
+                if (this._changeMask & propMask) {
+                    changes.push(col);
+                }
+            }
+            return changes;
+        };
+        /**
+         * Set state to be have no changes
+         * @private
+         */
+        Instance.prototype._clearChanges = function () {
+            this._changeMask = 0;
+            for (var col in this._model.columns) {
+                if (col in this
+                    && typeof this[col] !== 'undefined'
+                    && typeof this[col]['clearChanges'] === 'function') {
+                    this[col].clearChanges();
+                }
+            }
+        };
+        return Instance;
+    })();
+    Updraft.Instance = Instance;
+    /**
+     * Add a get/set property to the class
+     *
+     * @param model - class template
+     * @param proto - function prototype
+     * @param col - the column/field to set the property on
+     * @param propMask - the bits to set on <tt>_changes</tt>
+     * @private
+     */
+    function addClassProperty(model, proto, col, propMask) {
+        var prop = '_' + col;
+        switch (model.columns[col].type) {
+            default:
+                Object.defineProperty(proto, col, {
+                    configurable: true,
+                    get: function () {
+                        return this[prop];
+                    },
+                    set: function (val) {
+                        if (this[prop] !== val) {
+                            this[prop] = val;
+                            this._changeMask |= propMask;
+                        }
+                    }
+                });
+                break;
+            case Updraft.ColumnType.ptr:
+                Object.defineProperty(proto, col, {
+                    configurable: true,
+                    get: function () {
+                        var ref = this._model.columns[col].ref;
+                        console.assert(ref.get != null);
+                        var ret = {
+                            ref: ref,
+                            own: this,
+                            get: function () { return this.ref.get(this.own[prop]); }
+                        };
+                        ret[ref.key] = this[prop];
+                        return ret;
+                    },
+                    set: function (val) {
+                        // allow client to do object.field = otherobject; we'll transform it to object.field = otherobject._primaryKey()
+                        val = Updraft.keyOf(val);
+                        if (this[prop] !== val) {
+                            this[prop] = val;
+                            this._changeMask |= propMask;
+                        }
+                    }
+                });
+                break;
+            case Updraft.ColumnType.set:
+                Object.defineProperty(proto, col, {
+                    configurable: true,
+                    get: function () {
+                        if (!(prop in this)) {
+                            var o = this;
+                            o[prop] = new Updraft.Set(function () { o._changeMask |= propMask; });
+                        }
+                        return this[prop];
+                    },
+                    set: function (val) {
+                        if (!(prop in this)) {
+                            var o = this;
+                            o[prop] = new Updraft.Set(function () { o._changeMask |= propMask; });
+                        }
+                        this[prop].assign(val);
+                        this._changeMask |= propMask;
+                    }
+                });
+                break;
+        }
+    }
+    /**
+     * Add properties to a provided {@link Instance} subclass that can be created, saved and retrieved from the db
+     * @private
+     */
+    function MakeClassTemplate(templ, store) {
+        console.assert(store != null);
+        console.assert(templ != null);
+        console.assert(templ.tableName != null);
+        console.assert(templ.tableName[0] !== '_');
+        console.assert(templ.columns != null);
+        console.assert(Object.keys(templ.columns).length < 64);
+        console.assert(!('changes' in templ.columns));
+        console.assert(!('template' in templ.columns));
+        console.assert(!templ.renamedColumns || Object.keys(templ.renamedColumns).every(function (old) { return !(old in templ.columns); }));
+        // instance properties
+        var proto = templ.prototype;
+        Object.defineProperty(proto, '_model', { configurable: true, enumerable: true, value: templ });
+        Object.defineProperty(proto, '_store', { configurable: true, enumerable: true, value: store });
+        // class static methods/properties
+        templ.get = function (id) {
+            return this.all.where(this.key, '=', id).get()
+                .then(function (results) {
+                console.assert(results.length < 2);
+                if (results.length === 0) {
+                    return null;
+                }
+                else {
+                    return results[0];
+                }
+            });
+        };
+        Object.defineProperty(templ, 'all', {
+            configurable: true,
+            get: function () {
+                return new Updraft.Query(this, store);
+            }
+        });
+        templ.indices = templ.indices || [];
+        var key = null;
+        var keyType = null;
+        var propIdx = 0;
+        for (var col in templ.columns) {
+            if (templ.columns[col].isKey) {
+                key = col;
+                keyType = templ.columns[col].type;
+            }
+            if (templ.columns[col].isIndex) {
+                templ.indices.push([col]);
+            }
+            var propMask = (1 << propIdx++);
+            addClassProperty(templ, proto, col, propMask);
+            if (propIdx >= 63) {
+                throw new Error("class has too many columns- max 63");
+            }
+        }
+        console.assert(key != null);
+        templ.key = key;
+        templ.keyType = keyType;
+    }
+    Updraft.MakeClassTemplate = MakeClassTemplate;
+    /**
+     * construct object from a database result row
+     *
+     * @return Instance with fields initialized according to row, with _isInDb=true and no changes set
+     * @private
+     */
+    function constructFromDb(model, row) {
+        var o = new model();
+        console.assert(o instanceof Instance);
+        for (var col in row) {
+            var val = row[col];
+            var _col = '_' + col;
+            // TODO: refactor this into column class
+            switch (model.columns[col].type) {
+                case Updraft.ColumnType.json:
+                    o[_col] = JSON.parse(val);
+                    break;
+                case Updraft.ColumnType.date:
+                case Updraft.ColumnType.datetime:
+                    o[_col] = new Date(val * 1000);
+                    break;
+                case Updraft.ColumnType.enum:
+                    var enumClass = o._model.columns[col].enum;
+                    console.assert(enumClass != null);
+                    if (typeof enumClass === 'object' && typeof enumClass.get == 'function') {
+                        o[_col] = enumClass.get(val);
+                    }
+                    else {
+                        console.assert(val in enumClass);
+                        o[_col] = enumClass[val];
+                    }
+                    break;
+                case Updraft.ColumnType.set:
+                    o[_col].push(val);
+                    break;
+                default:
+                    o[_col] = val;
+                    break;
+            }
+        }
+        o._isInDb = true;
+        console.assert(o._changeMask === 0);
+        return o;
+    }
+    Updraft.constructFromDb = constructFromDb;
+})(Updraft || (Updraft = {}));
+/// <reference path="../typings/tsd.d.ts" />
+/// <reference path="./util.ts" />
+/// <reference path="./model.ts" />
+/// <reference path="./websql.d.ts" />
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+var Updraft;
+(function (Updraft) {
+    /**
+     * Column types.  Note that these are just column affinities, and technically any value type can be stored in any column type.
+     * see {@link https://www.sqlite.org/datatype3.html}
+     */
+    (function (ColumnType) {
+        ColumnType[ColumnType["int"] = 0] = "int";
+        ColumnType[ColumnType["real"] = 1] = "real";
+        ColumnType[ColumnType["bool"] = 2] = "bool";
+        ColumnType[ColumnType["text"] = 3] = "text";
+        ColumnType[ColumnType["blob"] = 4] = "blob";
+        ColumnType[ColumnType["enum"] = 5] = "enum";
+        ColumnType[ColumnType["date"] = 6] = "date";
+        ColumnType[ColumnType["datetime"] = 7] = "datetime";
+        ColumnType[ColumnType["json"] = 8] = "json";
+        ColumnType[ColumnType["ptr"] = 9] = "ptr";
+        ColumnType[ColumnType["set"] = 10] = "set";
+    })(Updraft.ColumnType || (Updraft.ColumnType = {}));
+    var ColumnType = Updraft.ColumnType;
+    /**
+     * Column in db.  Use static methods to create columns.
+     */
+    var Column = (function () {
+        function Column(type) {
+            this.type = type;
+        }
+        /**
+         * Column is the primary key.  Only one column can have this set.
+         */
+        Column.prototype.Key = function (value) {
+            if (value === void 0) { value = true; }
+            this.isKey = value;
+            return this;
+        };
+        /**
+         * Create an index for this column for faster queries.
+         */
+        Column.prototype.Index = function (value) {
+            if (value === void 0) { value = true; }
+            this.isIndex = value;
+            return this;
+        };
+        /**
+         * Set a default value for the column
+         */
+        // TODO
+        Column.prototype.Default = function (value) {
+            this.defaultValue = value;
+            return this;
+        };
+        /** create a column with 'INTEGER' affinity */
+        Column.Int = function () {
+            return new Column(ColumnType.int);
+        };
+        /** create a column with 'REAL' affinity */
+        Column.Real = function () {
+            return new Column(ColumnType.real);
+        };
+        /** create a column with 'BOOL' affinity */
+        Column.Bool = function () {
+            return new Column(ColumnType.bool);
+        };
+        /** create a column with 'TEXT' affinity */
+        Column.Text = function () {
+            return new Column(ColumnType.text);
+        };
+        /** create a column with 'TEXT' affinity */
+        Column.String = function () {
+            return new Column(ColumnType.text);
+        };
+        /** create a column with 'BLOB' affinity */
+        Column.Blob = function () {
+            var c = new Column(ColumnType.blob);
+            return c;
+        };
+        /** a javascript object with instance method 'toString' and class method 'get' (e.g. {@link https://github.com/adrai/enum}). */
+        Column.Enum = function (enum_) {
+            var c = new Column(ColumnType.enum);
+            c.enum = enum_;
+            return c;
+        };
+        /** a javascript Date objct, stored in db as seconds since Unix epoch (time_t) [note: precision is seconds] */
+        Column.Date = function () {
+            return new Column(ColumnType.date);
+        };
+        /** a javascript Date objct, stored in db as seconds since Unix epoch (time_t) [note: precision is seconds] */
+        Column.DateTime = function () {
+            return new Column(ColumnType.datetime);
+        };
+        /** object will be serialized & restored as JSON text */
+        Column.JSON = function () {
+            return new Column(ColumnType.json);
+        };
+        /** points to an object in another table.  Its affinity will automatically be that table's key's affinity */
+        Column.Ptr = function (ref) {
+            var c = new Column(ColumnType.ptr);
+            c.ref = ref;
+            return c;
+        };
+        /** unordered collection */
+        Column.Set = function (ref /*| ColumnType*/) {
+            var c = new Column(ColumnType.set);
+            c.ref = ref;
+            return c;
+        };
+        Column.sqlType = function (type) {
+            switch (type) {
+                case ColumnType.int:
+                    return 'INTEGER';
+                case ColumnType.bool:
+                    return 'BOOL';
+                case ColumnType.real:
+                    return 'REAL';
+                case ColumnType.text:
+                case ColumnType.json:
+                case ColumnType.enum:
+                    return 'TEXT';
+                case ColumnType.blob:
+                    return 'BLOB';
+                case ColumnType.date:
+                    return 'DATE';
+                case ColumnType.datetime:
+                    return 'DATETIME';
+                default:
+                    throw new Error("unsupported type");
+            }
+        };
+        return Column;
+    })();
+    Updraft.Column = Column;
+    /**
+     * The parameters used to open a database
+     *
+     * @property name - the name of the database to open
+     */
+    var StoreOptions = (function () {
+        function StoreOptions() {
+        }
+        return StoreOptions;
+    })();
+    Updraft.StoreOptions = StoreOptions;
+    /**
+     * Database schema.  The outer keys will be the tables in the database.  The values will consist of an
+     * object whose keys will be the table's rows and values will be the row's type.  It will also have an
+     * '_indices' object with all the indices found.
+     * Note: tables or indices beginning with underscore or 'sqlite' will be ignored
+     *
+     * @private
+     * @example
+     * ```
+     *
+     *    var schema = {
+     *      'todos': {
+     *        _indices: {
+     *          'index_todos__name': 'CREATE INDEX ...',
+     *        },
+     *        _triggers: {
+     *          'trigger_todos__task': 'CREATE TRIGGER ...',
+     *        },
+     *        'id': 'INTEGER PRIMARY KEY',
+     *        'name': 'TEXT',
+     *      },
+     *      'tasks': {
+     *        'id': 'INTEGER PRIMARY KEY',
+     *        'description': 'TEXT',
+     *      }
+     *    };
+     * ```
+     */
+    var Schema = (function () {
+        function Schema() {
+        }
+        return Schema;
+    })();
+    Updraft.Schema = Schema;
+    /**
+     * @private
+     */
+    var SchemaTable = (function () {
+        function SchemaTable() {
+        }
+        return SchemaTable;
+    })();
+    Updraft.SchemaTable = SchemaTable;
+    /**
+     * Internal class used in key/value storage
+     * @private
+     */
+    var KeyValue = (function (_super) {
+        __extends(KeyValue, _super);
+        function KeyValue(props) {
+            _super.call(this, props);
+        }
+        KeyValue.get = function (id) { return null; };
+        KeyValue.tableName = 'updraft_kv';
+        KeyValue.columns = {
+            key: Column.String().Key(),
+            value: Column.String(),
+        };
+        return KeyValue;
+    })(Updraft.Instance);
+    /**
+     * @private
+     */
+    function anyFcn(tx, results) { }
+    /**
+     * Interface for creating classes & database interaction
+     */
+    var Store = (function () {
+        function Store() {
+            var self = this;
+            this.logSql = false;
+            self.tables = [];
+            self.kv = {};
+            this.addClass(KeyValue);
+        }
+        /**
+         * create a new type whose instances can be stored in a database
+         * @param templ
+         */
+        Store.prototype.addClass = function (templ) {
+            Updraft.MakeClassTemplate(templ, this);
+            this.tables.push(templ);
+        };
+        /**
+         * set a key/value pair
+         *
+         * @param key
+         * @param value - value will be stored as JSON text, so value can be any object that will
+         *        survive serialization
+         * @return a promise that will resolve once the value is saved.  Key/values are cached
+         *         on the <tt>Store</tt>, so you can use the value immediately and don't need to wait for
+         *         the promise to resolve.
+         */
+        Store.prototype.set = function (key, value) {
+            this.kv[key] = value;
+            var pair = new KeyValue({ key: key, value: JSON.stringify(value) });
+            return this.save(pair);
+        };
+        /**
+         * gets a key/value pair.  Values are cached on the <tt>Store</tt> so they are immediately available
+         *
+         * @param key
+         * @return value
+         */
+        Store.prototype.get = function (key) {
+            return this.kv[key];
+        };
+        /**
+         * read the key/value pairs from the database, caching them on the <tt>Store</tt>
+         * @private
+         */
+        Store.prototype.loadKeyValues = function () {
+            var self = this;
+            return KeyValue.all.get().then(function (vals) {
+                for (var i = 0; i < vals.length; i++) {
+                    var val = vals[i];
+                    self.kv[val.key] = JSON.parse(val.value);
+                }
+            });
+        };
+        /**
+         * Delete all tables in database.  For development purposes; you probably don't want to ship with this.
+         *
+         * @param opts
+         * @return a promise that resolves when all tables are deleted
+         * @see {@link open}
+         * @example
+         * ```
+         *
+         *    store.purge({name: 'my cool db'}).then(function() {
+         *      // everything is gone
+         *    });
+         * ```
+         */
+        Store.prototype.purge = function (opts) {
+            console.assert(!this.db);
+            this.db = window.openDatabase(opts.name, '1.0', 'updraft created database', 5 * 1024 * 1024);
+            console.assert(this.db != null);
+            var self = this;
+            console.assert(this instanceof Store);
+            return self.readSchema()
+                .then(function (schema) {
+                return new Promise(function (fulfill, reject) {
+                    self.db.transaction(function (tx) {
+                        var promises = [];
+                        Object.keys(schema).forEach(function (table) {
+                            promises.push(self.exec(tx, 'DROP TABLE ' + table));
+                        });
+                        return Promise.all(promises)
+                            .then(function () {
+                            self.db = null;
+                        })
+                            .then(fulfill, reject);
+                    });
+                });
+            });
+        };
+        /**
+         * open the database
+         *
+         * @param opts
+         * @return a promise that resolves with no parameters when the database is created and ready
+         * @example
+         * ```
+         *
+         *    store.open({name: 'my cool db'}).then(function() {
+         *      // start loading & saving objects
+         *    });
+         * ```
+         */
+        Store.prototype.open = function (opts) {
+            this.db = window.openDatabase(opts.name, '1.0', 'updraft created database', 5 * 1024 * 1024);
+            console.assert(this.db != null);
+            // add tables for 'set' columns
+            var setTables = [];
+            for (var i = 0; i < this.tables.length; i++) {
+                var table = this.tables[i];
+                for (var col in table.columns) {
+                    if (table.columns[col].type === ColumnType.set) {
+                        var ref = table.columns[col].ref;
+                        console.assert(ref != null);
+                        var setTable = {
+                            tableName: table.tableName + '_' + col,
+                            recreate: table.recreate,
+                            temp: table.temp,
+                            key: '',
+                            keyType: table.keyType,
+                            columns: {},
+                            indices: [[table.key], [col]],
+                            get: function (id) { throw new Error("not callable"); }
+                        };
+                        setTable.columns[table.key] = new Column(table.keyType),
+                            setTable.columns[col] = new Column(ref.keyType),
+                            table.columns[col].setTable = setTable;
+                        setTables.push(setTable);
+                    }
+                }
+            }
+            this.tables = this.tables.concat(setTables);
+            var self = this;
+            console.assert(this instanceof Store);
+            return self.readSchema()
+                .then(self.syncTables.bind(self))
+                .then(self.loadKeyValues.bind(self));
+        };
+        /**
+         * close the database
+         */
+        Store.prototype.close = function () {
+            this.db = null;
+            this.constructor();
+        };
+        /**
+         * exec a sql statement within a given transaction
+         *
+         * @param tx - a transaction created by <tt>db.transaction</tt> or <tt>db.readTransaction</tt>
+         * @param stmt - sql statement to execute
+         * @param args - array of strings to substitute into <tt>stmt</tt>
+         * @param callback - callback with parameters (transaction, [SQLResultSet]{@link http://www.w3.org/TR/webdatabase/#sqlresultset})
+         * @return a promise that resolves with (transaction, return value of the callback)
+         * @private
+         */
+        Store.prototype.exec = function (tx, stmt, args, callback) {
+            if (callback === void 0) { callback = anyFcn; }
+            if (this.logSql) {
+                console.log(stmt, args);
+            }
+            var self = this;
+            return new Promise(function (fulfill, reject) {
+                try {
+                    tx.executeSql(stmt, args, function (tx, results) {
+                        var ret = callback ? callback(tx, results) : null;
+                        return Promise.resolve(ret).then(fulfill, reject);
+                    }, function (tx, error) {
+                        self.reportError(error);
+                        reject(error);
+                        return false;
+                    });
+                }
+                catch (reason) {
+                    console.log('Failed to exec "' + stmt + '":' + reason);
+                    throw reason;
+                }
+            });
+        };
+        /**
+         * exec a sql statement within a new read transaction
+         *
+         * @param stmt - sql statement to execute
+         * @param args - array of strings to substitute into <tt>stmt</tt>
+         * @param callback - callback with parameters (transaction, [SQLResultSet]{@link http://www.w3.org/TR/webdatabase/#sqlresultset})
+         * @return a promise that resolves with (transaction, return value of the callback)
+         * @private
+         */
+        Store.prototype.execRead = function (stmt, args, callback) {
+            var self = this;
+            console.assert(self.db != null);
+            return new Promise(function (fulfill, reject) {
+                self.db.readTransaction(function (rtx) {
+                    return self.exec(rtx, stmt, args, callback)
+                        .then(fulfill, reject);
+                });
+            });
+        };
+        Store.prototype.reportError = function (error) {
+            switch (error.code) {
+                case error.SYNTAX_ERR:
+                    console.log("Syntax error: " + error.message);
+                    break;
+                default:
+                    console.log(error);
+            }
+        };
+        /**
+         * get the existing database's schema in object form
+         *
+         * @return a promise that resolves with the {@link Schema}
+         */
+        Store.prototype.readSchema = function () {
+            function tableFromSql(sql) {
+                var table = { _indices: {}, _triggers: {} };
+                var matches = sql.match(/\((.*)\)/);
+                if (matches) {
+                    var fields = matches[1].split(',');
+                    for (var i = 0; i < fields.length; i++) {
+                        var ignore = /^\s*(primary|foreign)\s+key/i; // ignore standalone 'PRIMARY KEY xxx'
+                        if (fields[i].match(ignore)) {
+                            continue;
+                        }
+                        var quotedName = /"(.+)"\s+(.*)/;
+                        var unquotedName = /(\w+)\s+(.*)/;
+                        var parts = fields[i].match(quotedName);
+                        if (!parts) {
+                            parts = fields[i].match(unquotedName);
+                        }
+                        if (parts) {
+                            table[parts[1]] = parts[2];
+                        }
+                    }
+                }
+                return table;
+            }
+            return this.execRead('SELECT name, tbl_name, type, sql FROM sqlite_master', [], function (tx, results) {
+                /*jshint camelcase:false*/
+                var schema = {};
+                for (var i = 0; i < results.rows.length; i++) {
+                    var row = results.rows.item(i);
+                    if (row.name[0] != '_' && !Updraft.startsWith(row.name, 'sqlite')) {
+                        switch (row.type) {
+                            case 'table':
+                                schema[row.name] = tableFromSql(row.sql);
+                                break;
+                            case 'index':
+                                schema[row.tbl_name]._indices = schema[row.tbl_name]._indices || {};
+                                schema[row.tbl_name]._indices[row.name] = row.sql;
+                                break;
+                            case 'trigger':
+                                schema[row.tbl_name]._triggers = schema[row.tbl_name]._triggers || {};
+                                schema[row.tbl_name]._triggers[row.name] = row.sql;
+                                break;
+                        }
+                    }
+                }
+                return schema;
+            });
+        };
+        /**
+         * Check whether the tables in the current database match up with the ClassFactories.
+         * They will be created or modified as needed.
+         *
+         * @param schema
+         * @return A promise that resolves with no parameters once all tables are up-to-date.
+         * @private
+         */
+        Store.prototype.syncTables = function (schema) {
+            var self = this;
+            console.assert(self.db != null);
+            return new Promise(function (fulfill, reject) {
+                self.db.transaction(function (tx) {
+                    return Promise.all(self.tables.map(function (f) { return self.syncTable(tx, schema, f); }))
+                        .then(fulfill, reject);
+                });
+            });
+        };
+        /**
+         * Check whether an individual table in the current database matches up with its corresponding ClassTemplate.
+         * It will be created or modified as needed.
+         *
+         * @param tx - a writeable transaction
+         * @param schema
+         * @param f
+         * @return A promise that resolves with no parameters once the table is up-to-date.
+         * @private
+         */
+        Store.prototype.syncTable = function (tx, schema, f) {
+            var self = this;
+            // execute CREATE TABLE statement
+            function createTable(name) {
+                var cols = [];
+                for (var col in f.columns) {
+                    var attrs = f.columns[col];
+                    var decl;
+                    switch (attrs.type) {
+                        case ColumnType.ptr:
+                            console.assert(attrs.ref != null);
+                            console.assert(attrs.ref.columns != null);
+                            console.assert(attrs.ref.tableName != null);
+                            console.assert(attrs.ref.key != null);
+                            var foreignType = attrs.ref.columns[attrs.ref.key].type;
+                            decl = col + ' ' + Column.sqlType(foreignType);
+                            cols.push(decl);
+                            break;
+                        case ColumnType.set:
+                            break;
+                        default:
+                            decl = col + ' ' + Column.sqlType(attrs.type);
+                            if (f.key === col) {
+                                decl += ' PRIMARY KEY';
+                            }
+                            cols.push(decl);
+                    }
+                }
+                return self.exec(tx, 'CREATE ' + (f.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')');
+            }
+            function dropTable(name) {
+                return self.exec(tx, 'DROP TABLE ' + name);
+            }
+            function createIndices(force) {
+                if (force === void 0) { force = false; }
+                var promises = [];
+                var toRemove = (f.tableName in schema) ? Updraft.clone(schema[f.tableName]._indices) : {};
+                f.indices.forEach(function (index) {
+                    var name = 'index_' + f.tableName + '__' + index.join('_');
+                    var sql = 'CREATE INDEX ' + name + ' ON ' + f.tableName + ' (' + index.join(', ') + ')';
+                    delete toRemove[name];
+                    var create = true;
+                    var drop = false;
+                    if (schema[f.tableName] && schema[f.tableName]._indices && schema[f.tableName]._indices[name]) {
+                        if (schema[f.tableName]._indices[name] === sql) {
+                            create = false;
+                        }
+                        else {
+                            drop = true;
+                        }
+                    }
+                    if (drop) {
+                        promises.push(self.exec(tx, 'DROP INDEX ' + name));
+                    }
+                    if (create || force) {
+                        promises.push(self.exec(tx, sql));
+                    }
+                });
+                // delete orphaned indices
+                Object.keys(toRemove).forEach(function (name) {
+                    promises.push(self.exec(tx, 'DROP INDEX ' + name));
+                });
+                return Promise.all(promises);
+            }
+            // check if table already exists
+            if (f.tableName in schema) {
+                if (f.recreate) {
+                    return Promise.all([
+                        dropTable(f.tableName),
+                        createTable(f.tableName),
+                        createIndices(true),
+                    ]);
+                }
+                else {
+                    //console.log("table " + f.tableName + " exists; checking columns");
+                    var columns = Updraft.clone(schema[f.tableName]);
+                    delete columns._indices;
+                    delete columns._triggers;
+                    var key;
+                    var addedColumns = [];
+                    var addedForeignKey = false;
+                    for (key in f.columns) {
+                        if (!(key in columns)) {
+                            addedColumns.push(key);
+                            if (f.columns[key].ref) {
+                                addedForeignKey = true;
+                            }
+                        }
+                    }
+                    var renamedColumns = Updraft.clone(f.renamedColumns) || {};
+                    for (key in Object.keys(renamedColumns)) {
+                        if (!(key in columns)) {
+                            delete renamedColumns[key];
+                        }
+                    }
+                    var deletedColumns = Object.keys(columns).filter(function (col) {
+                        return !(col in f.columns);
+                    });
+                    if (addedForeignKey || Object.keys(renamedColumns).length > 0 || deletedColumns.length > 0) {
+                        // must recreate table and migrate data
+                        var copyData = function (oldName, newName) {
+                            var oldTableColumns = Object.keys(columns).filter(function (col) { return (col in f.columns) || (col in renamedColumns); });
+                            var newTableColumns = oldTableColumns.map(function (col) { return (col in renamedColumns) ? renamedColumns[col] : col; });
+                            if (oldTableColumns.length && newTableColumns.length) {
+                                var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
+                                stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
+                                return self.exec(tx, stmt);
+                            }
+                        };
+                        var renameTable = function (oldName, newName) {
+                            return self.exec(tx, 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName);
+                        };
+                        var newTableName = 'new_' + f.tableName;
+                        console.assert(!(newTableName in schema));
+                        return Promise.all([
+                            createTable(newTableName),
+                            copyData(f.tableName, newTableName),
+                            dropTable(f.tableName),
+                            renameTable(newTableName, f.tableName),
+                            createIndices(true)
+                        ]);
+                    }
+                    else if (addedColumns.length > 0) {
+                        // alter table, add columns
+                        var promises = [];
+                        addedColumns.forEach(function (columnName) {
+                            var attrs = f.columns[columnName];
+                            var columnDecl = columnName + ' ' + Column.sqlType(attrs.type);
+                            promises.push(self.exec(tx, 'ALTER TABLE ' + f.tableName + ' ADD COLUMN ' + columnDecl));
+                        });
+                        promises.push(createIndices());
+                        return Promise.all(promises);
+                    }
+                    else {
+                        // no table modification is required
+                        return createIndices();
+                    }
+                }
+            }
+            else {
+                //console.log('creating table: ' + f.tableName);
+                return Promise.all([
+                    createTable(f.tableName),
+                    createIndices(true)
+                ]);
+            }
+        };
+        /**
+         * Save all objects to database.  Atomic operation- all objects will be saved within the same transaction
+         * or nothing will be written.  Objects can be heterogeneous.
+         *
+         * @param objects - objects to save
+         */
+        Store.prototype.save = function () {
+            var objects = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                objects[_i - 0] = arguments[_i];
+            }
+            objects.map(function (o) {
+                console.assert(('_' + o._model.key) in o, "object must have a key");
+            });
+            var self = this;
+            return new Promise(function (resolve, reject) {
+                self.db.transaction(function (tx) {
+                    function value(o, col) {
+                        var val = o['_' + col];
+                        switch (o._model.columns[col].type) {
+                            case ColumnType.date:
+                            case ColumnType.datetime:
+                                if (typeof val !== 'undefined') {
+                                    console.assert(val instanceof Date);
+                                    val = Math.floor(val.getTime() / 1000);
+                                }
+                                break;
+                            case ColumnType.json:
+                                val = JSON.stringify(val);
+                                break;
+                            case ColumnType.enum:
+                                console.assert(o._model.columns[col].enum != null);
+                                val = val.toString();
+                                break;
+                            default:
+                                console.assert(typeof val !== 'object');
+                                break;
+                        }
+                        return val;
+                    }
+                    function insertSets(o, force) {
+                        var changes = o._changes();
+                        var f = o._model;
+                        var promises = [];
+                        Object.keys(f.columns)
+                            .filter(function (col) {
+                            return (f.columns[col].type === ColumnType.set) && (force || changes.indexOf(col) > -1);
+                        })
+                            .forEach(function (col) {
+                            var ref = f.columns[col].ref;
+                            var setTable = f.columns[col].setTable;
+                            console.assert(ref != null);
+                            console.assert(setTable != null);
+                            var set = o['_' + col];
+                            if (set) {
+                                var key = o._primaryKey();
+                                var deletions = set.getRemoved();
+                                var additions = set.getAdded();
+                                deletions.forEach(function (del) {
+                                    promises.push(self.exec(tx, 'DELETE FROM ' + setTable.tableName + ' WHERE ' + f.key + '=? AND ' + col + '=?', [key, del]));
+                                });
+                                additions.forEach(function (add) {
+                                    promises.push(self.exec(tx, 'INSERT INTO ' + setTable.tableName + ' (' + f.key + ', ' + col + ') VALUES (?, ?)', [key, add]));
+                                });
+                            }
+                        });
+                        return Promise.all(promises).then(function () { return true; });
+                    }
+                    function insert(o, callback) {
+                        if (callback === void 0) { callback = null; }
+                        var f = o._model;
+                        var isNotSet = function (col) { return f.columns[col].type !== ColumnType.set; };
+                        var cols = Object.keys(f.columns).filter(isNotSet);
+                        var columns = cols.join(', ');
+                        var values = cols.map(function () { return '?'; }).join(', ');
+                        var args = cols.map(function (col) { return value(o, col); });
+                        return self.exec(tx, 'INSERT OR IGNORE INTO ' + f.tableName + ' (' + columns + ') VALUES (' + values + ')', args, function (tx, results) {
+                            var changes = results.rowsAffected !== 0;
+                            return callback ? callback(changes) : changes;
+                        });
+                    }
+                    function update(o, callback) {
+                        if (callback === void 0) { callback = null; }
+                        var f = o._model;
+                        var cols = o._changes();
+                        var isNotSet = function (col) { return f.columns[col].type !== ColumnType.set; };
+                        var isNotKey = function (col) { return col !== f.key; };
+                        var assignments = cols
+                            .filter(isNotSet)
+                            .filter(isNotKey)
+                            .map(function (col) { return col + '=?'; })
+                            .join(', ');
+                        var values = cols
+                            .filter(isNotSet)
+                            .filter(isNotKey)
+                            .map(function (col) { return value(o, col); });
+                        values.push(o['_' + f.key]); // for WHERE clause
+                        return self.exec(tx, 'UPDATE OR IGNORE ' + f.tableName + ' SET ' + assignments + ' WHERE ' + f.key + '=?', values, function (tx, results) {
+                            var changes = results.rowsAffected !== 0;
+                            return callback ? callback(changes) : changes;
+                        });
+                    }
+                    var upsert = function (o) {
+                        var p;
+                        if (o._isInDb) {
+                            p = update(o, function (changed) { return changed ? insertSets(o, false) : insert(o); });
+                        }
+                        else {
+                            p = insert(o, function (changed) { return changed ? insertSets(o, true) : update(o); });
+                        }
+                        return p
+                            .then(function (changed) {
+                            console.assert(changed);
+                            if (changed) {
+                                o._clearChanges();
+                                o._isInDb = true;
+                            }
+                        });
+                    };
+                    return Promise.all(objects.map(upsert)).then(resolve, reject);
+                });
+            });
+        };
+        return Store;
+    })();
+    Updraft.Store = Store;
+})(Updraft || (Updraft = {}));
+/// <reference path="./store.ts" />
+/// <reference path="./query.ts" />
+if (typeof module !== "undefined") {
+    module.exports = Updraft;
+}
+
 //# sourceMappingURL=../dist/updraft.js.map

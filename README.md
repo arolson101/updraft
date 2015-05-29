@@ -50,7 +50,7 @@ Bower:
 
 Basic usage is as follows:
 ```javascript
-function Task() { Updraft.Instance.apply(this, arguments); }
+function Task() { Updraft.Instance.apply(this, arguments); } // be sure to call Updraft.Instance with the arguments
 Updraft.createClass(Task, {
   tableName: 'tasks',
   columns: {
@@ -92,22 +92,32 @@ store.open({name: 'my database'})
 If you use TypeScript, you can use inheritance instead:
 
 ```ts
-class Task extends Updraft.Instance {
+class Task extends Updraft.Instance<string> {
   constructor() {
-    super.apply(this, arguments);
+    super.apply(this, arguments); // be sure to pass arguments to super
   }
 
+  // regular typescript property declarations
   public name: string;
   public description: string;
   public done: boolean;
 
+  // table configuration
   static tableName: string = 'tasks';
   static columns: Updraft.ColumnSet = {
     name: Updraft.Column.Text().Key(),
     description: Updraft.Column.Text(),
     done: Updraft.Column.Bool()
   };
+  
+  // boilerplate declarations; Updraft.Store.addClass will fill in their implementations
+  static all: Query<string, Task>;
+  static get(id: string): Promise<Task> { return null; }
 }
+
+// now use the class as in the non-typescript case
+var store = new Updraft.Store();
+store.addClass(Task);
 ```
 For advanced usage, see the documentation.
 

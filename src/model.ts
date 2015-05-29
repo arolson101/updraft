@@ -8,13 +8,13 @@ module Updraft {
   export interface RenamedColumnSet {
     [oldColumnName: string]: string;
   }
-  
+
 
   /**
    * Describes the static members of a class used to create {@link Instance}s
    * @see {link @createClass}
    */
-  export interface ClassTemplate<I extends Instance> {
+  export interface ClassTemplate<K> {
     tableName: string;
     recreate?: boolean;
     temp?: boolean;
@@ -23,8 +23,8 @@ module Updraft {
     indices?: string[][];
     key?: string;
     keyType?: ColumnType;
-    all?: Query<I>;
-    get(id: string): Promise<I>;
+    all?: Query<K, Instance<K>>;
+    get(id: K): Promise<Instance<K>>;
   }
 
 
@@ -55,10 +55,10 @@ module Updraft {
    *   }
    * ```
    */
-  export class Instance {
+  export class Instance<K> {
     _changeMask: number;
     _isInDb: boolean;
-    _model: ClassTemplate<Instance>;
+    _model: ClassTemplate<K>;
     _store: Store;
 
     constructor(props?: any) {
@@ -69,7 +69,7 @@ module Updraft {
       for (var key in props) {
         var value = props[key];
         if(value instanceof Instance) {
-          value = (<Instance>value)._primaryKey();
+          value = (<Instance<K>>value)._primaryKey();
         }
         o[key] = value;
       }
@@ -90,7 +90,7 @@ module Updraft {
      *  // -> '123'
      * ```
      */
-    _primaryKey(): string {
+    _primaryKey(): K {
       var key = '_' + this._model.key;
       console.assert(key in this);
       return this[key];
@@ -142,10 +142,10 @@ module Updraft {
   }
 
 
-  interface Wrapper<I extends Instance> {
+  interface Wrapper<I extends Instance<any>> {
     ref: ClassTemplate<I>;
-    own: Instance;
-    get: () => Promise<Instance>;
+    own: I;
+    get: () => Promise<I>;
   }
 
 
@@ -158,7 +158,7 @@ module Updraft {
    * @param propMask - the bits to set on <tt>_changes</tt>
    * @private
    */
-  function addClassProperty<I extends Instance>(model: ClassTemplate<I>, proto: any, col: string, propMask: number) {
+  function addClassProperty<K>(model: ClassTemplate<K>, proto: any, col: string, propMask: number) {
     var prop = '_' + col;
 
     switch(model.columns[col].type) {
@@ -166,12 +166,12 @@ module Updraft {
         Object.defineProperty(proto, col, {
           configurable: true,
           get: function () {
-            return (<Instance>this)[prop];
+            return (<Instance<K>>this)[prop];
           },
           set: function (val) {
-            if ((<Instance>this)[prop] !== val) {
-              (<Instance>this)[prop] = val;
-              (<Instance>this)._changeMask |= propMask;
+            if ((<Instance<K>>this)[prop] !== val) {
+              (<Instance<K>>this)[prop] = val;
+              (<Instance<K>>this)._changeMask |= propMask;
             }
           }
         });
@@ -181,22 +181,22 @@ module Updraft {
         Object.defineProperty(proto, col, {
           configurable: true,
           get: function () {
-            var ref: ClassTemplate<any> = (<Instance>this)._model.columns[col].ref;
+            var ref: ClassTemplate<any> = (<Instance<any>>this)._model.columns[col].ref;
             console.assert(ref.get != null);
-            var ret: Wrapper<any> = {
+            var ret: Wrapper<Instance<K>> = {
               ref: ref,
-              own: (<Instance>this),
-              get: function () { return (<Wrapper<any>>this).ref.get(this.own[prop]); }
+              own: (<Instance<K>>this),
+              get: function () { return (<Wrapper<K>>this).ref.get(this.own[prop]); }
             };
-            ret[ref.key] = (<Instance>this)[prop];
+            ret[ref.key] = (<Instance<K>>this)[prop];
             return ret;
           },
           set: function (val) {
             // allow client to do object.field = otherobject; we'll transform it to object.field = otherobject._primaryKey()
             val = keyOf(val);
-            if ((<Instance>this)[prop] !== val) {
-              (<Instance>this)[prop] = val;
-              (<Instance>this)._changeMask |= propMask;
+            if ((<Instance<K>>this)[prop] !== val) {
+              (<Instance<K>>this)[prop] = val;
+              (<Instance<K>>this)._changeMask |= propMask;
             }
           }
         });
@@ -206,19 +206,19 @@ module Updraft {
         Object.defineProperty(proto, col, {
           configurable: true,
           get: function() {
-            if(!(prop in (<Instance>this))) {
-              var o: Instance = (<Instance>this);
-              (<Instance>this)[prop] = new Set(function() { o._changeMask |= propMask; });
+            if(!(prop in (<Instance<K>>this))) {
+              var o: Instance<K> = this;
+              o[prop] = new Set(function() { o._changeMask |= propMask; });
             }
-            return (<Instance>this)[prop];
+            return (<Instance<K>>this)[prop];
           },
           set: function(val) {
-            if(!(prop in (<Instance>this))) {
-              var o: Instance = (<Instance>this);
-              (<Instance>this)[prop] = new Set(function() { o._changeMask |= propMask; });
+            if(!(prop in (<Instance<K>>this))) {
+              var o: Instance<K> = this;
+              o[prop] = new Set(function() { o._changeMask |= propMask; });
             }
-            (<Instance>this)[prop].assign(val);
-            (<Instance>this)._changeMask |= propMask;
+            (<Instance<K>>this)[prop].assign(val);
+            (<Instance<K>>this)._changeMask |= propMask;
           }
         });
         break;
@@ -231,7 +231,7 @@ module Updraft {
    * Add properties to a provided {@link Instance} subclass that can be created, saved and retrieved from the db
    * @private
    */
-  export function MakeClassTemplate<I extends Instance>(templ: ClassTemplate<I>, store: Store) {
+  export function MakeClassTemplate<K>(templ: ClassTemplate<K>, store: Store) {
     console.assert(store != null);
     console.assert(templ != null);
     console.assert(templ.tableName != null);
@@ -248,9 +248,9 @@ module Updraft {
     Object.defineProperty(proto, '_store', { configurable: true, enumerable: true, value: store });
 
     // class static methods/properties
-    templ.get = function (id: string): Promise<Instance> {
+    templ.get = function (id: K): Promise<Instance<K>> {
       return this.all.where(this.key, '=', id).get()
-      .then(function(results: Instance[]) {
+      .then(function(results: Instance<K>[]) {
         console.assert(results.length < 2);
         if(results.length === 0) {
           return null;
@@ -303,7 +303,7 @@ module Updraft {
    * @return Instance with fields initialized according to row, with _isInDb=true and no changes set
    * @private
    */
-  export function constructFromDb<I extends Instance>(model: ClassTemplate<I>, row: Object): I {
+  export function constructFromDb<K, I extends Instance<any>>(model: ClassTemplate<K>, row: Object): I {
     var o: I = new (<any>model)();
     console.assert(o instanceof Instance);
     for(var col in row) {

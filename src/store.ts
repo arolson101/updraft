@@ -42,8 +42,8 @@ module Updraft {
     public isKey: boolean;
     public isIndex: boolean;
     public type: ColumnType;
-    public ref: ClassTemplate<Instance> /*| ColumnType*/; // TODO: add set(string|number|etc)
-    public setTable: ClassTemplate<Instance>;
+    public ref: ClassTemplate<any> /*| ColumnType*/; // TODO: add set(string|number|etc)
+    public setTable: ClassTemplate<any>;
     public defaultValue: number | boolean | string;
     public enum: EnumClass | TypeScriptEnum;
 
@@ -130,14 +130,14 @@ module Updraft {
     }
 
     /** points to an object in another table.  Its affinity will automatically be that table's key's affinity */
-    static Ptr(ref: ClassTemplate<Instance>): Column {
+    static Ptr(ref: ClassTemplate<any>): Column {
       var c = new Column(ColumnType.ptr);
       c.ref = ref;
       return c;
     }
 
     /** unordered collection */
-    static Set(ref: ClassTemplate<Instance> /*| ColumnType*/): Column {
+    static Set(ref: ClassTemplate<any> /*| ColumnType*/): Column {
       var c = new Column(ColumnType.set);
       c.ref = ref;
       return c;
@@ -230,14 +230,14 @@ module Updraft {
    * Internal class used in key/value storage
    * @private
    */
-  class KeyValue extends Instance {
+  class KeyValue extends Instance<string> {
     static tableName: string = 'updraft_kv';
     static columns: ColumnSet = {
       key: Column.String().Key(),
       value: Column.String(),
     };
-    static all: Query<KeyValue>;
-    static get(id: string): Promise<Instance> { return null; }
+    static all: Query<string, KeyValue>;
+    static get(id: string): Promise<KeyValue> { return null; }
 
     key: string;
     value: string;
@@ -266,8 +266,8 @@ module Updraft {
    */
   export class Store {
     logSql: boolean;
-    tables: ClassTemplate<Instance>[];
-    KeyValue: ClassTemplate<Instance>;
+    tables: ClassTemplate<any>[];
+    KeyValue: ClassTemplate<any>;
     kv: Object;
     db: Database;
 
@@ -285,7 +285,7 @@ module Updraft {
      * create a new type whose instances can be stored in a database
      * @param templ
      */
-     addClass(templ: ClassTemplate<Instance>) {
+     addClass(templ: ClassTemplate<any>) {
        MakeClassTemplate(templ, this);
        this.tables.push(templ);
      }
@@ -393,14 +393,14 @@ module Updraft {
       console.assert(this.db != null);
 
       // add tables for 'set' columns
-      var setTables: ClassTemplate<Instance>[] = [];
+      var setTables: ClassTemplate<any>[] = [];
       for(var i=0; i<this.tables.length; i++) {
         var table = this.tables[i];
         for(var col in table.columns) {
           if(table.columns[col].type === ColumnType.set) {
             var ref = table.columns[col].ref;
             console.assert(ref != null);
-            var setTable: ClassTemplate<Instance> = {
+            var setTable: ClassTemplate<number> = {
               tableName: table.tableName + '_' + col,
               recreate: table.recreate,
               temp: table.temp,
@@ -408,7 +408,7 @@ module Updraft {
               keyType: table.keyType,
               columns: {},
               indices: [ [table.key], [col] ],
-              get: function(id: string): Promise<Instance> { throw new Error("not callable"); }
+              get: function(id: number): Promise<Instance<number>> { throw new Error("not callable"); }
             };
             setTable.columns[table.key] = new Column(table.keyType), // note: NOT setting key=true, as it would impose unique constraint
             setTable.columns[col] = new Column(ref.keyType),
@@ -753,8 +753,8 @@ module Updraft {
      *
      * @param objects - objects to save
      */
-    save(...objects: Instance[]) {
-      objects.map(function (o: Instance) {
+    save(...objects: Instance<any>[]) {
+      objects.map(function (o: Instance<any>) {
         console.assert(('_' + o._model.key) in o, "object must have a key");
       });
 
@@ -762,7 +762,7 @@ module Updraft {
 
       return new Promise(function (resolve, reject) {
         self.db.transaction(function (tx: SQLTransaction): Promise<any> {
-          function value(o: Instance, col: string) {
+          function value(o: Instance<any>, col: string) {
             var val = o['_' + col];
             switch(o._model.columns[col].type) {
               case ColumnType.date:
@@ -789,7 +789,7 @@ module Updraft {
             return val;
           }
 
-          function insertSets(o: Instance, force: boolean): Promise<boolean> {
+          function insertSets(o: Instance<any>, force: boolean): Promise<boolean> {
             var changes = o._changes();
             var f = o._model;
             var promises: Promise<void>[] = [];
@@ -818,7 +818,7 @@ module Updraft {
             return Promise.all(promises).then(() => true);
           }
 
-          function insert(o: Instance, callback: (changes: boolean) => Promise<boolean> = null): Promise<boolean> {
+          function insert(o: Instance<any>, callback: (changes: boolean) => Promise<boolean> = null): Promise<boolean> {
             var f = o._model;
             var isNotSet = function(col: string) { return f.columns[col].type !== ColumnType.set; };
             var cols = Object.keys(f.columns).filter(isNotSet);
@@ -831,7 +831,7 @@ module Updraft {
             });
           }
 
-          function update(o: Instance, callback: (changes: boolean) => Promise<boolean> = null): Promise<boolean> {
+          function update(o: Instance<any>, callback: (changes: boolean) => Promise<boolean> = null): Promise<boolean> {
             var f = o._model;
             var cols = o._changes();
             var isNotSet = function(col: string) { return f.columns[col].type !== ColumnType.set; };
@@ -852,7 +852,7 @@ module Updraft {
             });
           }
 
-          var upsert = function (o: Instance): Promise<any> {
+          var upsert = function (o: Instance<any>): Promise<any> {
             var p: Promise<any>;
             if (o._isInDb) {
               p = update(o, function (changed) { return changed ? insertSets(o, false) : insert(o); });

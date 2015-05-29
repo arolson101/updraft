@@ -50,9 +50,9 @@ module Updraft {
   /**
    * @private
    */
-  export function keyOf(obj: any): string {
+  export function keyOf(obj: any): any {
     if(obj instanceof Instance) {
-      return (<Instance>obj)._primaryKey();
+      return (<Instance<any>>obj)._primaryKey();
     }
     if(typeof(obj) === 'object' && typeof(obj.toString) === 'function') {
       return obj.toString();
@@ -77,7 +77,7 @@ module Updraft {
    *   });
    * ```
    */
-  export function createClass(proto: Function, descriptor: ClassTemplate<Instance>) {
+  export function createClass(proto: Function, descriptor: ClassTemplate<any>) {
     console.assert(typeof proto === 'function');
     console.assert(typeof descriptor === 'object');
 

@@ -1063,7 +1063,7 @@ input[type=checkbox]:checked + .tsd-widget:before { background-position: -160px 
 						</li>
 					</ul>
 				</li>
-				<li class=" tsd-kind-class tsd-parent-kind-module">
+				<li class=" tsd-kind-class tsd-parent-kind-module tsd-has-type-parameter">
 					<a href="index.html#updraft.instance" class="tsd-kind-icon">Instance</a>
 					<ul>
 						<li class=" tsd-kind-constructor tsd-parent-kind-class">
@@ -1666,7 +1666,7 @@ input[type=checkbox]:checked + .tsd-widget:before { background-position: -160px 
 			<pre><code>bower <span class="hljs-operator"><span class="hljs-keyword">install</span> <span class="hljs-comment">--save updraft</span></span>
 </code></pre><h2 id="usage">Usage</h2>
 			<p>Basic usage is as follows:</p>
-			<pre><code class="lang-javascript"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task</span><span class="hljs-params">()</span> </span>{ Updraft.Instance.apply(<span class="hljs-keyword">this</span>, <span class="hljs-built_in">arguments</span>); }
+			<pre><code class="lang-javascript"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task</span>(<span class="hljs-params"></span>) </span>{ Updraft.Instance.apply(<span class="hljs-keyword">this</span>, <span class="hljs-built_in">arguments</span>); } <span class="hljs-comment">// be sure to call Updraft.Instance with the arguments</span>
 Updraft.createClass(Task, {
   tableName: <span class="hljs-string">'tasks'</span>,
   columns: {
@@ -1680,7 +1680,7 @@ Updraft.createClass(Task, {
 store.addClass(Task);
 
 store.open({name: <span class="hljs-string">'my database'</span>})
-  .then(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> </span>{
+  .then(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
 
     <span class="hljs-comment">// set some key/value pairs</span>
     store.set(<span class="hljs-string">'username'</span>, <span class="hljs-string">'John Smith'</span>);
@@ -1691,12 +1691,12 @@ store.open({name: <span class="hljs-string">'my database'</span>})
     task.description = <span class="hljs-string">"task description"</span>;
 
     store.save(task)
-      .then(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> </span>{
+      .then(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
 
         <span class="hljs-comment">// task saved!</span>
 
         Task.get(<span class="hljs-string">"create a task"</span>)
-          .then(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(task)</span> </span>{
+          .then(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">task</span>) </span>{
 
             <span class="hljs-comment">// task retrieved!</span>
 
@@ -1705,22 +1705,32 @@ store.open({name: <span class="hljs-string">'my database'</span>})
   });
 </code></pre>
 			<p>If you use TypeScript, you can use inheritance instead:</p>
-			<pre><code class="lang-ts"><span class="hljs-keyword">class</span> Task extends Updraft.Instance {
+			<pre><code class="lang-ts"><span class="hljs-keyword">class</span> Task extends Updraft.Instance&lt;<span class="hljs-built_in">string</span>&gt; {
   <span class="hljs-constructor"><span class="hljs-keyword">constructor</span>() </span>{
-    <span class="hljs-keyword">super</span>.apply(<span class="hljs-keyword">this</span>, <span class="hljs-built_in">arguments</span>);
+    <span class="hljs-keyword">super</span>.apply(<span class="hljs-keyword">this</span>, <span class="hljs-built_in">arguments</span>); <span class="hljs-comment">// be sure to pass arguments to super</span>
   }
 
+  <span class="hljs-comment">// regular typescript property declarations</span>
   <span class="hljs-keyword">public</span> name: <span class="hljs-built_in">string</span>;
   <span class="hljs-keyword">public</span> description: <span class="hljs-built_in">string</span>;
   <span class="hljs-keyword">public</span> done: <span class="hljs-built_in">boolean</span>;
 
+  <span class="hljs-comment">// table configuration</span>
   static tableName: <span class="hljs-built_in">string</span> = <span class="hljs-string">'tasks'</span>;
   static columns: Updraft.ColumnSet = {
     name: Updraft.Column.Text().Key(),
     description: Updraft.Column.Text(),
     done: Updraft.Column.Bool()
   };
+
+  <span class="hljs-comment">// boilerplate declarations; Updraft.Store.addClass will fill in their implementations</span>
+  static all: Query&lt;<span class="hljs-built_in">string</span>, Task&gt;;
+  static <span class="hljs-keyword">get</span>(id: <span class="hljs-built_in">string</span>): Promise&lt;Task&gt; { <span class="hljs-keyword">return</span> <span class="hljs-literal">null</span>; }
 }
+
+<span class="hljs-comment">// now use the class as in the non-typescript case</span>
+<span class="hljs-keyword">var</span> store = <span class="hljs-keyword">new</span> Updraft.Store();
+store.addClass(Task);
 </code></pre>
 			<p>For advanced usage, see the documentation.</p>
 			<h2 id="enums">Enums</h2>
@@ -2126,7 +2136,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
 						<a name="updraft.column.ref" class="tsd-anchor"></a>
 						<h3>ref</h3>
-						<div class="tsd-signature tsd-kind-icon">ref<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></div>
+						<div class="tsd-signature tsd-kind-icon">ref<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L45">src/store.ts:45</a></li>
@@ -2136,7 +2146,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
 						<a name="updraft.column.settable" class="tsd-anchor"></a>
 						<h3>set<wbr>Table</h3>
-						<div class="tsd-signature tsd-kind-icon">set<wbr>Table<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></div>
+						<div class="tsd-signature tsd-kind-icon">set<wbr>Table<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L46">src/store.ts:46</a></li>
@@ -2401,7 +2411,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.column.ptr-1" class="tsd-anchor"></a>
 						<h3>Ptr</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-static">
-							<li class="tsd-signature tsd-kind-icon">Ptr<span class="tsd-signature-symbol">(</span>ref<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.column" class="tsd-signature-type">Column</a></li>
+							<li class="tsd-signature tsd-kind-icon">Ptr<span class="tsd-signature-symbol">(</span>ref<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.column" class="tsd-signature-type">Column</a></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -2418,7 +2428,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 								<h4 class="tsd-parameters-title">Parameters</h4>
 								<ul class="tsd-parameters">
 									<li>
-										<h5>ref: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></h5>
+										<h5>ref: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h5>
 									</li>
 								</ul>
 								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.column" class="tsd-signature-type">Column</a></h4>
@@ -2451,7 +2461,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.column.set-1" class="tsd-anchor"></a>
 						<h3>Set</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-static">
-							<li class="tsd-signature tsd-kind-icon">Set<span class="tsd-signature-symbol">(</span>ref<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.column" class="tsd-signature-type">Column</a></li>
+							<li class="tsd-signature tsd-kind-icon">Set<span class="tsd-signature-symbol">(</span>ref<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.column" class="tsd-signature-type">Column</a></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -2468,7 +2478,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 								<h4 class="tsd-parameters-title">Parameters</h4>
 								<ul class="tsd-parameters">
 									<li>
-										<h5>ref: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></h5>
+										<h5>ref: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h5>
 									</li>
 								</ul>
 								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.column" class="tsd-signature-type">Column</a></h4>
@@ -2543,7 +2553,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						</ul>
 					</section>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-class tsd-parent-kind-module">
+				<section class="tsd-panel tsd-member tsd-kind-class tsd-parent-kind-module tsd-has-type-parameter">
 					<a name="updraft.instance" class="tsd-anchor"></a>
 					<h3>Instance</h3>
 					<div class="tsd-signature tsd-kind-icon">Instance<span class="tsd-signature-symbol">:</span> </div>
@@ -2629,7 +2639,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
 						<a name="updraft.instance._model" class="tsd-anchor"></a>
 						<h3>_model</h3>
-						<div class="tsd-signature tsd-kind-icon">_model<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></div>
+						<div class="tsd-signature tsd-kind-icon">_model<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/model.ts#L61">src/model.ts:61</a></li>
@@ -2704,7 +2714,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.instance._primarykey" class="tsd-anchor"></a>
 						<h3>_primary<wbr>Key</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
-							<li class="tsd-signature tsd-kind-icon">_primary<wbr>Key<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></li>
+							<li class="tsd-signature tsd-kind-icon">_primary<wbr>Key<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">K</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -2720,14 +2730,14 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 									<dl class="tsd-comment-tags">
 										<dt>example</dt>
 										<dd><pre><code>
- <span class="hljs-reserved">var</span> x = <span class="hljs-keyword">new</span> Class();
+ var x = new Class<span class="hljs-params">()</span>;
  x.id = <span class="hljs-number">123</span>;
- <span class="hljs-built_in">console</span>.log(x._primaryKey());
- <span class="hljs-regexp">//</span> -&gt; <span class="hljs-string">'123'</span>
+ console.<span class="hljs-built_in">log</span><span class="hljs-params">(x._primaryKey<span class="hljs-params">()</span>)</span>;
+ <span class="hljs-comment">// -&gt; '123'</span>
 </code></pre></dd>
 									</dl>
 								</div>
-								<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
+								<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">K</span></h4>
 								<p>Value of primary key</p>
 							</li>
 						</ul>
@@ -2796,7 +2806,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-not-exported">
 						<a name="updraft.keyvalue._model-1" class="tsd-anchor"></a>
 						<h3>_model</h3>
-						<div class="tsd-signature tsd-kind-icon">_model<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></div>
+						<div class="tsd-signature tsd-kind-icon">_model<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<p>Inherited from <a href="index.html#updraft.instance">Instance</a>.<a href="index.html#updraft.instance._model">_model</a></p>
 							<ul>
@@ -2838,7 +2848,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-static tsd-is-not-exported">
 						<a name="updraft.keyvalue.all" class="tsd-anchor"></a>
 						<h3>all</h3>
-						<div class="tsd-signature tsd-kind-icon">all<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.keyvalue" class="tsd-signature-type">KeyValue</a><span class="tsd-signature-symbol">&gt;</span></div>
+						<div class="tsd-signature tsd-kind-icon">all<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><a href="index.html#updraft.keyvalue" class="tsd-signature-type">KeyValue</a><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L239">src/store.ts:239</a></li>
@@ -2932,10 +2942,10 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 									<dl class="tsd-comment-tags">
 										<dt>example</dt>
 										<dd><pre><code>
- <span class="hljs-reserved">var</span> x = <span class="hljs-keyword">new</span> Class();
+ var x = new Class<span class="hljs-params">()</span>;
  x.id = <span class="hljs-number">123</span>;
- <span class="hljs-built_in">console</span>.log(x._primaryKey());
- <span class="hljs-regexp">//</span> -&gt; <span class="hljs-string">'123'</span>
+ console.<span class="hljs-built_in">log</span><span class="hljs-params">(x._primaryKey<span class="hljs-params">()</span>)</span>;
+ <span class="hljs-comment">// -&gt; '123'</span>
 </code></pre></dd>
 									</dl>
 								</div>
@@ -2948,7 +2958,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.keyvalue.get" class="tsd-anchor"></a>
 						<h3>get</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-static tsd-is-not-exported">
-							<li class="tsd-signature tsd-kind-icon">get<span class="tsd-signature-symbol">(</span>id<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">get<span class="tsd-signature-symbol">(</span>id<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.keyvalue" class="tsd-signature-type">KeyValue</a><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -2963,7 +2973,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										<h5>id: <span class="tsd-signature-type">string</span></h5>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.keyvalue" class="tsd-signature-type">KeyValue</a><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -3020,7 +3030,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.constructor-3" class="tsd-anchor"></a>
 						<h3>constructor</h3>
 						<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">new <wbr>Query<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span>, store<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.store" class="tsd-signature-type">Store</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a></li>
+							<li class="tsd-signature tsd-kind-icon">new <wbr>Query<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span>, store<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.store" class="tsd-signature-type">Store</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3032,7 +3042,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 								<h4 class="tsd-parameters-title">Parameters</h4>
 								<ul class="tsd-parameters">
 									<li>
-										<h5>model: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h5>
+										<h5>model: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span></h5>
 									</li>
 									<li>
 										<h5>store: <a href="index.html#updraft.store" class="tsd-signature-type">Store</a></h5>
@@ -3095,7 +3105,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
 						<a name="updraft.query._model-2" class="tsd-anchor"></a>
 						<h3>_model</h3>
-						<div class="tsd-signature tsd-kind-icon">_model<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></div>
+						<div class="tsd-signature tsd-kind-icon">_model<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/query.ts#L20">src/query.ts:20</a></li>
@@ -3156,7 +3166,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.addcondition" class="tsd-anchor"></a>
 						<h3>add<wbr>Condition</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
-							<li class="tsd-signature tsd-kind-icon">add<wbr>Condition<span class="tsd-signature-symbol">(</span>conj<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, op<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, val<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">add<wbr>Condition<span class="tsd-signature-symbol">(</span>conj<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, op<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, val<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3177,10 +3187,10 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										<h5>op: <span class="tsd-signature-type">string</span></h5>
 									</li>
 									<li>
-										<h5>val: <span class="tsd-signature-type">string</span></h5>
+										<h5>val: <span class="tsd-signature-type">any</span></h5>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -3205,7 +3215,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.and" class="tsd-anchor"></a>
 						<h3>and</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">and<span class="tsd-signature-symbol">(</span>col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, op<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, val<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">and<span class="tsd-signature-symbol">(</span>col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, op<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, val<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3256,7 +3266,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										</div>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -3330,7 +3340,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.limit" class="tsd-anchor"></a>
 						<h3>limit</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">limit<span class="tsd-signature-symbol">(</span>count<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">limit<span class="tsd-signature-symbol">(</span>count<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3360,7 +3370,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										<h5>count: <span class="tsd-signature-type">number</span></h5>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -3368,7 +3378,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.nocase" class="tsd-anchor"></a>
 						<h3>nocase</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">nocase<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">nocase<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3393,7 +3403,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 </code></pre></dd>
 									</dl>
 								</div>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -3401,7 +3411,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.offset" class="tsd-anchor"></a>
 						<h3>offset</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">offset<span class="tsd-signature-symbol">(</span>count<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">offset<span class="tsd-signature-symbol">(</span>count<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3420,8 +3430,8 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										</dd>
 										<dt>example</dt>
 										<dd><pre><code>
- <span class="hljs-keyword">return</span> <span class="hljs-keyword">Class</span>.<span class="hljs-built_in">all</span>.limit(<span class="hljs-number">10</span>).offset(<span class="hljs-number">50</span>).get();
- // -&gt; <span class="hljs-keyword">SELECT</span> ... FROM ... LIMIT <span class="hljs-number">10</span> OFFSET <span class="hljs-number">50</span>
+ return Class.all.limit<span class="hljs-params">(<span class="hljs-number">10</span>)</span>.<span class="hljs-built_in">offset</span><span class="hljs-params">(<span class="hljs-number">50</span>)</span>.get<span class="hljs-params">()</span>;
+ <span class="hljs-comment">// -&gt; SELECT ... FROM ... LIMIT 10 OFFSET 50</span>
 </code></pre></dd>
 									</dl>
 								</div>
@@ -3431,7 +3441,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										<h5>count: <span class="tsd-signature-type">number</span></h5>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -3439,7 +3449,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.or" class="tsd-anchor"></a>
 						<h3>or</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">or<span class="tsd-signature-symbol">(</span>col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, op<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, val<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">or<span class="tsd-signature-symbol">(</span>col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, op<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, val<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3490,7 +3500,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										</div>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -3498,7 +3508,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.order" class="tsd-anchor"></a>
 						<h3>order</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">order<span class="tsd-signature-symbol">(</span>col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, asc<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">order<span class="tsd-signature-symbol">(</span>col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, asc<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3541,7 +3551,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										</div>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -3549,7 +3559,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.query.where" class="tsd-anchor"></a>
 						<h3>where</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">where<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">where<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -3569,7 +3579,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 </code></pre></dd>
 									</dl>
 								</div>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -4052,7 +4062,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
 						<a name="updraft.store.keyvalue-1" class="tsd-anchor"></a>
 						<h3>Key<wbr>Value</h3>
-						<div class="tsd-signature tsd-kind-icon">Key<wbr>Value<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></div>
+						<div class="tsd-signature tsd-kind-icon">Key<wbr>Value<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L270">src/store.ts:270</a></li>
@@ -4092,7 +4102,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
 						<a name="updraft.store.tables" class="tsd-anchor"></a>
 						<h3>tables</h3>
-						<div class="tsd-signature tsd-kind-icon">tables<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span></div>
+						<div class="tsd-signature tsd-kind-icon">tables<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L269">src/store.ts:269</a></li>
@@ -4103,7 +4113,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.store.addclass" class="tsd-anchor"></a>
 						<h3>add<wbr>Class</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">add<wbr>Class<span class="tsd-signature-symbol">(</span>templ<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+							<li class="tsd-signature tsd-kind-icon">add<wbr>Class<span class="tsd-signature-symbol">(</span>templ<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -4120,7 +4130,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 								<h4 class="tsd-parameters-title">Parameters</h4>
 								<ul class="tsd-parameters">
 									<li>
-										<h5>templ: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></h5>
+										<h5>templ: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h5>
 										<div class="tsd-comment tsd-typography">
 										</div>
 									</li>
@@ -4449,7 +4459,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.store.save" class="tsd-anchor"></a>
 						<h3>save</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">save<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">...</span>objects<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Object</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">save<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">...</span>objects<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Object</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -4467,7 +4477,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 								<h4 class="tsd-parameters-title">Parameters</h4>
 								<ul class="tsd-parameters">
 									<li>
-										<h5><span class="tsd-flag ts-flagRest">Rest</span> <span class="tsd-signature-symbol">...</span>objects: <a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">[]</span></h5>
+										<h5><span class="tsd-flag ts-flagRest">Rest</span> <span class="tsd-signature-symbol">...</span>objects: <a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span></h5>
 										<div class="tsd-comment tsd-typography">
 											<ul>
 												<li>objects to save</li>
@@ -4643,7 +4653,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
 						<a name="updraft.classtemplate.all-2" class="tsd-anchor"></a>
 						<h3>all</h3>
-						<div class="tsd-signature tsd-kind-icon">all<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></div>
+						<div class="tsd-signature tsd-kind-icon">all<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.query" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/model.ts#L26">src/model.ts:26</a></li>
@@ -4734,7 +4744,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.classtemplate.get-3" class="tsd-anchor"></a>
 						<h3>get</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-interface">
-							<li class="tsd-signature tsd-kind-icon">get<span class="tsd-signature-symbol">(</span>id<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">get<span class="tsd-signature-symbol">(</span>id<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
@@ -4746,10 +4756,10 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 								<h4 class="tsd-parameters-title">Parameters</h4>
 								<ul class="tsd-parameters">
 									<li>
-										<h5>id: <span class="tsd-signature-type">string</span></h5>
+										<h5>id: <span class="tsd-signature-type">K</span></h5>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -4963,11 +4973,11 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<ul class="tsd-parameters">
 								<li class="tsd-parameter-siganture">
 									<ul class="tsd-signatures tsd-kind-type-literal tsd-parent-kind-property tsd-is-not-exported">
-										<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></li>
+										<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></li>
 									</ul>
 									<ul class="tsd-descriptions">
 										<li class="tsd-description">
-											<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></h4>
+											<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h4>
 										</li>
 									</ul>
 								</li>
@@ -4977,7 +4987,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
 						<a name="updraft.wrapper.own" class="tsd-anchor"></a>
 						<h3>own</h3>
-						<div class="tsd-signature tsd-kind-icon">own<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a></div>
+						<div class="tsd-signature tsd-kind-icon">own<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">I</span></div>
 						<aside class="tsd-sources">
 							<ul>
 								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/model.ts#L147">src/model.ts:147</a></li>
@@ -4999,7 +5009,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<a name="updraft.makeclasstemplate" class="tsd-anchor"></a>
 					<h3>Make<wbr>Class<wbr>Template</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter tsd-is-private">
-						<li class="tsd-signature tsd-kind-icon">Make<wbr>Class<wbr>Template&lt;I&gt;<span class="tsd-signature-symbol">(</span>templ<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span>, store<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.store" class="tsd-signature-type">Store</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+						<li class="tsd-signature tsd-kind-icon">Make<wbr>Class<wbr>Template&lt;K&gt;<span class="tsd-signature-symbol">(</span>templ<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span>, store<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.store" class="tsd-signature-type">Store</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
@@ -5016,13 +5026,13 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
 							<ul class="tsd-type-parameters">
 								<li>
-									<h4>I<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a></h4>
+									<h4>K</h4>
 								</li>
 							</ul>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>templ: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5>templ: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span></h5>
 								</li>
 								<li>
 									<h5>store: <a href="index.html#updraft.store" class="tsd-signature-type">Store</a></h5>
@@ -5036,7 +5046,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<a name="updraft.addclassproperty" class="tsd-anchor"></a>
 					<h3>add<wbr>Class<wbr>Property</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter tsd-is-private tsd-is-not-exported">
-						<li class="tsd-signature tsd-kind-icon">add<wbr>Class<wbr>Property&lt;I&gt;<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span>, proto<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span>, col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, propMask<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+						<li class="tsd-signature tsd-kind-icon">add<wbr>Class<wbr>Property&lt;K&gt;<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span>, proto<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span>, col<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, propMask<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
@@ -5053,13 +5063,13 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
 							<ul class="tsd-type-parameters">
 								<li>
-									<h4>I<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a></h4>
+									<h4>K</h4>
 								</li>
 							</ul>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>model: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5>model: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<ul>
 											<li>class template</li>
@@ -5152,7 +5162,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<a name="updraft.constructfromdb" class="tsd-anchor"></a>
 					<h3>construct<wbr>From<wbr>Db</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter tsd-is-private">
-						<li class="tsd-signature tsd-kind-icon">construct<wbr>From<wbr>Db&lt;I&gt;<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span>, row<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Object</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">I</span></li>
+						<li class="tsd-signature tsd-kind-icon">construct<wbr>From<wbr>Db&lt;K, I&gt;<span class="tsd-signature-symbol">(</span>model<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span>, row<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Object</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">I</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
@@ -5169,13 +5179,16 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
 							<ul class="tsd-type-parameters">
 								<li>
-									<h4>I<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a></h4>
+									<h4>K</h4>
+								</li>
+								<li>
+									<h4>I<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h4>
 								</li>
 							</ul>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>model: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">I</span><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5>model: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">&gt;</span></h5>
 								</li>
 								<li>
 									<h5>row: <span class="tsd-signature-type">Object</span></h5>
@@ -5190,7 +5203,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<a name="updraft.createclass" class="tsd-anchor"></a>
 					<h3>create<wbr>Class</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module">
-						<li class="tsd-signature tsd-kind-icon">create<wbr>Class<span class="tsd-signature-symbol">(</span>proto<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Function</span>, descriptor<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Function</span></li>
+						<li class="tsd-signature tsd-kind-icon">create<wbr>Class<span class="tsd-signature-symbol">(</span>proto<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Function</span>, descriptor<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Function</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
@@ -5206,15 +5219,15 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 								<dl class="tsd-comment-tags">
 									<dt>example</dt>
 									<dd><pre><code>
-  <span class="hljs-keyword">function</span> <span class="hljs-type">Task</span><span class="hljs-literal">()</span> { <span class="hljs-type">Updraft</span>.<span class="hljs-type">Instance</span>.apply(this, arguments); }
-  var <span class="hljs-type">Task</span> = <span class="hljs-type">Updraft</span>.createClass({
-    tableName: <span class="hljs-symbol">'tasks'</span>,
+  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task</span><span class="hljs-params">()</span> {</span> Updraft.Instance.apply<span class="hljs-params">(this, arguments)</span>; }
+  var Task = Updraft.createClass<span class="hljs-params">({
+    tableName: 'tasks',
     columns: {
-      name: <span class="hljs-type">Updraft</span>.<span class="hljs-type">Column</span>.<span class="hljs-type">Text</span><span class="hljs-literal">()</span>.<span class="hljs-type">Key</span><span class="hljs-literal">()</span>,
-      description: <span class="hljs-type">Updraft</span>.<span class="hljs-type">Column</span>.<span class="hljs-type">Text</span><span class="hljs-literal">()</span>,
-      <span class="hljs-keyword">done</span>: <span class="hljs-type">Updraft</span>.<span class="hljs-type">Column</span>.<span class="hljs-type">Bool</span><span class="hljs-literal">()</span>
+      name: Updraft.Column.Text<span class="hljs-params">()</span>.Key<span class="hljs-params">()</span>,
+      description: Updraft.Column.Text<span class="hljs-params">()</span>,
+      done: Updraft.Column.Bool<span class="hljs-params">()</span>
     }
-  });
+  })</span>;
 </code></pre></dd>
 								</dl>
 							</div>
@@ -5224,7 +5237,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 									<h5>proto: <span class="tsd-signature-type">Function</span></h5>
 								</li>
 								<li>
-									<h5>descriptor: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5>descriptor: <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Function</span></h4>
@@ -5235,7 +5248,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<a name="updraft.keyof" class="tsd-anchor"></a>
 					<h3>key<wbr>Of</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module tsd-is-private">
-						<li class="tsd-signature tsd-kind-icon">key<wbr>Of<span class="tsd-signature-symbol">(</span>obj<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></li>
+						<li class="tsd-signature tsd-kind-icon">key<wbr>Of<span class="tsd-signature-symbol">(</span>obj<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
@@ -5252,7 +5265,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 									<h5>obj: <span class="tsd-signature-type">any</span></h5>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
 						</li>
 					</ul>
 				</section>

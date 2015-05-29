@@ -12,7 +12,7 @@ declare module Updraft {
     /**
      * @private
      */
-    function keyOf(obj: any): string;
+    function keyOf(obj: any): any;
     /**
      * In non-typescript environments, use this function to derive a class from {@link Instance}
      * @example
@@ -29,7 +29,7 @@ declare module Updraft {
      *   });
      * ```
      */
-    function createClass(proto: Function, descriptor: ClassTemplate<Instance>): Function;
+    function createClass(proto: Function, descriptor: ClassTemplate<any>): Function;
 }
 declare module Updraft {
     interface DirtyFunc {
@@ -104,7 +104,7 @@ declare module Updraft {
      * Do not construct objects of type Query directly- instead, use {@link ClassTemplate}.all
      * @constructor
      */
-    class Query<I extends Instance> {
+    class Query<K, I extends Instance<any>> {
         private _model;
         private _store;
         private _justCount;
@@ -116,7 +116,7 @@ declare module Updraft {
         private _offset;
         private _asc;
         private _nocase;
-        constructor(model: ClassTemplate<I>, store: Store);
+        constructor(model: ClassTemplate<K>, store: Store);
         all(): Promise<I[]>;
         private addCondition(conj, col, op, val);
         /**
@@ -133,7 +133,7 @@ declare module Updraft {
          *  // -> SELECT ... WHERE col2 > 10 AND col2 < 30
          * ```
          */
-        and(col: string, op: string, val: any): Query<I>;
+        and(col: string, op: string, val: any): Query<K, I>;
         /**
          * alias for {@link and}
          *
@@ -143,7 +143,7 @@ declare module Updraft {
          *  return Class.all.where('col2', '>', 10).get();
          * ```
          */
-        where(): Query<I>;
+        where(): Query<K, I>;
         /**
          * Adds an 'OR' condition to the query
          *
@@ -158,7 +158,7 @@ declare module Updraft {
          *  // -> SELECT ... WHERE col2 = 10 OR col2 = 30
          * ```
          */
-        or(col: string, op: string, val: any): Query<I>;
+        or(col: string, op: string, val: any): Query<K, I>;
         /**
          * Sort the results by specified field
          *
@@ -172,7 +172,7 @@ declare module Updraft {
          *  // -> SELECT ... ORDER BY x
          * ```
          */
-        order(col: string, asc: boolean): Query<I>;
+        order(col: string, asc: boolean): Query<K, I>;
         /**
          * Changes the match collation to be case-insensitive.  Only applies to result sorting, as 'LIKE' is
          * always case-insensitive
@@ -185,7 +185,7 @@ declare module Updraft {
          *  // -> SELECT ... ORDER BY x COLLATE NOCASE
          * ```
          */
-        nocase(): Query<I>;
+        nocase(): Query<K, I>;
         /**
          * Limits the result set to a certain number.  Useful in pagination
          *
@@ -197,7 +197,7 @@ declare module Updraft {
          *  // -> SELECT ... FROM ... LIMIT 5
          * ```
          */
-        limit(count: number): Query<I>;
+        limit(count: number): Query<K, I>;
         /**
          * Skip a number of results.  Useful in pagination
          *
@@ -209,7 +209,7 @@ declare module Updraft {
          *  // -> SELECT ... FROM ... LIMIT 10 OFFSET 50
          * ```
          */
-        offset(count: number): Query<I>;
+        offset(count: number): Query<K, I>;
         /**
          * Executes the query, returning a promise resolving with the count of objects that match
          *
@@ -246,7 +246,7 @@ declare module Updraft {
      * Describes the static members of a class used to create {@link Instance}s
      * @see {link @createClass}
      */
-    interface ClassTemplate<I extends Instance> {
+    interface ClassTemplate<K> {
         tableName: string;
         recreate?: boolean;
         temp?: boolean;
@@ -255,8 +255,8 @@ declare module Updraft {
         indices?: string[][];
         key?: string;
         keyType?: ColumnType;
-        all?: Query<I>;
-        get(id: string): Promise<I>;
+        all?: Query<K, Instance<K>>;
+        get(id: K): Promise<Instance<K>>;
     }
     /**
      * Instances of this type will have properties for all the columns defined in its {@link ClassTemplate}.
@@ -285,10 +285,10 @@ declare module Updraft {
      *   }
      * ```
      */
-    class Instance {
+    class Instance<K> {
         _changeMask: number;
         _isInDb: boolean;
-        _model: ClassTemplate<Instance>;
+        _model: ClassTemplate<K>;
         _store: Store;
         constructor(props?: any);
         /**
@@ -305,7 +305,7 @@ declare module Updraft {
          *  // -> '123'
          * ```
          */
-        _primaryKey(): string;
+        _primaryKey(): K;
         /**
          * Get the fields that have been changed since the object was last loaded/saved
          *
@@ -331,14 +331,14 @@ declare module Updraft {
      * Add properties to a provided {@link Instance} subclass that can be created, saved and retrieved from the db
      * @private
      */
-    function MakeClassTemplate<I extends Instance>(templ: ClassTemplate<I>, store: Store): void;
+    function MakeClassTemplate<K>(templ: ClassTemplate<K>, store: Store): void;
     /**
      * construct object from a database result row
      *
      * @return Instance with fields initialized according to row, with _isInDb=true and no changes set
      * @private
      */
-    function constructFromDb<I extends Instance>(model: ClassTemplate<I>, row: Object): I;
+    function constructFromDb<K, I extends Instance<any>>(model: ClassTemplate<K>, row: Object): I;
 }
 declare module Updraft {
     /**
@@ -373,8 +373,8 @@ declare module Updraft {
         isKey: boolean;
         isIndex: boolean;
         type: ColumnType;
-        ref: ClassTemplate<Instance>;
-        setTable: ClassTemplate<Instance>;
+        ref: ClassTemplate<any>;
+        setTable: ClassTemplate<any>;
         defaultValue: number | boolean | string;
         enum: EnumClass | TypeScriptEnum;
         constructor(type: ColumnType);
@@ -411,9 +411,9 @@ declare module Updraft {
         /** object will be serialized & restored as JSON text */
         static JSON(): Column;
         /** points to an object in another table.  Its affinity will automatically be that table's key's affinity */
-        static Ptr(ref: ClassTemplate<Instance>): Column;
+        static Ptr(ref: ClassTemplate<any>): Column;
         /** unordered collection */
-        static Set(ref: ClassTemplate<Instance>): Column;
+        static Set(ref: ClassTemplate<any>): Column;
         static sqlType(type: ColumnType): string;
     }
     interface ColumnSet {
@@ -477,8 +477,8 @@ declare module Updraft {
      */
     class Store {
         logSql: boolean;
-        tables: ClassTemplate<Instance>[];
-        KeyValue: ClassTemplate<Instance>;
+        tables: ClassTemplate<any>[];
+        KeyValue: ClassTemplate<any>;
         kv: Object;
         db: Database;
         constructor();
@@ -486,7 +486,7 @@ declare module Updraft {
          * create a new type whose instances can be stored in a database
          * @param templ
          */
-        addClass(templ: ClassTemplate<Instance>): void;
+        addClass(templ: ClassTemplate<any>): void;
         /**
          * set a key/value pair
          *
@@ -597,7 +597,7 @@ declare module Updraft {
          *
          * @param objects - objects to save
          */
-        save(...objects: Instance[]): Promise<{}>;
+        save(...objects: Instance<any>[]): Promise<{}>;
     }
 }
 declare module Updraft {
