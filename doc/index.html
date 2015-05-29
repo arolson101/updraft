@@ -1666,7 +1666,7 @@ input[type=checkbox]:checked + .tsd-widget:before { background-position: -160px 
 			<pre><code>bower <span class="hljs-operator"><span class="hljs-keyword">install</span> <span class="hljs-comment">--save updraft</span></span>
 </code></pre><h2 id="usage">Usage</h2>
 			<p>Basic usage is as follows:</p>
-			<pre><code class="lang-javascript"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task</span>(<span class="hljs-params"></span>) </span>{ Updraft.Instance.apply(<span class="hljs-keyword">this</span>, <span class="hljs-built_in">arguments</span>); }
+			<pre><code class="lang-javascript"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task</span><span class="hljs-params">()</span> </span>{ Updraft.Instance.apply(<span class="hljs-keyword">this</span>, <span class="hljs-built_in">arguments</span>); }
 Updraft.createClass(Task, {
   tableName: <span class="hljs-string">'tasks'</span>,
   columns: {
@@ -1680,7 +1680,7 @@ Updraft.createClass(Task, {
 store.addClass(Task);
 
 store.open({name: <span class="hljs-string">'my database'</span>})
-  .then(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
+  .then(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> </span>{
 
     <span class="hljs-comment">// set some key/value pairs</span>
     store.set(<span class="hljs-string">'username'</span>, <span class="hljs-string">'John Smith'</span>);
@@ -1691,12 +1691,12 @@ store.open({name: <span class="hljs-string">'my database'</span>})
     task.description = <span class="hljs-string">"task description"</span>;
 
     store.save(task)
-      .then(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
+      .then(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> </span>{
 
         <span class="hljs-comment">// task saved!</span>
 
         Task.get(<span class="hljs-string">"create a task"</span>)
-          .then(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">task</span>) </span>{
+          .then(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(task)</span> </span>{
 
             <span class="hljs-comment">// task retrieved!</span>
 
@@ -2720,10 +2720,10 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 									<dl class="tsd-comment-tags">
 										<dt>example</dt>
 										<dd><pre><code>
- var x = new Class<span class="hljs-params">()</span>;
+ <span class="hljs-reserved">var</span> x = <span class="hljs-keyword">new</span> Class();
  x.id = <span class="hljs-number">123</span>;
- console.<span class="hljs-built_in">log</span><span class="hljs-params">(x._primaryKey<span class="hljs-params">()</span>)</span>;
- <span class="hljs-comment">// -&gt; '123'</span>
+ <span class="hljs-built_in">console</span>.log(x._primaryKey());
+ <span class="hljs-regexp">//</span> -&gt; <span class="hljs-string">'123'</span>
 </code></pre></dd>
 									</dl>
 								</div>
@@ -2932,10 +2932,10 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 									<dl class="tsd-comment-tags">
 										<dt>example</dt>
 										<dd><pre><code>
- var x = new Class<span class="hljs-params">()</span>;
+ <span class="hljs-reserved">var</span> x = <span class="hljs-keyword">new</span> Class();
  x.id = <span class="hljs-number">123</span>;
- console.<span class="hljs-built_in">log</span><span class="hljs-params">(x._primaryKey<span class="hljs-params">()</span>)</span>;
- <span class="hljs-comment">// -&gt; '123'</span>
+ <span class="hljs-built_in">console</span>.log(x._primaryKey());
+ <span class="hljs-regexp">//</span> -&gt; <span class="hljs-string">'123'</span>
 </code></pre></dd>
 									</dl>
 								</div>
@@ -3420,8 +3420,8 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										</dd>
 										<dt>example</dt>
 										<dd><pre><code>
- return Class.all.limit<span class="hljs-params">(<span class="hljs-number">10</span>)</span>.<span class="hljs-built_in">offset</span><span class="hljs-params">(<span class="hljs-number">50</span>)</span>.get<span class="hljs-params">()</span>;
- <span class="hljs-comment">// -&gt; SELECT ... FROM ... LIMIT 10 OFFSET 50</span>
+ <span class="hljs-keyword">return</span> <span class="hljs-keyword">Class</span>.<span class="hljs-built_in">all</span>.limit(<span class="hljs-number">10</span>).offset(<span class="hljs-number">50</span>).get();
+ // -&gt; <span class="hljs-keyword">SELECT</span> ... FROM ... LIMIT <span class="hljs-number">10</span> OFFSET <span class="hljs-number">50</span>
 </code></pre></dd>
 									</dl>
 								</div>
@@ -5206,15 +5206,15 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 								<dl class="tsd-comment-tags">
 									<dt>example</dt>
 									<dd><pre><code>
-  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Task</span><span class="hljs-params">()</span> {</span> Updraft.Instance.apply<span class="hljs-params">(this, arguments)</span>; }
-  var Task = Updraft.createClass<span class="hljs-params">({
-    tableName: 'tasks',
+  <span class="hljs-keyword">function</span> <span class="hljs-type">Task</span><span class="hljs-literal">()</span> { <span class="hljs-type">Updraft</span>.<span class="hljs-type">Instance</span>.apply(this, arguments); }
+  var <span class="hljs-type">Task</span> = <span class="hljs-type">Updraft</span>.createClass({
+    tableName: <span class="hljs-symbol">'tasks'</span>,
     columns: {
-      name: Updraft.Column.Text<span class="hljs-params">()</span>.Key<span class="hljs-params">()</span>,
-      description: Updraft.Column.Text<span class="hljs-params">()</span>,
-      done: Updraft.Column.Bool<span class="hljs-params">()</span>
+      name: <span class="hljs-type">Updraft</span>.<span class="hljs-type">Column</span>.<span class="hljs-type">Text</span><span class="hljs-literal">()</span>.<span class="hljs-type">Key</span><span class="hljs-literal">()</span>,
+      description: <span class="hljs-type">Updraft</span>.<span class="hljs-type">Column</span>.<span class="hljs-type">Text</span><span class="hljs-literal">()</span>,
+      <span class="hljs-keyword">done</span>: <span class="hljs-type">Updraft</span>.<span class="hljs-type">Column</span>.<span class="hljs-type">Bool</span><span class="hljs-literal">()</span>
     }
-  })</span>;
+  });
 </code></pre></dd>
 								</dl>
 							</div>
