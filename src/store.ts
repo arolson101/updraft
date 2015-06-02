@@ -144,27 +144,41 @@ module Updraft {
     }
 
 
-    static sqlType(type: ColumnType) : string {
-      switch(type) {
+    static sql(val: Column) : string {
+      var stmt = "";
+      switch(val.type) {
         case ColumnType.int:
-          return 'INTEGER';
+          stmt = 'INTEGER';
+          break;
         case ColumnType.bool:
-          return 'BOOL';
+          stmt = 'BOOL';
+          break;
         case ColumnType.real:
-          return 'REAL';
+          stmt = 'REAL';
+          break;
         case ColumnType.text:
         case ColumnType.json:
         case ColumnType.enum:
-          return 'TEXT';
+          stmt = 'TEXT';
+          break;
         case ColumnType.blob:
-          return 'BLOB';
+          stmt = 'BLOB';
+          break;
         case ColumnType.date:
-          return 'DATE';
+          stmt = 'DATE';
+          break;
         case ColumnType.datetime:
-          return 'DATETIME';
+          stmt = 'DATETIME';
+          break;
         default:
           throw new Error("unsupported type");
       }
+
+      if('defaultValue' in val) {
+        stmt += ' DEFAULT ' + val.defaultValue;
+      }
+
+      return stmt;
     }
   }
 
@@ -603,8 +617,8 @@ module Updraft {
               console.assert(attrs.ref.columns != null);
               console.assert(attrs.ref.tableName != null);
               console.assert(attrs.ref.key != null);
-              var foreignType: ColumnType = attrs.ref.columns[attrs.ref.key].type;
-              decl = col + ' ' + Column.sqlType(foreignType);
+              var foreignCol: Column = attrs.ref.columns[attrs.ref.key];
+              decl = col + ' ' + Column.sql(foreignCol);
               cols.push(decl);
               break;
 
@@ -612,7 +626,7 @@ module Updraft {
               break;
 
             default:
-              decl = col + ' ' + Column.sqlType(attrs.type);
+              decl = col + ' ' + Column.sql(attrs);
               if (f.key === col) {
                 decl += ' PRIMARY KEY';
               }
@@ -727,7 +741,7 @@ module Updraft {
             var promises: Promise<any>[] = [];
             addedColumns.forEach(function (columnName: string) {
               var attrs: Column = f.columns[columnName];
-              var columnDecl = columnName + ' ' + Column.sqlType(attrs.type);
+              var columnDecl = columnName + ' ' + Column.sql(attrs);
               promises.push(self.exec(tx, 'ALTER TABLE ' + f.tableName + ' ADD COLUMN ' + columnDecl));
             });
             promises.push(createIndices());
@@ -754,6 +768,8 @@ module Updraft {
      * @param objects - objects to save
      */
     save(...objects: Instance<any>[]) {
+      objects = Array.prototype.concat.apply([], objects); // flatten array
+
       objects.map(function (o: Instance<any>) {
         console.assert(('_' + o._model.key) in o, "object must have a key");
       });

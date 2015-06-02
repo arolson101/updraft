@@ -39,10 +39,10 @@ describe("key/value storage", function() {
     .then(function() {
       var foo = store.get('foo');
       expect(foo).to.equal('foo 1');
-      
+
       var bar = store.get('bar');
       expect(bar).to.equal(123);
-      
+
       var baz = store.get('baz');
       expect(baz).to.deep.equal({test1: true, test2: 'string', test3: [1, 2, 3]});
     });
@@ -65,12 +65,8 @@ describe("simple models", function () {
       this.col4 = 'foo';
     }
   });
-  
-  function ClassCtor() {
-    Updraft.Instance.apply(this, arguments);
-    this.col2 = -1; // TODO
-    this._clearChanges();
-  }
+
+  function ClassCtor() { Updraft.Instance.apply(this, arguments); }
   Updraft.createClass(ClassCtor, {
     tableName: 'templateCtor',
     columns: {
@@ -91,7 +87,7 @@ describe("simple models", function () {
   afterEach(function () {
     store.close();
   });
-  
+
   it("constructor should initialize values", function() {
     var x = new ClassCtor();
     assert.equal(x.col2, -1, "constructor should initialize this value");
@@ -118,7 +114,7 @@ describe("simple models", function () {
     var x2 = new Class({col1: 123});
     assert.equal(x2.col1, 123, "constructer properties should be stored on the new object");
     assert.deepEqual(x2._changes(), ['col1'], "object should be flagged with changed fields");
-    
+
     x1.foo();
     assert.equal(x1.col4, 'foo', "functions should be installed as methods");
   });
@@ -155,7 +151,7 @@ describe("simple models", function () {
 describe('enum support', function() {
   var store;
   var x1, x2, x3, x4;
-  
+
   var Colors = new Enum(['Red', 'Green', 'Blue']);
 
   function Class() { Updraft.Instance.apply(this, arguments); }
@@ -193,11 +189,11 @@ describe('enum support', function() {
       });
     };
   };
-  
+
   it("save/load", function() {
     return Class.all.get().then(checkQuery([x1, x2, x3, x4]));
   });
-  
+
   it("query", function() {
     return Class.all.where('color', '=', Colors.Blue).get().then(checkQuery([x2, x4]));
   });
@@ -244,23 +240,23 @@ describe('query interface', function () {
       });
     };
   };
-  
+
   it("#all", function() {
     return Class.all.get().then(checkQuery([x1, x2, x3])); // it's probably the insertion order, but not guaranteed!
   });
-  
+
   it("#count", function() {
     return Class.all.count().should.eventually.equal(3);
   });
-  
+
   it("#where", function() {
     return Class.all.where('col2', '=', 20).get().then(checkQuery([x2]));
   });
-  
+
   it("#or", function() {
     return Class.all.where('col2', '=', 20).or('col2', '=', 30).get().then(checkQuery([x2, x3]));
   });
-  
+
   it("#and", function() {
     return Class.all.where('col2', '>', 10).and('col2', '<', 30).get().then(checkQuery([x2]));
   });
@@ -294,7 +290,7 @@ describe('query interface', function () {
 describe('migrations', function() {
   var store;
   var sqlSpy;
-  
+
   function ClassV1() { Updraft.Instance.apply(this, arguments); }
   Updraft.createClass(ClassV1, {
     tableName: 'template',
@@ -321,7 +317,7 @@ describe('migrations', function() {
   };
   var readSchema = /SELECT .* FROM sqlite_master/i;
   var loadKeyValues = /SELECT .* FROM updraft_kv/i;
-  
+
   before(function() {
     store = new Updraft.Store();
     sqlSpy = sinon.spy(store, 'exec');
@@ -339,7 +335,7 @@ describe('migrations', function() {
         });
       });
   });
-  
+
   afterEach(function() {
     store.logSql = false;
     store.close();
@@ -364,7 +360,7 @@ describe('migrations', function() {
       .should.eventually.deep.equal(expectedSchemaV1);
   });
 
-  
+
   var runMigration = function(message, newTemplate, expectedSchema, sqls, debug) {
     if(debug) {
       store.logSql = true;
@@ -460,7 +456,7 @@ describe('migrations', function() {
         readSchema
       ], false);
     });
-    
+
     it("add an index", function() {
       function NewClass() { Updraft.Instance.apply(this, arguments); }
       Updraft.createClass(NewClass, {
@@ -504,7 +500,7 @@ describe('migrations', function() {
       });
     });
   });
-  
+
 
   describe("complex migrations", function() {
     it("rename column", function() {
@@ -543,8 +539,8 @@ describe('migrations', function() {
         readSchema
       ], false);
     });
-    
-    
+
+
     it("rename everything", function() {
       function NewClass() { Updraft.Instance.apply(this, arguments); }
       Updraft.createClass(NewClass, {
@@ -584,8 +580,8 @@ describe('migrations', function() {
         readSchema
       ], false);
     });
-    
-    
+
+
     it("delete column", function() {
       function NewClass() { Updraft.Instance.apply(this, arguments); }
       Updraft.createClass(NewClass, {
@@ -615,8 +611,8 @@ describe('migrations', function() {
         readSchema
       ], false);
     });
-    
-    
+
+
     it("delete and rename and add", function() {
       function NewClass() { Updraft.Instance.apply(this, arguments); }
       Updraft.createClass(NewClass, {
@@ -660,7 +656,7 @@ describe('migrations', function() {
 describe("child objects", function() {
   var store;
   var favorite;
-  
+
   function Image() { Updraft.Instance.apply(this, arguments); }
   function Artist() { Updraft.Instance.apply(this, arguments); }
   function City() { Updraft.Instance.apply(this, arguments); }
@@ -695,7 +691,7 @@ describe("child objects", function() {
       name: Column.Text()
     }
   });
-  
+
   Updraft.createClass(Tag, {
     tableName: 'tags',
     columns: {
@@ -703,7 +699,7 @@ describe("child objects", function() {
       name: Column.Text()
     }
   });
-  
+
   Updraft.createClass(Color, {
     tableName: 'colors',
     columns: {
@@ -711,8 +707,8 @@ describe("child objects", function() {
       name: Column.Text()
     }
   });
-  
-  
+
+
   before(function() {
     store = new Updraft.Store();
     return store.purge(storeProps)
@@ -722,36 +718,36 @@ describe("child objects", function() {
       store.addClass(City);
       store.addClass(Tag);
       store.addClass(Color);
-      
+
       var red = new Color({colorId: 300, name: 'red'});
       var green = new Color({colorId: 301, name: 'green'});
       var blue = new Color({colorId: 302, name: 'blue'});
-      
+
       var venice = new City({cityId: 100, name: 'Venice'});
       var paris = new City({cityId: 101, name: 'Paris'});
 
       var monet = new Artist({artistId: 500, name: 'Monet', city: paris});
       var daVinci = new Artist({artistId: 501, name: 'Da Vinci', city: venice});
       var vanGogh = new Artist({artistId: 502, name: 'Van Gogh', city: paris});
-      
+
       var monaLisa = new Image({imageId: 1, name: 'mona lisa', artist: daVinci});
       var lastSupper = new Image({imageId: 2, name: 'the last supper', artist: daVinci});
       var waterLillies = new Image({imageId: 3, name: 'water lillies', artist: monet});
       var starryNight = new Image({imageId: 4, name: 'starry night', artist: vanGogh});
-      
+
       var plants = new Tag({tagId: 801, name: 'plants'});
       favorite = new Tag({tagId: 802, name: 'favorite'});
-      
+
       daVinci.masterpiece = monaLisa;
       monet.masterpiece = waterLillies;
       vanGogh.masterpiece = starryNight;
-      
+
       lastSupper.tags.push(favorite);
       waterLillies.tags = [favorite, plants];
       starryNight.tags.push(plants);
-      
+
       waterLillies.colors = [red, green, blue];
-      
+
       return store.open(storeProps)
       .then(function() {
         store.save(venice, paris,
@@ -776,16 +772,16 @@ describe("child objects", function() {
       expect(results[1]).to.have.property('name', 'starry night');
     });
   });
-  
-  
+
+
   it("should retrieve sets", function() {
     return Image.get(3)
     .then(function(result) {
       expect(result.tags.values()).to.have.length(2);
     });
   });
-  
-  
+
+
   it("should search in sets", function() {
     return Image.all.where('tags', 'contains', favorite).order('imageId').get()
     .then(function(results) {
@@ -795,7 +791,7 @@ describe("child objects", function() {
     });
   });
 
-  
+
   it("should search in multiple sets", function() {
     return Image.all.where('tags', 'contains', favorite).and('colors', 'contains', 302).order('imageId').get()
     .then(function(results) {

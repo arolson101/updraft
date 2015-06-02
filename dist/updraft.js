@@ -581,6 +581,12 @@ var Updraft;
         function Instance(props) {
             var o = this;
             o._changeMask = 0;
+            for (var key in this._model.columns) {
+                var col = this._model.columns[key];
+                if ('defaultValue' in col) {
+                    o['_' + key] = col.defaultValue;
+                }
+            }
             props = props || {};
             for (var key in props) {
                 var value = props[key];
@@ -945,27 +951,39 @@ var Updraft;
             c.ref = ref;
             return c;
         };
-        Column.sqlType = function (type) {
-            switch (type) {
+        Column.sql = function (val) {
+            var stmt = "";
+            switch (val.type) {
                 case ColumnType.int:
-                    return 'INTEGER';
+                    stmt = 'INTEGER';
+                    break;
                 case ColumnType.bool:
-                    return 'BOOL';
+                    stmt = 'BOOL';
+                    break;
                 case ColumnType.real:
-                    return 'REAL';
+                    stmt = 'REAL';
+                    break;
                 case ColumnType.text:
                 case ColumnType.json:
                 case ColumnType.enum:
-                    return 'TEXT';
+                    stmt = 'TEXT';
+                    break;
                 case ColumnType.blob:
-                    return 'BLOB';
+                    stmt = 'BLOB';
+                    break;
                 case ColumnType.date:
-                    return 'DATE';
+                    stmt = 'DATE';
+                    break;
                 case ColumnType.datetime:
-                    return 'DATETIME';
+                    stmt = 'DATETIME';
+                    break;
                 default:
                     throw new Error("unsupported type");
             }
+            if ('defaultValue' in val) {
+                stmt += ' DEFAULT ' + val.defaultValue;
+            }
+            return stmt;
         };
         return Column;
     })();
@@ -1349,14 +1367,14 @@ var Updraft;
                             console.assert(attrs.ref.columns != null);
                             console.assert(attrs.ref.tableName != null);
                             console.assert(attrs.ref.key != null);
-                            var foreignType = attrs.ref.columns[attrs.ref.key].type;
-                            decl = col + ' ' + Column.sqlType(foreignType);
+                            var foreignCol = attrs.ref.columns[attrs.ref.key];
+                            decl = col + ' ' + Column.sql(foreignCol);
                             cols.push(decl);
                             break;
                         case ColumnType.set:
                             break;
                         default:
-                            decl = col + ' ' + Column.sqlType(attrs.type);
+                            decl = col + ' ' + Column.sql(attrs);
                             if (f.key === col) {
                                 decl += ' PRIMARY KEY';
                             }
@@ -1462,7 +1480,7 @@ var Updraft;
                         var promises = [];
                         addedColumns.forEach(function (columnName) {
                             var attrs = f.columns[columnName];
-                            var columnDecl = columnName + ' ' + Column.sqlType(attrs.type);
+                            var columnDecl = columnName + ' ' + Column.sql(attrs);
                             promises.push(self.exec(tx, 'ALTER TABLE ' + f.tableName + ' ADD COLUMN ' + columnDecl));
                         });
                         promises.push(createIndices());
@@ -1493,6 +1511,7 @@ var Updraft;
             for (var _i = 0; _i < arguments.length; _i++) {
                 objects[_i - 0] = arguments[_i];
             }
+            objects = Array.prototype.concat.apply([], objects); // flatten array
             objects.map(function (o) {
                 console.assert(('_' + o._model.key) in o, "object must have a key");
             });

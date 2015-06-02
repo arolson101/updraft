@@ -65,6 +65,13 @@ module Updraft {
       var o = this;
       o._changeMask = 0;
 
+      for (var key in this._model.columns) {
+        var col: Column = this._model.columns[key];
+        if('defaultValue' in col) {
+          o['_' + key] = col.defaultValue;
+        }
+      }
+
       props = props || {};
       for (var key in props) {
         var value = props[key];

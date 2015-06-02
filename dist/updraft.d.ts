@@ -414,7 +414,7 @@ declare module Updraft {
         static Ptr(ref: ClassTemplate<any>): Column;
         /** unordered collection */
         static Set(ref: ClassTemplate<any>): Column;
-        static sqlType(type: ColumnType): string;
+        static sql(val: Column): string;
     }
     interface ColumnSet {
         [name: string]: Column;
