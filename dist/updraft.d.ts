@@ -473,6 +473,13 @@ declare module Updraft {
         (tx: SQLTransaction, results: SQLResultSet): T;
     }
     /**
+     * Options to change database
+     */
+    interface MutateParams {
+        save?: Instance<any>[];
+        delete?: Instance<any>[];
+    }
+    /**
      * Interface for creating classes & database interaction
      */
     class Store {
@@ -597,7 +604,21 @@ declare module Updraft {
          *
          * @param objects - objects to save
          */
-        save(...objects: Instance<any>[]): Promise<{}>;
+        save(...objects: Instance<any>[]): Promise<any>;
+        /**
+         * Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
+         * or nothing will be written.  Objects can be heterogeneous.
+         *
+         * @param objects - objects to delete
+         */
+        delete(...objects: Instance<any>[]): Promise<any>;
+        /**
+         * Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
+         * or nothing will be written.  Objects can be heterogeneous.
+         *
+         * @param objects - objects to save
+         */
+        mutate(params: MutateParams): Promise<any>;
     }
 }
 declare module Updraft {

@@ -276,6 +276,15 @@ module Updraft {
 
 
   /**
+   * Options to change database
+   */
+  export interface MutateParams {
+    save?: Instance<any>[];
+    delete?: Instance<any>[];
+  }
+
+
+  /**
    * Interface for creating classes & database interaction
    */
   export class Store {
@@ -767,10 +776,37 @@ module Updraft {
      *
      * @param objects - objects to save
      */
-    save(...objects: Instance<any>[]) {
-      objects = Array.prototype.concat.apply([], objects); // flatten array
+    save(...objects: Instance<any>[]): Promise<any> {
+      return this.mutate({save: objects});
+    }
 
-      objects.map(function (o: Instance<any>) {
+
+    /**
+     * Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
+     * or nothing will be written.  Objects can be heterogeneous.
+     *
+     * @param objects - objects to delete
+     */
+    delete(...objects: Instance<any>[]): Promise<any> {
+      return this.mutate({delete: objects});
+    }
+
+
+    /**
+     * Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
+     * or nothing will be written.  Objects can be heterogeneous.
+     *
+     * @param objects - objects to save
+     */
+    mutate(params: MutateParams): Promise<any> {
+      var saveObjects = Array.prototype.concat.apply([], params.save); // flatten array
+      var deleteObjects = Array.prototype.concat.apply([], params.delete); // flatten array
+
+      saveObjects.map(function (o: Instance<any>) {
+        console.assert(('_' + o._model.key) in o, "object must have a key");
+      });
+
+      deleteObjects.map(function (o: Instance<any>) {
         console.assert(('_' + o._model.key) in o, "object must have a key");
       });
 
@@ -868,7 +904,7 @@ module Updraft {
             });
           }
 
-          var upsert = function (o: Instance<any>): Promise<any> {
+          function upsert(o: Instance<any>): Promise<any> {
             var p: Promise<any>;
             if (o._isInDb) {
               p = update(o, function (changed) { return changed ? insertSets(o, false) : insert(o); });
@@ -885,7 +921,17 @@ module Updraft {
             });
           };
 
-          return Promise.all(objects.map(upsert)).then(resolve, reject);
+          function remove(o: Instance<any>) {
+            var f = o._model;
+            var keyVal = o._primaryKey();
+            return self.exec(tx, 'DELETE FROM ' + f.tableName + ' WHERE ' + f.key + '=?', [keyVal]);
+          }
+
+          var savePromises = saveObjects.map(upsert);
+          var deletePromises = deleteObjects.map(remove);
+
+          return Promise.all(deletePromises.concat(savePromises))
+          .then(resolve, reject);
         });
       });
     }

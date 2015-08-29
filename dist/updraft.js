@@ -1511,8 +1511,34 @@ var Updraft;
             for (var _i = 0; _i < arguments.length; _i++) {
                 objects[_i - 0] = arguments[_i];
             }
-            objects = Array.prototype.concat.apply([], objects); // flatten array
-            objects.map(function (o) {
+            return this.mutate({ save: objects });
+        };
+        /**
+         * Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
+         * or nothing will be written.  Objects can be heterogeneous.
+         *
+         * @param objects - objects to delete
+         */
+        Store.prototype.delete = function () {
+            var objects = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                objects[_i - 0] = arguments[_i];
+            }
+            return this.mutate({ delete: objects });
+        };
+        /**
+         * Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
+         * or nothing will be written.  Objects can be heterogeneous.
+         *
+         * @param objects - objects to save
+         */
+        Store.prototype.mutate = function (params) {
+            var saveObjects = Array.prototype.concat.apply([], params.save); // flatten array
+            var deleteObjects = Array.prototype.concat.apply([], params.delete); // flatten array
+            saveObjects.map(function (o) {
+                console.assert(('_' + o._model.key) in o, "object must have a key");
+            });
+            deleteObjects.map(function (o) {
                 console.assert(('_' + o._model.key) in o, "object must have a key");
             });
             var self = this;
@@ -1603,7 +1629,7 @@ var Updraft;
                             return callback ? callback(changes) : changes;
                         });
                     }
-                    var upsert = function (o) {
+                    function upsert(o) {
                         var p;
                         if (o._isInDb) {
                             p = update(o, function (changed) { return changed ? insertSets(o, false) : insert(o); });
@@ -1619,8 +1645,17 @@ var Updraft;
                                 o._isInDb = true;
                             }
                         });
-                    };
-                    return Promise.all(objects.map(upsert)).then(resolve, reject);
+                    }
+                    ;
+                    function remove(o) {
+                        var f = o._model;
+                        var keyVal = o._primaryKey();
+                        return self.exec(tx, 'DELETE FROM ' + f.tableName + ' WHERE ' + f.key + '=?', [keyVal]);
+                    }
+                    var savePromises = saveObjects.map(upsert);
+                    var deletePromises = deleteObjects.map(remove);
+                    return Promise.all(deletePromises.concat(savePromises))
+                        .then(resolve, reject);
                 });
             });
         };

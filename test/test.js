@@ -146,6 +146,29 @@ describe("simple models", function () {
         ]);
       });
   });
+
+
+  it("should be able to delete instances", function () {
+    var x1 = new Class({col1: 1, col2: 10});
+    var x2 = new Class({col1: 2, col2: 20});
+    var x3 = new Class({col1: 3, col2: 30});
+
+    return store.open(storeProps)
+      .then(function () {
+        return store.save(x1, x2, x3);
+      })
+      .then(function () {
+        return store.delete([x1, x3]);
+      })
+      .then(function () {
+        return Promise.all([
+          Class.all.get().should.eventually.have.length(1),
+          Class.get(1).should.eventually.be.null,
+          Class.get(2).should.eventually.have.property('col2', 20),
+          Class.get(3).should.eventually.be.null,
+        ]);
+      });
+  });
 });
 
 describe('enum support', function() {

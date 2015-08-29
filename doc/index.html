@@ -1309,6 +1309,9 @@ input[type=checkbox]:checked + .tsd-widget:before { background-position: -160px 
 						<li class=" tsd-kind-method tsd-parent-kind-class">
 							<a href="index.html#updraft.store.close" class="tsd-kind-icon">close</a>
 						</li>
+						<li class=" tsd-kind-method tsd-parent-kind-class">
+							<a href="index.html#updraft.store.delete" class="tsd-kind-icon">delete</a>
+						</li>
 						<li class=" tsd-kind-method tsd-parent-kind-class tsd-has-type-parameter tsd-is-private">
 							<a href="index.html#updraft.store.exec" class="tsd-kind-icon">exec</a>
 						</li>
@@ -1320,6 +1323,9 @@ input[type=checkbox]:checked + .tsd-widget:before { background-position: -160px 
 						</li>
 						<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
 							<a href="index.html#updraft.store.loadkeyvalues" class="tsd-kind-icon">load<wbr>Key<wbr>Values</a>
+						</li>
+						<li class=" tsd-kind-method tsd-parent-kind-class">
+							<a href="index.html#updraft.store.mutate" class="tsd-kind-icon">mutate</a>
 						</li>
 						<li class=" tsd-kind-method tsd-parent-kind-class">
 							<a href="index.html#updraft.store.open" class="tsd-kind-icon">open</a>
@@ -1426,6 +1432,17 @@ input[type=checkbox]:checked + .tsd-widget:before { background-position: -160px 
 				</li>
 				<li class=" tsd-kind-interface tsd-parent-kind-module tsd-has-type-parameter tsd-is-private">
 					<a href="index.html#updraft.execcallback" class="tsd-kind-icon">Exec<wbr>Callback</a>
+				</li>
+				<li class=" tsd-kind-interface tsd-parent-kind-module">
+					<a href="index.html#updraft.mutateparams" class="tsd-kind-icon">Mutate<wbr>Params</a>
+					<ul>
+						<li class=" tsd-kind-property tsd-parent-kind-interface">
+							<a href="index.html#updraft.mutateparams.delete-1" class="tsd-kind-icon">delete</a>
+						</li>
+						<li class=" tsd-kind-property tsd-parent-kind-interface">
+							<a href="index.html#updraft.mutateparams.save-1" class="tsd-kind-icon">save</a>
+						</li>
+					</ul>
 				</li>
 				<li class=" tsd-kind-interface tsd-parent-kind-module">
 					<a href="index.html#updraft.renamedcolumnset" class="tsd-kind-icon">Renamed<wbr>Column<wbr>Set</a>
@@ -4034,7 +4051,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 					<div class="tsd-signature tsd-kind-icon">Store<span class="tsd-signature-symbol">:</span> </div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L281">src/store.ts:281</a></li>
+							<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L290">src/store.ts:290</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -4052,7 +4069,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L286">src/store.ts:286</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L295">src/store.ts:295</a></li>
 									</ul>
 								</aside>
 								<h4 class="tsd-returns-title">Returns <a href="index.html#updraft.store" class="tsd-signature-type">Store</a></h4>
@@ -4065,7 +4082,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<div class="tsd-signature tsd-kind-icon">Key<wbr>Value<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></div>
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L284">src/store.ts:284</a></li>
+								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L293">src/store.ts:293</a></li>
 							</ul>
 						</aside>
 					</section>
@@ -4075,7 +4092,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<div class="tsd-signature tsd-kind-icon">db<span class="tsd-signature-symbol">:</span> <a href="index.html#database" class="tsd-signature-type">Database</a></div>
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L286">src/store.ts:286</a></li>
+								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L295">src/store.ts:295</a></li>
 							</ul>
 						</aside>
 					</section>
@@ -4085,7 +4102,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<div class="tsd-signature tsd-kind-icon">kv<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Object</span></div>
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L285">src/store.ts:285</a></li>
+								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L294">src/store.ts:294</a></li>
 							</ul>
 						</aside>
 					</section>
@@ -4095,7 +4112,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<div class="tsd-signature tsd-kind-icon">log<wbr>Sql<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L282">src/store.ts:282</a></li>
+								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L291">src/store.ts:291</a></li>
 							</ul>
 						</aside>
 					</section>
@@ -4105,7 +4122,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<div class="tsd-signature tsd-kind-icon">tables<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.classtemplate" class="tsd-signature-type">ClassTemplate</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span></div>
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L283">src/store.ts:283</a></li>
+								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L292">src/store.ts:292</a></li>
 							</ul>
 						</aside>
 					</section>
@@ -4119,7 +4136,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L302">src/store.ts:302</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L311">src/store.ts:311</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4149,7 +4166,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L447">src/store.ts:447</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L456">src/store.ts:456</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4158,6 +4175,40 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 									</div>
 								</div>
 								<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+							</li>
+						</ul>
+					</section>
+					<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+						<a name="updraft.store.delete" class="tsd-anchor"></a>
+						<h3>delete</h3>
+						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+							<li class="tsd-signature tsd-kind-icon">delete<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">...</span>objects<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></li>
+						</ul>
+						<ul class="tsd-descriptions">
+							<li class="tsd-description">
+								<aside class="tsd-sources">
+									<ul>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L790">src/store.ts:790</a></li>
+									</ul>
+								</aside>
+								<div class="tsd-comment tsd-typography">
+									<div class="lead">
+										<p>Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
+										or nothing will be written.  Objects can be heterogeneous.</p>
+									</div>
+								</div>
+								<h4 class="tsd-parameters-title">Parameters</h4>
+								<ul class="tsd-parameters">
+									<li>
+										<h5><span class="tsd-flag ts-flagRest">Rest</span> <span class="tsd-signature-symbol">...</span>objects: <a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span></h5>
+										<div class="tsd-comment tsd-typography">
+											<ul>
+												<li>objects to delete</li>
+											</ul>
+										</div>
+									</li>
+								</ul>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -4171,7 +4222,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L463">src/store.ts:463</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L472">src/store.ts:472</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4235,7 +4286,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L497">src/store.ts:497</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L506">src/store.ts:506</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4291,7 +4342,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L331">src/store.ts:331</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L340">src/store.ts:340</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4320,7 +4371,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L340">src/store.ts:340</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L349">src/store.ts:349</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4328,6 +4379,35 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										<p>read the key/value pairs from the database, caching them on the <tt>Store</tt></p>
 									</div>
 								</div>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							</li>
+						</ul>
+					</section>
+					<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+						<a name="updraft.store.mutate" class="tsd-anchor"></a>
+						<h3>mutate</h3>
+						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+							<li class="tsd-signature tsd-kind-icon">mutate<span class="tsd-signature-symbol">(</span>params<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.mutateparams" class="tsd-signature-type">MutateParams</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></li>
+						</ul>
+						<ul class="tsd-descriptions">
+							<li class="tsd-description">
+								<aside class="tsd-sources">
+									<ul>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L801">src/store.ts:801</a></li>
+									</ul>
+								</aside>
+								<div class="tsd-comment tsd-typography">
+									<div class="lead">
+										<p>Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
+										or nothing will be written.  Objects can be heterogeneous.</p>
+									</div>
+								</div>
+								<h4 class="tsd-parameters-title">Parameters</h4>
+								<ul class="tsd-parameters">
+									<li>
+										<h5>params: <a href="index.html#updraft.mutateparams" class="tsd-signature-type">MutateParams</a></h5>
+									</li>
+								</ul>
 								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
@@ -4342,7 +4422,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L405">src/store.ts:405</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L414">src/store.ts:414</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4379,7 +4459,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L365">src/store.ts:365</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L374">src/store.ts:374</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4419,7 +4499,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L525">src/store.ts:525</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L534">src/store.ts:534</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4442,7 +4522,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L509">src/store.ts:509</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L518">src/store.ts:518</a></li>
 									</ul>
 								</aside>
 								<h4 class="tsd-parameters-title">Parameters</h4>
@@ -4459,13 +4539,13 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 						<a name="updraft.store.save" class="tsd-anchor"></a>
 						<h3>save</h3>
 						<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-							<li class="tsd-signature tsd-kind-icon">save<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">...</span>objects<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Object</span><span class="tsd-signature-symbol">&gt;</span></li>
+							<li class="tsd-signature tsd-kind-icon">save<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">...</span>objects<span class="tsd-signature-symbol">: </span><a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></li>
 						</ul>
 						<ul class="tsd-descriptions">
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L770">src/store.ts:770</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L779">src/store.ts:779</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4485,7 +4565,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 										</div>
 									</li>
 								</ul>
-								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Object</span><span class="tsd-signature-symbol">&gt;</span></h4>
+								<h4 class="tsd-returns-title">Returns <a href="index.html#promise" class="tsd-signature-type">Promise</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span></h4>
 							</li>
 						</ul>
 					</section>
@@ -4499,7 +4579,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L318">src/store.ts:318</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L327">src/store.ts:327</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4539,7 +4619,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L606">src/store.ts:606</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L615">src/store.ts:615</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4580,7 +4660,7 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<li class="tsd-description">
 								<aside class="tsd-sources">
 									<ul>
-										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L584">src/store.ts:584</a></li>
+										<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L593">src/store.ts:593</a></li>
 									</ul>
 								</aside>
 								<div class="tsd-comment tsd-typography">
@@ -4914,6 +4994,41 @@ Paint.all.where(<span class="hljs-string">'colorTemp'</span>, <span class="hljs-
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">T</span></h4>
 						</li>
 					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-interface tsd-parent-kind-module">
+					<a name="updraft.mutateparams" class="tsd-anchor"></a>
+					<h3>Mutate<wbr>Params</h3>
+					<div class="tsd-signature tsd-kind-icon">Mutate<wbr>Params<span class="tsd-signature-symbol">:</span> </div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L281">src/store.ts:281</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Options to change database</p>
+						</div>
+					</div>
+					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
+						<a name="updraft.mutateparams.delete-1" class="tsd-anchor"></a>
+						<h3>delete</h3>
+						<div class="tsd-signature tsd-kind-icon">delete<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span></div>
+						<aside class="tsd-sources">
+							<ul>
+								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L283">src/store.ts:283</a></li>
+							</ul>
+						</aside>
+					</section>
+					<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
+						<a name="updraft.mutateparams.save-1" class="tsd-anchor"></a>
+						<h3>save</h3>
+						<div class="tsd-signature tsd-kind-icon">save<span class="tsd-signature-symbol">:</span> <a href="index.html#updraft.instance" class="tsd-signature-type">Instance</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">[]</span></div>
+						<aside class="tsd-sources">
+							<ul>
+								<li>Defined in <a href="https://github.com/arolson101/updraft/blob/master/src/store.ts#L282">src/store.ts:282</a></li>
+							</ul>
+						</aside>
+					</section>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-interface tsd-parent-kind-module">
 					<a name="updraft.renamedcolumnset" class="tsd-anchor"></a>
