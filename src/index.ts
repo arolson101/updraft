@@ -12,12 +12,14 @@ export module Updraft {
 	export import Table = Table_.Table;
 	export import TableSpec = Table_.TableSpec;
 	export import Store = Table_.Store;
+	
+	export import update = Update_.update;
 }
 
 
-declare var module: any;
-if (typeof module !== "undefined") {
-	module.exports = Updraft;
-}
+// declare var module: any;
+// if (typeof module !== "undefined") {
+// 	module.exports = Updraft;
+// }
 
-export default Updraft;
+// export default Updraft;

@@ -8,6 +8,7 @@ var sync = require('gulp-config-sync');
 var ts = require('gulp-typescript');
 var typedoc = require("gulp-typedoc");
 var uglify = require('gulp-uglify');
+var mocha = require('gulp-mocha');
 
 //var minify = true;
 
@@ -50,10 +51,14 @@ gulp.task('watch', ['compile'], function() {
     gulp.watch('src/*.ts', ['compile']);
 });
 
-gulp.task('test', ['compile'], function() {
-     return gulp.src('./test/test.html')
-        .pipe(mochaPhantomJS({ 'webSecurityEnabled': false, "outputEncoding": "utf8", "localToRemoteUrlAccessEnabled": true }));
+// enable typescript tests in mocha
+require('ts-node/register');
+
+gulp.task('test', function () {
+  return gulp.src(['test/*.ts'])
+    .pipe(mocha());
 });
+
 
 gulp.task('sync', function() {
   return gulp.src(['bower.json', 'component.json'])
