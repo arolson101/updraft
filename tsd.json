@@ -7,6 +7,18 @@
   "installed": {
     "es6-promise/es6-promise.d.ts": {
       "commit": "f3244190e20af6901e865f4cc58127d19216baa1"
+    },
+    "chai/chai.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "chai-as-promised/chai-as-promised.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "mocha/mocha.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "promises-a-plus/promises-a-plus.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
     }
   }
 }
