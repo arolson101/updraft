@@ -18,6 +18,9 @@
     "files": [
         "./src/index.ts",
         "./src/Column.ts",
+        "./src/Table.ts",
+        "./src/Query.ts",
+        "./src/Update.ts",
         "./test/test.ts"
     ]
 }

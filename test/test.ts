@@ -4,21 +4,48 @@
 import { expect } from "chai";
 import Updraft from "../src/index";
 
-var { Column } = Updraft;
+import Column = Updraft.Column;
+import Q = Updraft.Query;
+import U = Updraft.Update;
 
 
-interface _Todo<key, str, bool> {
-  id: key;
-  text: str;
-  completed: bool;
+interface _Todo<key, bool, str, strset> {
+	id?: key;
+	completed?: bool;
+	text?: str;
+	//tags?: strset;
 }
 
-type Todo = _Todo<number, string, boolean>;
+interface Todo extends _Todo<number, boolean, string, Set<string>> {}
+interface TodoUpdate extends _Todo<number, U.bool, U.str, U.strSet> {}
+interface TodoQuery extends _Todo<number, Q.bool, Q.str, Q.strSet> {}
+interface TodoFields extends _Todo<boolean, boolean, boolean, boolean> {}
+
+type TodoTable = Updraft.Table<Todo, TodoUpdate, TodoQuery>;
 
 
-var todoSpec = {
+var todoTableSpec: Updraft.TableSpec<Todo, TodoUpdate, TodoQuery> = {
   name: "todos",
   columns: {
     id: Column.Int().Key(),
+		completed: Column.Bool(),
+		text: Column.String(),
+		//tags: Column.
   }
 }
+
+var store: Updraft.Store;
+var todoTable: TodoTable = store.addTable(todoTableSpec);
+
+todoTable.find({}).then(results => console.log(results));
+
+var idServer = 0;
+
+var todo: Todo = {
+	id: ++idServer,
+	completed: false,
+	text: 'test'
+}
+
+todoTable.apply({when: 100, change: {id: 123, completed: {$set: true}}});
+todoTable.apply({when: 101, change: {id: 123, text: {$set: 'asdf'}}});
