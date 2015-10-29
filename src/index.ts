@@ -1,7 +1,9 @@
-import * as Query_ from "./Query";
-import * as Mutate_ from "./Mutate";
-import * as Table_ from "./Table";
 import * as Column_ from "./Column";
+import * as Mutate_ from "./Mutate";
+import * as Query_ from "./Query";
+import * as Store_ from "./Store";
+import * as Table_ from "./Table";
+import * as WebsqlWrapper_ from "./WebsqlWrapper";
 
 export module Updraft {
 	export import Query = Query_;
@@ -11,9 +13,13 @@ export module Updraft {
 	export import Column = Column_.Column;
 	export import Table = Table_.Table;
 	export import TableSpec = Table_.TableSpec;
-	export import Store = Table_.Store;
+
+	export import Store = Store_.Store;
+	export import createStore = Store_.createStore;
 	
 	export import mutate = Mutate_.mutate;
+
+	export import wrapSql = WebsqlWrapper_.wrapSql;
 }
 
 

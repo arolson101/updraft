@@ -4,6 +4,7 @@
 
 ///<reference path="../typings/tsd.d.ts"/> 
 import assign = require("object-assign");
+import invariant = require("invariant");
 
 interface setter<T> {
 	$set: T;
@@ -80,7 +81,6 @@ function shallowCopy<T>(x: T): T {
   }
 }
 
-var invariant = console.assert;
 var hasOwnProperty = {}.hasOwnProperty;
 function keyOf(obj: Object) { return Object.keys(obj)[0]; }
 

@@ -19,9 +19,11 @@
     "files": [
         "./src/index.ts",
         "./src/Column.ts",
+        "./src/Mutate.ts",
         "./src/Table.ts",
+        "./src/Store.ts",
         "./src/Query.ts",
-        "./src/Update.ts",
+        "./src/WebsqlWrapper.ts",
         "./test/test.ts"
     ]
 }

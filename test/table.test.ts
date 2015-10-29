@@ -2,56 +2,61 @@
 ///<reference path="../src/index"/>
 
 import clone = require("clone");
-import { expect } from "chai";
+import chai = require("chai");
+import chaAsPromised = require("chai-as-promised");
 import { Updraft } from "../src/index";
+import sqlite3 = require("sqlite3");
+
+chai.use(chaAsPromised);
+var expect = chai.expect;
 
 import Column = Updraft.Column;
 import Q = Updraft.Query;
 import M = Updraft.Mutate;
 
 
-xdescribe('tables', function() {
+describe('tables', function() {
 	interface _Todo<key, bool, str, strset> {
 		id?: key;
 		completed?: bool;
 		text?: str;
-		//tags?: strset;
 	}
 	
 	interface Todo extends _Todo<number, boolean, string, Set<string>> {}
-	interface TodoUpdate extends _Todo<number, M.bool, M.str, M.strSet> {}
+	interface TodoMutator extends _Todo<number, M.bool, M.str, M.strSet> {}
 	interface TodoQuery extends _Todo<number, Q.bool, Q.str, Q.strSet> {}
 	interface TodoFields extends _Todo<boolean, boolean, boolean, boolean> {}
 	
-	type TodoTable = Updraft.Table<Todo, TodoUpdate, TodoQuery>;
+	type TodoTable = Updraft.Table<Todo, TodoMutator, TodoQuery>;
 	
-	const todoTableSpec: Updraft.TableSpec<Todo, TodoUpdate, TodoQuery> = {
+	const todoTableSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = {
 		name: "todos",
 		columns: {
 			id: Column.Int().Key(),
 			completed: Column.Bool(),
 			text: Column.String(),
-			//tags: Column.
 		}
 	}
 
 
-	it('should work', function() {
-		var store: Updraft.Store;
+	it('store', function() {
+		var store = Updraft.createStore({ name: "test.db", create: Updraft.wrapSql(<any>sqlite3.Database) });
 		var todoTable: TodoTable = store.addTable(todoTableSpec);
 		
-		todoTable.find({}).then(results => console.log(results));
+		expect(store.open()).to.eventually.be.fulfilled;
 		
-		var idServer = 0;
+		// todoTable.find({}).then(results => console.log(results));
 		
-		var todo: Todo = {
-			id: ++idServer,
-			completed: false,
-			text: 'test'
-		}
+		// var idServer = 0;
 		
-		todoTable.apply({when: 100, change: {id: 123, completed: {$set: true}}});
-		todoTable.apply({when: 101, change: {id: 123, text: {$set: 'asdf'}}});
+		// var todo: Todo = {
+		// 	id: ++idServer,
+		// 	completed: false,
+		// 	text: 'test'
+		// }
+		
+		// todoTable.apply({when: 100, change: {id: 123, completed: {$set: true}}});
+		// todoTable.apply({when: 101, change: {id: 123, text: {$set: 'asdf'}}});
 	});
 });
 
