@@ -13,7 +13,7 @@ export module Updraft {
 	export import TableSpec = Table_.TableSpec;
 	export import Store = Table_.Store;
 	
-	export import update = Update_.update;
+	export import mutate = Update_.mutate;
 }
 
 
