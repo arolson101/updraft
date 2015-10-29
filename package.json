@@ -31,6 +31,7 @@
   "devDependencies": {
     "chai": "^1.10.0",
     "chai-as-promised": "^4.1.1",
+    "clone": "^1.0.2",
     "enum": "^2.0.2",
     "gulp": "^3.8.10",
     "gulp-config-sync": "0.0.1",

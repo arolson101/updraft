@@ -14,16 +14,16 @@ interface increment {
 }
 
 interface push<T> {
-	$push: T | Array<T>;
+	$push: Array<T>;
 }
 
 interface unshift<T> {
-	$unshift: T | Array<T>;
+	$unshift: Array<T>;
 }
 
 interface splice<T> {
 	// array.splice(start, deleteCount[, item1[, item2[, ...]]])
-	$splice: (number | T)[];
+	$splice: Array<Array<number | T>>;
 }
 
 interface merge<T> {
@@ -68,6 +68,8 @@ export type strSet = set<string>;
 function shallowCopy<T>(x: T): T {
   if (Array.isArray(x)) {
     return (<any>x).concat();
+  } else if (x instanceof Set) {
+    return <any>new Set<T>(<any>x);
   } else if (x && typeof x === 'object') {
     return assign(new (<any>x).constructor(), x);
   } else {
@@ -191,6 +193,7 @@ export function update<Element, Updater>(value: Element, spec: Updater): Element
       nextValue
     );
     assign(nextValue, spec[COMMAND_MERGE]);
+    return nextValue;
   }
 	
   if (hasOwnProperty.call(spec, COMMAND_DELETE) && (typeof value === 'object') && !(value instanceof Set)) {
@@ -202,6 +205,7 @@ export function update<Element, Updater>(value: Element, spec: Updater): Element
       key
     );
 		delete nextValue[key];
+    return nextValue;
 	}
 
   if (hasOwnProperty.call(spec, COMMAND_PUSH)) {
@@ -209,13 +213,13 @@ export function update<Element, Updater>(value: Element, spec: Updater): Element
     spec[COMMAND_PUSH].forEach(function(item: any) {
       (<any>nextValue).push(item);
     });
+    return nextValue;
   }
 	
   if (hasOwnProperty.call(spec, COMMAND_UNSHIFT)) {
     invariantArrayCase(value, spec, COMMAND_UNSHIFT);
-    spec[COMMAND_UNSHIFT].forEach(function(item: any) {
-      (<any>nextValue).unshift(item);
-    });
+    (<any>nextValue).unshift.apply(nextValue, spec[COMMAND_UNSHIFT]);
+    return nextValue;
   }
 	
   if (hasOwnProperty.call(spec, COMMAND_SPLICE)) {
@@ -242,6 +246,7 @@ export function update<Element, Updater>(value: Element, spec: Updater): Element
       );
       (<any>nextValue).splice.apply(nextValue, args);
     });
+    return nextValue;
   }
 
   if (hasOwnProperty.call(spec, COMMAND_ADD)) {
@@ -249,6 +254,7 @@ export function update<Element, Updater>(value: Element, spec: Updater): Element
     spec[COMMAND_ADD].forEach(function(item: any) {
       (<any>nextValue).add(item);
     });
+    return nextValue;
 	}
 
   if (hasOwnProperty.call(spec, COMMAND_DELETE) && (value instanceof Set)) {
@@ -256,6 +262,7 @@ export function update<Element, Updater>(value: Element, spec: Updater): Element
     spec[COMMAND_DELETE].forEach(function(item: any) {
       (<any>nextValue).delete(item);
     });
+    return nextValue;
 	}
 	
 	for(var k in spec) {
