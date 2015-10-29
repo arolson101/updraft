@@ -7,7 +7,7 @@ import { Updraft } from "../src/index";
 
 import Column = Updraft.Column;
 import Q = Updraft.Query;
-import U = Updraft.Update;
+import M = Updraft.Mutate;
 
 
 describe('mutate() operations', function() {
@@ -23,7 +23,7 @@ describe('mutate() operations', function() {
 	}
 	
 	interface Test extends _Test<boolean, string, number, Object, Array<string>, Array<number>, Array<Object>, Set<string>> {};
-	interface TestMutator extends _Test<U.bool, U.str, U.num, U.obj, U.strArray, U.numArray, U.objArray, U.strSet> {};
+	interface TestMutator extends _Test<M.bool, M.str, M.num, M.obj, M.strArray, M.numArray, M.objArray, M.strSet> {};
 	function mutate(value: Test, spec: TestMutator): Test { return Updraft.mutate<Test, TestMutator>(value, spec); }
 
 	var base: Test = {
@@ -146,7 +146,7 @@ xdescribe('tables', function() {
 	}
 	
 	interface Todo extends _Todo<number, boolean, string, Set<string>> {}
-	interface TodoUpdate extends _Todo<number, U.bool, U.str, U.strSet> {}
+	interface TodoUpdate extends _Todo<number, M.bool, M.str, M.strSet> {}
 	interface TodoQuery extends _Todo<number, Q.bool, Q.str, Q.strSet> {}
 	interface TodoFields extends _Todo<boolean, boolean, boolean, boolean> {}
 	
