@@ -36,17 +36,17 @@ class WebsqlWrapper implements Database {
 		}
 	}
 
-	private execute(transaction: boolean, callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
+	private execute(inTransaction: boolean, callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
 		this.db.serialize(() => {
-			if (transaction) {
+			if (inTransaction) {
 				this.db.run("BEGIN", (err: Error) => this.checkError(err, errorCallback));
 			}
 
 			var transaction = <SQLTransaction>{
-				executeSql: (sqlStatement: string, args?: string[], callback?: SQLStatementCallback, errorCallback?: SQLStatementErrorCallback) => {
+				executeSql: (sqlStatement: string, args?: string[], cb?: SQLStatementCallback, ecb?: SQLStatementErrorCallback) => {
 					this.db.all(sqlStatement, (err: Error, rows: any[]) => {
 						if(err) {
-							errorCallback(transaction, err);
+							ecb(transaction, err);
 						}
 						else {
 							var resultSet = <SQLResultSet>{
@@ -57,7 +57,7 @@ class WebsqlWrapper implements Database {
 									}
 								}
 							}
-							callback(transaction, resultSet);
+							cb(transaction, resultSet);
 						}
 					}, ...args)
 				}
@@ -65,8 +65,12 @@ class WebsqlWrapper implements Database {
 
 			callback(transaction);
 
-			if (transaction) {
+			if (inTransaction) {
 				this.db.run("COMMIT", (err: Error) => this.checkError(err, errorCallback));
+			}
+
+			if (successCallback) {
+				successCallback();
 			}
 		});
 	}
