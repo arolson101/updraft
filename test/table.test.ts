@@ -40,12 +40,19 @@ describe('tables', function() {
 
 
 	it('store', function() {
-		var store = Updraft.createStore({ name: "test.db", create: Updraft.wrapSql(<any>sqlite3.Database) });
+		var db = new sqlite3.Database(":memory:");
+		db.on('trace', (sql: string) => console.log(sql));
+		var store = Updraft.createStore({ db: Updraft.wrapSql(<any>sqlite3.Database) });
 		var todoTable: TodoTable = store.addTable(todoTableSpec);
-		var o = store.open();
+		var o = store.open()
+		.then(() => console.log("opened"))
+		//.then(() => db.close())
 		expect(o).to.eventually.be.fulfilled;
+		db.close();
 
-		o.then(() => store.readSchema()).then(schema => console.log(schema)).then(()=> console.log("done"));
+		//expect(o.then(() => store.readSchema())).to.eventually.equal({a:1});
+
+		//o.then(schema => console.log(schema)).then(()=> console.log("done")).then(() => expect(1).to.equal(0));
 
 		// todoTable.find({}).then(results => console.log(results));
 

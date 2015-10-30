@@ -3,11 +3,10 @@
 
 // compatible with sqlite3
 export interface IDatabase {
-	new (filename: string, callback?: (err: Error) => void): IDatabase;
-    run(sql: string, callback?: (err: Error) => void): IDatabase;
-    all(sql: string, callback?: (err: Error, rows: any[]) => void, ...params: any[]): IDatabase;
-    serialize(callback?: () => void): void;
-    parallelize(callback?: () => void): void;
+	run(sql: string, callback?: (err: Error) => void): IDatabase;
+	all(sql: string, callback?: (err: Error, rows: any[]) => void, ...params: any[]): IDatabase;
+	serialize(callback?: () => void): void;
+	parallelize(callback?: () => void): void;
 }
 
 
@@ -15,14 +14,8 @@ class WebsqlWrapper implements Database {
 	private db: IDatabase;
 	version: string;
 
-	constructor(creator: IDatabase, name: string, version: string, creationCallback?: DatabaseCallback) {
-		this.version = version;
-		this.db = new creator(name, (err: Error) => {
-			this.checkError(err);
-			if(creationCallback) {
-				creationCallback(err ? null : this);
-			}
-		});
+	constructor(db: IDatabase) {
+		this.db = db;
 	}
 
 	checkError(err: Error, errorCallback?: SQLTransactionErrorCallback) {
@@ -36,11 +29,11 @@ class WebsqlWrapper implements Database {
 		}
 	}
 
-	private execute(inTransaction: boolean, callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
+	private execute(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
+		console.log("serialize1")
 		this.db.serialize(() => {
-			if (inTransaction) {
-				this.db.run("BEGIN", (err: Error) => this.checkError(err, errorCallback));
-			}
+			console.log("serialize2")
+			this.db.run("BEGIN", (err: Error) => this.checkError(err, errorCallback));
 
 			var transaction = <SQLTransaction>{
 				executeSql: (sqlStatement: string, args?: string[], cb?: SQLStatementCallback, ecb?: SQLStatementErrorCallback) => {
@@ -65,38 +58,32 @@ class WebsqlWrapper implements Database {
 
 			callback(transaction);
 
-			if (inTransaction) {
-				this.db.run("COMMIT", (err: Error) => this.checkError(err, errorCallback));
-			}
-
-			if (successCallback) {
-				successCallback();
-			}
+			this.db.run("COMMIT", (err: Error) => {
+				this.checkError(err, errorCallback);
+				if (successCallback) {
+					successCallback();
+				} else {
+					console.log("no successCallback!");
+				}
+			});
 		});
 	}
 
 	transaction(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
-		this.execute(true, callback, errorCallback, successCallback);
+		this.execute(callback, errorCallback, successCallback);
 	}
 
-    readTransaction(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
-		this.execute(false, callback, errorCallback, successCallback);
-    }
+	readTransaction(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
+		this.execute(callback, errorCallback, successCallback);
+	}
 
-    changeVersion(oldVersion: string, newVersion: string, callback?: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
+	changeVersion(oldVersion: string, newVersion: string, callback?: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
 		throw new Error("changeVersion() not implemented");
-    }
-}
-
-
-export interface CreateDatabaseFcn {
-	(name: string, version: string, displayName: string, estimatedSize: number, creationCallback?: DatabaseCallback): Database;
+	}
 }
 
 
 
-export function wrapSql(creator: IDatabase): CreateDatabaseFcn {
-	return function(name: string, version: string, displayName: string, estimatedSize: number, creationCallback?: DatabaseCallback): Database {
-		return new WebsqlWrapper(creator, name, version, creationCallback);
-	};
+export function wrapSql(db: IDatabase): Database {
+		return new WebsqlWrapper(db);
 }
