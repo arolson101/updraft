@@ -89,7 +89,6 @@ export class Store {
 	}
 
 	readSchema(): Promise<Schema> {
-		console.log('readSchema');
 		invariant(this.db, "readSchema(): not opened");
 		function tableFromSql(sql: string): SchemaTable {
 			var table = <SchemaTable>{ _indices: {}, _triggers: {} };
@@ -144,7 +143,6 @@ export class Store {
 				reject(error);
 			},
 			() => {
-				console.log("resolving");
 				resolve(schema);
 			});
 		});
@@ -152,7 +150,6 @@ export class Store {
 
 
 	private syncTables(schema: Schema): Promise<any> {
-		console.log("syncTables ");
 		invariant(this.db, "syncTables(): not opened");
 
 		return new Promise((resolve, reject) => {
@@ -170,7 +167,6 @@ export class Store {
 	}
 
 	private syncTable(transaction: SQLTransaction, schema: Schema, table: Table<any,any,any>) {
-		console.log("syncTable " + table.spec.name);
 		function createTable(name: string) {
 			var cols: string[] = [];
 			for (var col in table.spec.columns) {
@@ -207,7 +203,7 @@ export class Store {
 
 		function createIndices(force: boolean = false) {
 			var toRemove = (table.spec.name in schema) ? clone(schema[table.spec.name]._indices) : {};
-			for (var index of table.spec.indices) {
+			for (var index of table.spec.indices || []) {
 				var name = 'index_' + table.spec.name + '__' + index.join('_');
 				var sql = 'CREATE INDEX ' + name + ' ON ' + table.spec.name + ' (' + index.join(', ') + ')';
 				delete toRemove[name];

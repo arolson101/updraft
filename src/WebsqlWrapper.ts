@@ -29,10 +29,8 @@ class WebsqlWrapper implements Database {
 		}
 	}
 
-	private execute(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
-		console.log("serialize1")
+	transaction(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
 		this.db.serialize(() => {
-			console.log("serialize2")
 			this.db.run("BEGIN", (err: Error) => this.checkError(err, errorCallback));
 
 			var transaction = <SQLTransaction>{
@@ -69,12 +67,8 @@ class WebsqlWrapper implements Database {
 		});
 	}
 
-	transaction(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
-		this.execute(callback, errorCallback, successCallback);
-	}
-
 	readTransaction(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
-		this.execute(callback, errorCallback, successCallback);
+		this.transaction(callback, errorCallback, successCallback);
 	}
 
 	changeVersion(oldVersion: string, newVersion: string, callback?: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {

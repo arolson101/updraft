@@ -15,7 +15,7 @@ import Q = Updraft.Query;
 import M = Updraft.Mutate;
 
 
-describe('tables', function() {
+//describe('tables', function() {
 	interface _Todo<key, bool, str, strset> {
 		id?: key;
 		completed?: bool;
@@ -39,16 +39,16 @@ describe('tables', function() {
 	}
 
 
-	it('store', function() {
-		var db = new sqlite3.Database(":memory:");
+	//it('store', function() {
+		var db = new sqlite3.Database("test.db");
 		db.on('trace', (sql: string) => console.log(sql));
-		var store = Updraft.createStore({ db: Updraft.wrapSql(<any>sqlite3.Database) });
+		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 		var todoTable: TodoTable = store.addTable(todoTableSpec);
 		var o = store.open()
 		.then(() => console.log("opened"))
-		//.then(() => db.close())
-		expect(o).to.eventually.be.fulfilled;
-		db.close();
+		.then(() => db.close())
+		//expect(o).to.eventually.be.fulfilled;
+		//db.close(()=>console.log("closed"));
 
 		//expect(o.then(() => store.readSchema())).to.eventually.equal({a:1});
 
@@ -66,6 +66,6 @@ describe('tables', function() {
 
 		// todoTable.apply({when: 100, change: {id: 123, completed: {$set: true}}});
 		// todoTable.apply({when: 101, change: {id: 123, text: {$set: 'asdf'}}});
-	});
-});
+// 	});
+// });
 
