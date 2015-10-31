@@ -2,7 +2,6 @@
 
 var gulp = require('gulp');
 var merge = require('merge2');
-var mochaPhantomJS = require('gulp-mocha-phantomjs');
 var sourcemaps = require('gulp-sourcemaps');
 var sync = require('gulp-config-sync');
 var ts = require('gulp-typescript');
@@ -52,7 +51,8 @@ gulp.task('watch', ['compile'], function() {
 });
 
 // enable typescript tests in mocha
-require('ts-node/register');
+//require('ts-node/register');
+require('ts-node').register({ compiler: "typescript" })
 
 gulp.task('test', function () {
   return gulp.src(['test/*.ts'])

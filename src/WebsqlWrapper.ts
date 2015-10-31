@@ -37,7 +37,11 @@ class WebsqlWrapper implements Database {
 				executeSql: (sqlStatement: string, args?: string[], cb?: SQLStatementCallback, ecb?: SQLStatementErrorCallback) => {
 					this.db.all(sqlStatement, (err: Error, rows: any[]) => {
 						if(err) {
-							ecb(transaction, err);
+							if (ecb) {
+								ecb(transaction, err);
+							} else {
+								throw err;
+							}
 						}
 						else {
 							var resultSet = <SQLResultSet>{

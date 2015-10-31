@@ -15,7 +15,7 @@ import Q = Updraft.Query;
 import M = Updraft.Mutate;
 
 
-//describe('tables', function() {
+describe('tables', function() {
 	interface _Todo<key, bool, str, strset> {
 		id?: key;
 		completed?: bool;
@@ -38,17 +38,24 @@ import M = Updraft.Mutate;
 		}
 	}
 
-
-	//it('store', function() {
+	it('simple store', async function*() {
 		var db = new sqlite3.Database("test.db");
-		db.on('trace', (sql: string) => console.log(sql));
+		//db.on('trace', (sql: string) => console.log(sql));
 		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 		var todoTable: TodoTable = store.addTable(todoTableSpec);
-		var o = store.open()
-		.then(() => console.log("opened"))
-		.then(() => db.close())
-		//expect(o).to.eventually.be.fulfilled;
-		//db.close(()=>console.log("closed"));
+		await store.open();
+		var schema = await store.readSchema();
+		console.log(schema);
+		expect(schema).to.deep.equal({ a: 1 });
+		db.close();
+		yield null;
+		// return store.open()
+		// 	.then(() => store.readSchema())
+		// 	.then((schema) => {
+		// 		console.log(schema);
+		// 		expect(schema).to.deep.equal({ a: 1 });
+		// 	})
+		// 	.then(() => db.close());
 
 		//expect(o.then(() => store.readSchema())).to.eventually.equal({a:1});
 
@@ -66,6 +73,5 @@ import M = Updraft.Mutate;
 
 		// todoTable.apply({when: 100, change: {id: 123, completed: {$set: true}}});
 		// todoTable.apply({when: 101, change: {id: 123, text: {$set: 'asdf'}}});
-// 	});
-// });
-
+	});
+});

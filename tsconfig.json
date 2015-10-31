@@ -1,7 +1,7 @@
 {
     "version": "1.6",
     "compilerOptions": {
-        "target": "es5",
+        "target": "es6",
         "module": "commonjs",
         "declaration": false,
         "noImplicitAny": true,
@@ -24,6 +24,7 @@
         "./src/Store.ts",
         "./src/Query.ts",
         "./src/WebsqlWrapper.ts",
-        "./test/test.ts"
+        "./test/mutate.test.ts",
+        "./test/table.test.ts"
     ]
 }

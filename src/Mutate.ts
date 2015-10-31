@@ -2,7 +2,7 @@
 // see https://facebook.github.io/react/docs/update.html
 //
 
-///<reference path="../typings/tsd.d.ts"/> 
+///<reference path="../typings/tsd.d.ts"/>
 import assign = require("object-assign");
 import invariant = require("invariant");
 
@@ -39,7 +39,7 @@ interface deleter<T> {
 	$delete: T | Array<T>;
 }
 
-type primitive<T> = 
+type primitive<T> =
 	setter<T>;
 
 export type bool = primitive<boolean>;
@@ -47,7 +47,7 @@ export type num = primitive<number> | increment;
 export type str = primitive<string>;
 export type obj = primitive<Object> | merge<Object> | deleter<string>;
 
-type array<T> = 
+type array<T> =
 	setter<Array<T>> |
 	push<T> |
 	unshift<T> |
@@ -138,7 +138,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
     Object.keys(command).join(', '),
     command.set
   );
-	
+
 	// invariant(
 	// 	Object.keys(spec).reduce( function(previousValue: boolean, currentValue: string): boolean {
 	// 		return previousValue && (keyOf(spec[currentValue]) in command);
@@ -157,7 +157,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 
     return spec[command.set];
   }
-	
+
 	if (hasOwnProperty.call(spec, command.increment)) {
 		invariant(
 			typeof(value) === 'number' && typeof(spec[command.increment]) === 'number',
@@ -166,7 +166,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 			spec[command.increment],
 			command.increment
 		);
-		
+
 		return value + spec[command.increment];
 	}
 
@@ -189,7 +189,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
     assign(nextValue, spec[command.merge]);
     return nextValue;
   }
-	
+
   if (hasOwnProperty.call(spec, command.deleter) && (typeof value === 'object') && !(value instanceof Set)) {
 		var key = spec[command.merge];
     invariant(
@@ -209,13 +209,13 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
     });
     return nextValue;
   }
-	
+
   if (hasOwnProperty.call(spec, command.unshift)) {
     invariantArrayCase(value, spec, command.unshift);
     (<any>nextValue).unshift.apply(nextValue, spec[command.unshift]);
     return nextValue;
   }
-	
+
   if (hasOwnProperty.call(spec, command.splice)) {
     invariant(
       Array.isArray(value),
@@ -258,12 +258,12 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
     });
     return nextValue;
 	}
-	
+
 	for(var k in spec) {
 		if(!(command.hasOwnProperty(k) && command[k])) {
 			nextValue[k] = mutate(value[k], spec[k]);
 		}
 	}
-	
+
 	return nextValue;
 }
