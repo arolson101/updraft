@@ -64,8 +64,6 @@ class WebsqlWrapper implements Database {
 				this.checkError(err, errorCallback);
 				if (successCallback) {
 					successCallback();
-				} else {
-					console.log("no successCallback!");
 				}
 			});
 		});

@@ -38,40 +38,49 @@ describe('tables', function() {
 		}
 	}
 
-	it('simple store', async function*() {
-		var db = new sqlite3.Database("test.db");
+	it('check schema', function() {
+		var db = new sqlite3.Database(":memory:");
 		//db.on('trace', (sql: string) => console.log(sql));
 		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 		var todoTable: TodoTable = store.addTable(todoTableSpec);
-		await store.open();
-		var schema = await store.readSchema();
-		console.log(schema);
-		expect(schema).to.deep.equal({ a: 1 });
-		db.close();
-		yield null;
-		// return store.open()
-		// 	.then(() => store.readSchema())
-		// 	.then((schema) => {
-		// 		console.log(schema);
-		// 		expect(schema).to.deep.equal({ a: 1 });
-		// 	})
-		// 	.then(() => db.close());
 
-		//expect(o.then(() => store.readSchema())).to.eventually.equal({a:1});
+		var expectedSchema = {
+			todos: {
+				_indices: {},
+				_triggers: {},
+				id: 'INTEGER PRIMARY KEY',
+				completed: 'BOOL',
+				text: 'TEXT'
+			}
+		}
 
-		//o.then(schema => console.log(schema)).then(()=> console.log("done")).then(() => expect(1).to.equal(0));
+		return store.open()
+			.then(() => store.readSchema())
+			.then((schema) => {
+				expect(schema).to.deep.equal(expectedSchema);
+			})
+			.then(() => db.close());
+	});
 
-		// todoTable.find({}).then(results => console.log(results));
+	it('saving', function() {
+		var baselines: Updraft.TableChange<Todo, TodoMutator>[] = [];
+		var todos: Todo[] = [];
 
-		// var idServer = 0;
+		for (var i = 0; i < 10; i++) {
+			var todo = {
+				id: i,
+				completed: false,
+				text: "todo " + i
+			};
+			baselines.push({ save: todo });
+			todos.push(todo);
+		}
 
-		// var todo: Todo = {
-		// 	id: ++idServer,
-		// 	completed: false,
-		// 	text: 'test'
-		// }
+		var db = new sqlite3.Database(":memory:");
+		db.on('trace', (sql: string) => console.log(sql));
+		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
+		var todoTable: TodoTable = store.addTable(todoTableSpec);
 
-		// todoTable.apply({when: 100, change: {id: 123, completed: {$set: true}}});
-		// todoTable.apply({when: 101, change: {id: 123, text: {$set: 'asdf'}}});
+		expect(store.open().then(() => todoTable.apply(...baselines))).to.eventually.be.fulfilled;
 	});
 });

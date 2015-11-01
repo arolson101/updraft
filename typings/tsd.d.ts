@@ -6,6 +6,8 @@
 /// <reference path="clone/clone.d.ts" />
 /// <reference path="node/node.d.ts" />
 /// <reference path="sqlite3/sqlite3.d.ts" />
+/// <reference path="es6-promises/es6-promises.d.ts" />
+/// <reference path="es6-collections/es6-collections.d.ts" />
 
 
 declare module "invariant" {

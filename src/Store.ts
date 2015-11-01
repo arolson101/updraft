@@ -1,7 +1,7 @@
 ///<reference path="./websql.d.ts"/>
 
 import { Column, ColumnType } from "./Column";
-import { TableSpec, Table } from "./Table";
+import { TableSpec, Table, TableChange } from "./Table";
 import { IDatabase } from "./WebsqlWrapper";
 import invariant = require("invariant");
 import clone = require("clone");
@@ -51,12 +51,13 @@ export class Store {
 	addTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query> {
 		invariant(!this.db, "addTable() can only be added before open()");
 		var table = new Table<Element, Mutator, Query>(tableSpec);
+		table.apply = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.apply(table, ...changes);
+		table.find = (query: Query): Promise<Element[]> => this.find(table, query);
 		this.tables.push(table);
 		return table;
 	}
 
 	open(): Promise<any> {
-		console.log('open');
 		invariant(!this.db, "open() called more than once!");
 		invariant(this.tables.length, "open() called before any tables were added");
 
@@ -306,6 +307,51 @@ export class Store {
 
 	private reportError(error: SQLError) {
 		console.log(error);
+	}
+
+
+	apply<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
+		invariant(this.db, "apply(): not opened");
+
+		return new Promise((resolve, reject) => {
+			this.db.transaction((transaction: SQLTransaction) => {
+				for(var i=0; i<changes.length; i++) {
+					var change = changes[i];
+					var when = change.when || Date.now();
+					if(change.save) {
+						var element = change.save;
+						var key = table.keyOf(element);
+						var columns = Object.keys(element).filter(k => k in table.spec.columns);
+						var values = columns.map(k => element[k]);
+						//columns = [TIMESTAMP, ...columns];
+						//values = [when, ...values];
+						var questionMarks = values.map(v => '?');
+						transaction.executeSql('INSERT OR REPLACE INTO ' + table.spec.name + ' (' + columns.join(', ') + ') VALUES (' + questionMarks.join(', ') + ')', values);
+					}
+					else if(change.change) {
+						var mutator = change.change;
+						var key = table.keyOf(mutator);
+						// insert into change table
+					}
+					else if(change.delete) {
+						// mark deleted
+					}
+					else {
+						throw new Error("no operation specified for change- should be one of save, change, or delete")
+					}
+					//transaction.executeSql()
+				}
+			},
+			(error: SQLError) => {
+			},
+			() => {
+				resolve();
+			});
+		});
+	}
+
+	find<Element, Query>(table: Table<Element, any, Query>, query: Query): Promise<Element[]> {
+		return null;
 	}
 
 }

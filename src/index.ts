@@ -13,10 +13,11 @@ export module Updraft {
 	export import Column = Column_.Column;
 	export import Table = Table_.Table;
 	export import TableSpec = Table_.TableSpec;
+	export import TableChange = Table_.TableChange;
 
 	export import Store = Store_.Store;
 	export import createStore = Store_.createStore;
-	
+
 	export import mutate = Mutate_.mutate;
 
 	export import wrapSql = WebsqlWrapper_.wrapSql;
