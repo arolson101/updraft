@@ -1,3 +1,5 @@
+'use strict';
+
 import * as Column_ from "./Column";
 import * as Mutate_ from "./Mutate";
 import * as Query_ from "./Query";
@@ -5,7 +7,7 @@ import * as Store_ from "./Store";
 import * as Table_ from "./Table";
 import * as WebsqlWrapper_ from "./WebsqlWrapper";
 
-export module Updraft {
+export namespace Updraft {
 	export import Query = Query_;
 	export import Mutate = Mutate_;
 

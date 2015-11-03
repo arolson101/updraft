@@ -1,12 +1,10 @@
 ///<reference path="../typings/tsd.d.ts"/>
 ///<reference path="../src/index"/>
 
-import clone = require("clone");
-import { expect } from "chai";
-import { Updraft } from "../src/index";
+import clone = require('clone');
+import { expect } from 'chai';
+import { Updraft } from '../src/index';
 
-import Column = Updraft.Column;
-import Q = Updraft.Query;
 import M = Updraft.Mutate;
 
 
@@ -21,14 +19,14 @@ describe('mutate() operations', function() {
 		myObjArray?: objArray;
 		myStrSet?: strSet;
 	}
-	
+
 	interface Test extends _Test<boolean, string, number, Object, Array<string>, Array<number>, Array<Object>, Set<string>> {};
 	interface TestMutator extends _Test<M.bool, M.str, M.num, M.obj, M.strArray, M.numArray, M.objArray, M.strSet> {};
 	function mutate(value: Test, spec: TestMutator): Test { return Updraft.mutate<Test, TestMutator>(value, spec); }
 
 	var base: Test = {
 		myBool: true,
-		myString: "my string",
+		myString: 'my string',
 		myNumber: 123,
 		myObject: { foo: 'bar' },
 		myStrArray: ['a', 'b', 'c'],
@@ -43,7 +41,7 @@ describe('mutate() operations', function() {
 	it('$set', function() {
 		mutated = mutate(base, <TestMutator>{
 			myBool: {$set: false},
-			myString: {$set: "new string"},
+			myString: {$set: 'new string'},
 			myNumber: {$set: 234},
 			myObject: <any>{foo: {$set: 'baz'}}, // TODO: revisit <any> cast
 			myStrArray: {$set: ['d']},
@@ -52,7 +50,7 @@ describe('mutate() operations', function() {
 		});
 
 		expect(mutated.myBool).to.equal(false);
-		expect(mutated.myString).to.equal("new string");
+		expect(mutated.myString).to.equal('new string');
 		expect(mutated.myNumber).to.equal(234);
 		expect(mutated.myObject).to.deep.equal({foo: 'baz'});
 		expect(mutated.myStrArray).to.deep.equal(['d']);
@@ -63,18 +61,18 @@ describe('mutate() operations', function() {
 	});
 
 	it('$inc', function() {
-		var mutated = mutate(base, <TestMutator>{ myNumber: {$inc: 101} });
+		mutated = mutate(base, <TestMutator>{ myNumber: {$inc: 101} });
 		expect(mutated.myNumber).to.equal(224);
 
 		mutated = mutate(base, <TestMutator>{ myNumber: {$inc: -101} });
 		expect(mutated.myNumber).to.equal(22);
-		
+
 		mutated = mutate(base, <TestMutator>{ myNumber: {$inc: 1.01} });
 		expect(mutated.myNumber).to.equal(124.01);
 
 		expect(base).to.deep.equal(backup);
 	});
-	
+
 	it('$push', function() {
 		mutated = mutate(base, <TestMutator>{
 			myStrArray: {$push: ['d']},
@@ -85,7 +83,7 @@ describe('mutate() operations', function() {
 		expect(mutated.myNumArray).to.deep.equal([1, 2, 3, 4, 5, 6]);
 		expect(base).to.deep.equal(backup);
 	});
-	
+
 	it('$unshift', function() {
 		mutated = mutate(base, <TestMutator>{
 			myStrArray: {$unshift: ['d']},
@@ -96,7 +94,7 @@ describe('mutate() operations', function() {
 		expect(mutated.myNumArray).to.deep.equal([4, 5, 6, 1, 2, 3]);
 		expect(base).to.deep.equal(backup);
 	});
-	
+
 	it('$splice', function() {
 		mutated = mutate(base, <TestMutator>{
 			myStrArray: {$splice: [[1, 1, 'd']]},
@@ -107,7 +105,7 @@ describe('mutate() operations', function() {
 		expect(mutated.myNumArray).to.deep.equal([7, 1, 6]);
 		expect(base).to.deep.equal(backup);
 	});
-	
+
 	it('$merge', function() {
 		mutated = mutate(base, <TestMutator>{
 			myObject: <any>{$merge: {bar: {baz: 'asdf'}}}, // TODO: revisit <any> cast
@@ -116,22 +114,22 @@ describe('mutate() operations', function() {
 		expect(mutated.myObject).to.deep.equal({foo: 'bar', bar: {baz: 'asdf'}});
 		expect(base).to.deep.equal(backup);
 	});
-	
+
 	it('$add', function() {
 		mutated = mutate(base, <TestMutator>{
 			myStrSet: {$add: ['c', 'd', 'e']},
 		});
 
 		expect((<any>Array).from(mutated.myStrSet)).to.deep.equal(['a', 'b', 'c', 'd', 'e']);
-		expect(base).to.deep.equal(backup);		
+		expect(base).to.deep.equal(backup);
 	});
-	
+
 	it('$delete', function() {
 		mutated = mutate(base, <TestMutator>{
 			myStrSet: {$delete: ['c', 'd']},
 		});
 
 		expect((<any>Array).from(mutated.myStrSet)).to.deep.equal(['a', 'b']);
-		expect(base).to.deep.equal(backup);	
+		expect(base).to.deep.equal(backup);
 	});
 });

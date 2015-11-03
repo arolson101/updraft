@@ -1,5 +1,7 @@
 ///<reference path="../typings/tsd.d.ts"/>
 ///<reference path="./websql.d.ts"/>
+'use strict';
+
 
 // compatible with sqlite3
 export interface IDatabase {
@@ -51,10 +53,10 @@ class WebsqlWrapper implements Database {
 										return rows[index];
 									}
 								}
-							}
+							};
 							cb(transaction, resultSet);
 						}
-					}, ...args)
+					}, ...args);
 				}
 			};
 

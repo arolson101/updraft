@@ -1,8 +1,9 @@
 // written to React's immutability helpers spec
 // see https://facebook.github.io/react/docs/update.html
-//
 
 ///<reference path="../typings/tsd.d.ts"/>
+'use strict';
+
 import assign = require("object-assign");
 import invariant = require("invariant");
 
@@ -96,36 +97,36 @@ var command = {
 };
 
 
-function invariantArrayCase(value: any, spec: any, command: string) {
+function invariantArrayCase(value: any, spec: any, c: string) {
   invariant(
     Array.isArray(value),
     'mutate(): expected target of %s to be an array; got %s.',
-    command,
+    c,
     value
   );
-  var specValue = spec[command];
+  var specValue = spec[c];
   invariant(
     Array.isArray(specValue),
     'mutate(): expected spec of %s to be an array; got %s. ' +
     'Did you forget to wrap your parameter in an array?',
-    command,
+    c,
     specValue
   );
 }
 
-function invariantSetCase(value: any, spec: any, command: string) {
+function invariantSetCase(value: any, spec: any, c: string) {
   invariant(
     value instanceof Set,
     'mutate(): expected target of %s to be a set; got %s.',
-    command,
+    c,
     value
   );
-  var specValue = spec[command];
+  var specValue = spec[c];
   invariant(
     Array.isArray(specValue),
     'mutate(): expected spec of %s to be an array; got %s. ' +
     'Did you forget to wrap your parameter in an array?',
-    command,
+    c,
     specValue
   );
 }

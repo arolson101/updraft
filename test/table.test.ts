@@ -1,11 +1,10 @@
 ///<reference path="../typings/tsd.d.ts"/>
 ///<reference path="../src/index"/>
 
-import clone = require("clone");
-import chai = require("chai");
-import chaAsPromised = require("chai-as-promised");
-import { Updraft } from "../src/index";
-import sqlite3 = require("sqlite3");
+import chai = require('chai');
+import chaAsPromised = require('chai-as-promised');
+import { Updraft } from '../src/index';
+import sqlite3 = require('sqlite3');
 
 chai.use(chaAsPromised);
 var expect = chai.expect;
@@ -30,16 +29,16 @@ describe('tables', function() {
 	type TodoTable = Updraft.Table<Todo, TodoMutator, TodoQuery>;
 
 	const todoTableSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = {
-		name: "todos",
+		name: 'todos',
 		columns: {
 			id: Column.Int().Key(),
 			completed: Column.Bool(),
 			text: Column.String(),
 		}
-	}
+	};
 
-	it('check schema', async function*() {
-		var db = new sqlite3.Database(":memory:");
+	it('check schema', async function() {
+		var db = new sqlite3.Database(':memory:');
 		//db.on('trace', (sql: string) => console.log(sql));
 		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 		var todoTable: TodoTable = store.addTable(todoTableSpec);
@@ -52,34 +51,33 @@ describe('tables', function() {
 				completed: 'BOOL',
 				text: 'TEXT'
 			}
-		}
+		};
 
 		await store.open();
 		var schema = await store.readSchema();
 		expect(schema).to.deep.equal(expectedSchema);
 		await db.close();
-		yield null;
 	});
 
-	it('saving', function() {
-		var baselines: Updraft.TableChange<Todo, TodoMutator>[] = [];
-		var todos: Todo[] = [];
+	// it('saving', function() {
+	// 	var baselines: Updraft.TableChange<Todo, TodoMutator>[] = [];
+	// 	var todos: Todo[] = [];
 
-		for (var i = 0; i < 10; i++) {
-			var todo = {
-				id: i,
-				completed: false,
-				text: "todo " + i
-			};
-			baselines.push({ save: todo });
-			todos.push(todo);
-		}
+	// 	for (var i = 0; i < 10; i++) {
+	// 		var todo = {
+	// 			id: i,
+	// 			completed: false,
+	// 			text: 'todo ' + i
+	// 		};
+	// 		baselines.push({ save: todo });
+	// 		todos.push(todo);
+	// 	}
 
-		var db = new sqlite3.Database(":memory:");
-		db.on('trace', (sql: string) => console.log(sql));
-		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
-		var todoTable: TodoTable = store.addTable(todoTableSpec);
+	// 	var db = new sqlite3.Database(':memory:');
+	// 	db.on('trace', (sql: string) => console.log(sql));
+	// 	var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
+	// 	var todoTable: TodoTable = store.addTable(todoTableSpec);
 
-		expect(store.open().then(() => todoTable.apply(...baselines))).to.eventually.be.fulfilled;
-	});
+	// 	expect(store.open().then(() => todoTable.apply(...baselines))).to.eventually.be.fulfilled;
+	// });
 });

@@ -7,9 +7,14 @@ var sync = require('gulp-config-sync');
 var ts = require('gulp-typescript');
 var typedoc = require("gulp-typedoc");
 var uglify = require('gulp-uglify');
+var tslint = require('gulp-tslint');
 import mocha = require('gulp-mocha');
 
 //var minify = true;
+
+var tslintOpts = {
+    //tslint: require('tslint')
+};
 
 gulp.task('compile', function() {
     var tsProject = ts.createProject('tsconfig.json', { sortOutput: true, typescript: require('typescript') });
@@ -53,8 +58,17 @@ gulp.task('watch', ['compile'], function() {
 });
 
 
-gulp.task('test', function () {
+gulp.task('lint', function () {
+  return gulp.src(['src/*.ts'])
+  	.pipe(tslint(tslintOpts))
+  	.pipe(tslint.report('verbose'));
+});
+
+
+gulp.task('test', ['lint'], function () {
   return gulp.src(['test/*.ts'])
+  	.pipe(tslint(tslintOpts))
+  	.pipe(tslint.report('verbose'))
     .pipe(mocha());
 });
 
