@@ -1,8 +1,8 @@
 ///<reference path="./websql.d.ts"/>
 'use strict';
 
-import { Column, ColumnType } from "./Column";
-import { TableSpec, Table, TableChange } from "./Table";
+import { Column, ColumnType, ColumnSet } from "./Column";
+import { TableSpec, Table, TableChange, keyOf } from "./Table";
 import { IDatabase } from "./WebsqlWrapper";
 import invariant = require("invariant");
 import clone = require("clone");
@@ -12,6 +12,7 @@ function startsWith(str: string, val: string) {
 	return str.lastIndexOf(val, 0) === 0;
 }
 
+type TableSpecAny = TableSpec<any, any, any>;
 
 export interface CreateStoreParams1 {
 	name: string;
@@ -28,9 +29,9 @@ export interface CreateStoreParams2 {
 export type CreateStoreParams = CreateStoreParams1 | CreateStoreParams2;
 
 export class SchemaTable {
-	_indices: Object;
-	_triggers: Object;
-	[column: string]: any;
+	indices: Object;
+	triggers: Object;
+	columns: ColumnSet;
 }
 
 export class Schema {
@@ -38,9 +39,14 @@ export class Schema {
 }
 
 
+const internal_prefix = '_updraft_';
+const internalColumn: ColumnSet = {};
+internalColumn[internal_prefix + 'deleted'] = Column.Bool();
+internalColumn[internal_prefix + 'time'] = Column.DateTime();
+
 export class Store {
 	private params: CreateStoreParams;
-	private tables: Table<any, any, any>[];
+	private tables: TableSpecAny[];
 	private db: Database;
 
 	constructor(params: CreateStoreParams) {
@@ -49,31 +55,53 @@ export class Store {
 		this.db = null;
 	}
 
-	addTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query> {
-		invariant(!this.db, "addTable() can only be added before open()");
-		let table = new Table<Element, Mutator, Query>(tableSpec);
-		table.apply = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.apply(table, ...changes);
+	createTable<Element, Mutator, Query>(spec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query> {
+		invariant(!this.db, "createTable() can only be added before open()");
+		var table = new Table<Element, Mutator, Query>(spec);
+		table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.add(table, ...changes);
 		table.find = (query: Query): Promise<Element[]> => this.find(table, query);
-		this.tables.push(table);
+		this.tables.push(this.createInternalTableSpec(spec));
+		//this.tables.push(this.createChangeTableSpec(spec));
 		return table;
+	}
+
+	private createInternalTableSpec(spec: TableSpecAny): TableSpecAny {
+		var newSpec = clone(spec);
+		for(var col in internalColumn) {
+			invariant(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
+			newSpec.columns[col] = internalColumn[col];
+		}
+		return newSpec;
+	}
+
+	private changeTableName(name: string): string {
+		return internal_prefix + 'changes_' + name;
+	}
+
+	private createChangeTableSpec(spec: TableSpecAny): TableSpecAny {
+		return {
+			name: this.changeTableName(spec.name),
+			columns: {
+			}
+		};
 	}
 
 	open(): Promise<any> {
 		invariant(!this.db, "open() called more than once!");
 		invariant(this.tables.length, "open() called before any tables were added");
 
-		let p: Promise<any>;
+		var p: Promise<any>;
 
 		if ((<CreateStoreParams2>this.params).db) {
 			this.db = (<CreateStoreParams2>this.params).db;
 			p = Promise.resolve();
 		}
 		else {
-			let params = <CreateStoreParams1>this.params;
-			let name = params.name;
-			let version = params.version || "1.0";
-			let description = params.description || "updraft created database";
-			let size = params.size || 5 * 1024 * 1024;
+			var params = <CreateStoreParams1>this.params;
+			var name = params.name;
+			var version = params.version || "1.0";
+			var description = params.description || "updraft created database";
+			var size = params.size || 5 * 1024 * 1024;
 
 			p = new Promise((resolve, reject) => {
 				window.openDatabase(name, version, description, size, (database: Database) => {
@@ -92,48 +120,49 @@ export class Store {
 
 	readSchema(): Promise<Schema> {
 		invariant(this.db, "readSchema(): not opened");
+
 		function tableFromSql(sql: string): SchemaTable {
-			let table = <SchemaTable>{ _indices: {}, _triggers: {} };
-			let matches = sql.match(/\((.*)\)/);
+			var table = <SchemaTable>{ indices: {}, triggers: {}, columns: {} };
+			var matches = sql.match(/\((.*)\)/);
 			if (matches) {
-				let fields = matches[1].split(',');
-				for (let i = 0; i < fields.length; i++) {
-					let ignore = /^\s*(primary|foreign)\s+key/i;  // ignore standalone 'PRIMARY KEY xxx'
+				var fields = matches[1].split(',');
+				for (var i = 0; i < fields.length; i++) {
+					var ignore = /^\s*(primary|foreign)\s+key/i;  // ignore standalone 'PRIMARY KEY xxx'
 					if (fields[i].match(ignore)) {
 						continue;
 					}
-					let quotedName = /"(.+)"\s+(.*)/;
-					let unquotedName = /(\w+)\s+(.*)/;
-					let parts = fields[i].match(quotedName);
+					var quotedName = /"(.+)"\s+(.*)/;
+					var unquotedName = /(\w+)\s+(.*)/;
+					var parts = fields[i].match(quotedName);
 					if (!parts) {
 						parts = fields[i].match(unquotedName);
 					}
 					if (parts) {
-						table[parts[1]] = parts[2];
+						table.columns[parts[1]] = Column.fromSql(parts[2]);
 					}
 				}
 			}
 			return table;
 		}
 
-		let schema: Schema = {};
+		var schema: Schema = {};
 		return new Promise((resolve, reject) => {
 			this.db.readTransaction((transaction: SQLTransaction) => {
 				transaction.executeSql('SELECT name, tbl_name, type, sql FROM sqlite_master', [], (tx: SQLTransaction, resultSet: SQLResultSet) => {
-					for (let i = 0; i < resultSet.rows.length; i++) {
-						let row: any = resultSet.rows.item(i);
+					for (var i = 0; i < resultSet.rows.length; i++) {
+						var row: any = resultSet.rows.item(i);
 						if (row.name[0] != '_' && !startsWith(row.name, 'sqlite')) {
 							switch (row.type) {
 								case 'table':
 									schema[row.name] = tableFromSql(row.sql);
 									break;
 								case 'index':
-									schema[row.tbl_name]._indices = schema[row.tbl_name]._indices || {};
-									schema[row.tbl_name]._indices[row.name] = row.sql;
+									schema[row.tbl_name].indices = schema[row.tbl_name].indices || {};
+									schema[row.tbl_name].indices[row.name] = row.sql;
 									break;
 								case 'trigger':
-									schema[row.tbl_name]._triggers = schema[row.tbl_name]._triggers || {};
-									schema[row.tbl_name]._triggers[row.name] = row.sql;
+									schema[row.tbl_name].triggers = schema[row.tbl_name].triggers || {};
+									schema[row.tbl_name].triggers[row.name] = row.sql;
 									break;
 							}
 						}
@@ -156,7 +185,7 @@ export class Store {
 
 		return new Promise((resolve, reject) => {
 			this.db.transaction((transaction: SQLTransaction) => {
-				this.tables.map((table: Table<any, any, any>) => {
+				this.tables.map((table: TableSpecAny) => {
 					this.syncTable(transaction, schema, table);
 				});
 			},
@@ -168,19 +197,19 @@ export class Store {
 		});
 	}
 
-	private syncTable(transaction: SQLTransaction, schema: Schema, table: Table<any,any,any>) {
+	private syncTable(transaction: SQLTransaction, schema: Schema, spec: TableSpecAny) {
 		function createTable(name: string) {
-			let cols: string[] = [];
-			for (let col in table.spec.columns) {
-				let attrs: Column = table.spec.columns[col];
-				let decl: string;
+			var cols: string[] = [];
+			for (var col in spec.columns) {
+				var attrs: Column = spec.columns[col];
+				var decl: string;
 				switch (attrs.type) {
 					// case ColumnType.ptr:
 					//   console.assert(attrs.ref != null);
 					//   console.assert(attrs.ref.columns != null);
-					//   console.assert(attrs.retable.spec.name != null);
+					//   console.assert(attrs.ret.table.name != null);
 					//   console.assert(attrs.ref.key != null);
-					//   let foreignCol: Column = attrs.ref.columns[attrs.ref.key];
+					//   var foreignCol: Column = attrs.ref.columns[attrs.ref.key];
 					//   decl = col + ' ' + Column.sql(foreignCol);
 					//   cols.push(decl);
 					//   break;
@@ -189,14 +218,14 @@ export class Store {
 
 				default:
 					decl = col + ' ' + Column.sql(attrs);
-					if (table.key == col) {
+					if (keyOf(spec) == col) {
 						decl += ' PRIMARY KEY';
 					}
 					cols.push(decl);
 					break;
 				}
 			}
-			transaction.executeSql('CREATE ' + (table.spec.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')');
+			transaction.executeSql('CREATE ' + (spec.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')');
 		}
 
 		function dropTable(name: string) {
@@ -204,15 +233,15 @@ export class Store {
 		}
 
 		function createIndices(force: boolean = false) {
-			let toRemove = (table.spec.name in schema) ? clone(schema[table.spec.name]._indices) : {};
-			for (let index of table.spec.indices || []) {
-				let name = 'index_' + table.spec.name + '__' + index.join('_');
-				let sql = 'CREATE INDEX ' + name + ' ON ' + table.spec.name + ' (' + index.join(', ') + ')';
+			var toRemove = (spec.name in schema) ? clone(schema[spec.name].indices) : {};
+			for (var index of spec.indices || []) {
+				var name = 'index_' + spec.name + '__' + index.join('_');
+				var sql = 'CREATE INDEX ' + name + ' ON ' + spec.name + ' (' + index.join(', ') + ')';
 				delete toRemove[name];
-				let create = true;
-				let drop = false;
-				if (schema[table.spec.name] && schema[table.spec.name]._indices && schema[table.spec.name]._indices[name]) {
-					if (schema[table.spec.name]._indices[name] === sql) {
+				var create = true;
+				var drop = false;
+				if (schema[spec.name] && schema[spec.name].indices && schema[spec.name].indices[name]) {
+					if (schema[spec.name].indices[name] === sql) {
 						create = false;
 					} else {
 						drop = true;
@@ -228,69 +257,69 @@ export class Store {
 			}
 
 			// delete orphaned indices
-			for (let indexName of Object.keys(toRemove)) {
+			for (var indexName of Object.keys(toRemove)) {
 				transaction.executeSql('DROP INDEX ' + indexName);
 			}
 		}
 
-		if (table.spec.name in schema) {
-			let columns = clone(schema[table.spec.name]);
-			delete columns._indices;
-			delete columns._triggers;
-			let key: string;
+		if (spec.name in schema) {
+			var columns = schema[spec.name].columns;
+			var key: string;
 
-			let addedColumns: string[] = [];
-			let addedForeignKey = false;
-			if (key in table.spec.columns) {
+			var addedColumns: string[] = [];
+			var addedForeignKey = false;
+			if (key in spec.columns) {
 				if (!(key in columns)) {
 					addedColumns.push(key);
-					// if (table.spec.columns[key].ref) {
+					// if (table.columns[key].ref) {
 					//   addedForeignKey = true;
 					// }
 				}
 			}
 
-			let renamedColumns = clone(table.spec.renamedColumns) || {};
+			var renamedColumns = clone(spec.renamedColumns) || {};
 			for (key in Object.keys(renamedColumns)) {
 				if (!(key in columns)) {
 					delete renamedColumns[key];
 				}
 			}
 
-			let deletedColumns = Object.keys(columns).filter((col: string) => !(col in table.spec.columns));
+			var deletedColumns = Object.keys(columns).filter((col: string) => !(col in spec.columns));
 
-			let recreateTable = (addedForeignKey || Object.keys(renamedColumns).length > 0 || deletedColumns.length > 0);
+			var recreateTable = (addedForeignKey || Object.keys(renamedColumns).length > 0 || deletedColumns.length > 0);
 			if (recreateTable) {
 				// recreate and migrate data
 				function copyData(oldName: string, newName: string) {
-					let oldTableColumns = Object.keys(columns).filter(col => (col in table.spec.columns) || (col in renamedColumns));
-					let newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
+					var oldTableColumns = Object.keys(columns).filter(col => (col in spec.columns) || (col in renamedColumns));
+					var newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
 					if (oldTableColumns.length && newTableColumns.length) {
-						let stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
+						var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
 						stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
-						transaction.executeSql(stmt);
+						transaction.executeSql(stmt, null, (err) => invariant(!err, "error executing %s: %s", stmt, err));
 					}
 				}
 
 				function renameTable(oldName: string, newName: string) {
-					transaction.executeSql('ALTER TABLE ' + oldName + ' RENAME TO ' + newName);
+					var stmt = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName;
+					transaction.executeSql(stmt, null, (err) => invariant(!err, "error executing %s: %s", stmt, err));
 				}
 
-				let tempTableName = 'temp_' + table.spec.name;
+				var tempTableName = 'temp_' + spec.name;
 				invariant(!(tempTableName in schema), "database is in bad state: table '%s' should not exist", tempTableName);
 
 				createTable(tempTableName);
-				copyData(table.spec.name, tempTableName);
-				dropTable(table.spec.name);
-				renameTable(tempTableName, table.spec.name);
+				copyData(spec.name, tempTableName);
+				dropTable(spec.name);
+				renameTable(tempTableName, spec.name);
 				createIndices(true);
 			}
 			else if (addedColumns.length > 0) {
 				// alter table, add columns
-				for(let columnName in addedColumns) {
-					let attrs: Column = table.spec.columns[columnName];
-					let columnDecl = columnName + ' ' + Column.sql(attrs);
-					transaction.executeSql('ALTER TABLE ' + table.spec.name + ' ADD COLUMN ' + columnDecl);
+				for(var columnName in addedColumns) {
+					var attrs: Column = spec.columns[columnName];
+					var columnDecl = columnName + ' ' + Column.sql(attrs);
+					var stmt = 'ALTER TABLE ' + spec.name + ' ADD COLUMN ' + columnDecl;
+					transaction.executeSql(stmt, null, (err) => invariant(!err, "error executing %s: %s", stmt, err));
 				}
 				createIndices();
 			}
@@ -301,7 +330,7 @@ export class Store {
 		}
 		else {
 			// create new table
-			createTable(table.spec.name);
+			createTable(spec.name);
 			createIndices(true);
 		}
 	}
@@ -311,27 +340,26 @@ export class Store {
 	}
 
 
-	apply<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
+	add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
 		invariant(this.db, "apply(): not opened");
 
 		return new Promise((resolve, reject) => {
 			this.db.transaction((transaction: SQLTransaction) => {
-				for(let i=0; i<changes.length; i++) {
-					let change = changes[i];
-					let when = change.when || Date.now();
+				for(var i=0; i<changes.length; i++) {
+					var change = changes[i];
+					var time = change.time || Date.now();
 					if(change.save) {
-						let element = change.save;
-						let key = table.keyOf(element);
-						let columns = Object.keys(element).filter(k => k in table.spec.columns);
-						let values = columns.map(k => element[k]);
+						var element = change.save;
+						var columns = Object.keys(element).filter(k => k in table.spec.columns);
+						var values = columns.map(k => element[k]);
 						//columns = [TIMESTAMP, ...columns];
-						//values = [when, ...values];
-						let questionMarks = values.map(v => '?');
+						//values = [time, ...values];
+						var questionMarks = values.map(v => '?');
 						transaction.executeSql('INSERT OR REPLACE INTO ' + table.spec.name + ' (' + columns.join(', ') + ') VALUES (' + questionMarks.join(', ') + ')', values);
 					}
 					else if(change.change) {
-						let mutator = change.change;
-						let key = table.keyOf(mutator);
+						var mutator = change.change;
+						var key = table.keyValue(mutator);
 						// insert into change table
 					}
 					else if(change.delete) {

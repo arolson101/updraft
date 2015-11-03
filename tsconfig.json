@@ -10,7 +10,7 @@
 				"preserveConstEnums": true,
 				"suppressImplicitAnyIndexErrors": true,
 				"sourceMap": false,
-				"noEmit": true
+				"noEmit": false
 		},
 		"filesGlob": [
 				"./src/**/*.ts",
