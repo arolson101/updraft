@@ -1,4 +1,4 @@
-'use strict';
+///<reference path="typings/tsd.d.ts"/>
 
 var gulp = require('gulp');
 var merge = require('merge2');
@@ -7,7 +7,7 @@ var sync = require('gulp-config-sync');
 var ts = require('gulp-typescript');
 var typedoc = require("gulp-typedoc");
 var uglify = require('gulp-uglify');
-var mocha = require('gulp-mocha');
+import mocha = require('gulp-mocha');
 
 //var minify = true;
 
@@ -31,6 +31,7 @@ gulp.task('compile', function() {
     return merge([dts, js]);
 });
 
+
 gulp.task("typedoc", function() {
     return gulp
         .src(["src/*.ts"])
@@ -46,13 +47,11 @@ gulp.task("typedoc", function() {
     ;
 });
 
+
 gulp.task('watch', ['compile'], function() {
     gulp.watch('src/*.ts', ['compile']);
 });
 
-// enable typescript tests in mocha
-//require('ts-node/register');
-require('ts-node').register({ compiler: "typescript" })
 
 gulp.task('test', function () {
   return gulp.src(['test/*.ts'])

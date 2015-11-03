@@ -38,7 +38,7 @@ describe('tables', function() {
 		}
 	}
 
-	it('check schema', function() {
+	it('check schema', async function*() {
 		var db = new sqlite3.Database(":memory:");
 		//db.on('trace', (sql: string) => console.log(sql));
 		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
@@ -54,12 +54,11 @@ describe('tables', function() {
 			}
 		}
 
-		return store.open()
-			.then(() => store.readSchema())
-			.then((schema) => {
-				expect(schema).to.deep.equal(expectedSchema);
-			})
-			.then(() => db.close());
+		await store.open();
+		var schema = await store.readSchema();
+		expect(schema).to.deep.equal(expectedSchema);
+		await db.close();
+		yield null;
 	});
 
 	it('saving', function() {

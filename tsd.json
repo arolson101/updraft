@@ -37,6 +37,9 @@
     },
     "es6-promises/es6-promises.d.ts": {
       "commit": "eb59a40d3c2f3257e34ec2ede181046230814a41"
+    },
+    "gulp-mocha/gulp-mocha.d.ts": {
+      "commit": "0dd29bf8253536ae24e61c109524e924ea510046"
     }
   }
 }
