@@ -59,16 +59,14 @@ gulp.task('watch', ['compile'], function() {
 
 
 gulp.task('lint', function () {
-  return gulp.src(['src/*.ts'])
+  return gulp.src(['src/*.ts', 'test/*.ts'])
   	.pipe(tslint(tslintOpts))
   	.pipe(tslint.report('verbose'));
 });
 
 
-gulp.task('test', ['lint'], function () {
+gulp.task('test', function () {
   return gulp.src(['test/*.ts'])
-  	.pipe(tslint(tslintOpts))
-  	.pipe(tslint.report('verbose'))
     .pipe(mocha());
 });
 

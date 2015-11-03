@@ -1,32 +1,32 @@
 {
-  "rules": {
-    "curly": true,
-    "eofline": true,
-    "indent": "tabs",
-    "no-console": true,
-    "no-construct": true,
-    "no-constructor-vars": true,
-    "no-debugger": true,
-    "no-duplicate-key": true,
-    "no-duplicate-variable": true,
-    "no-eval": true,
-    "no-internal-module": true,
-    "no-shadowed-variable": true,
-    "no-string-literal": true,
-    "no-switch-case-fall-through": true,
-    "no-unreachable": true,
-    "no-unused-expression": false,
-    "no-unused-variable": false,
-    "no-use-before-declare": true,
-    "no-var-keyword": false,
-    "no-var-requires": true,
-    "quotemark": [
-      false,
-      "single",
-      "avoid-escape"
-    ],
-    "radix": true,
-    "semicolon": true,
-    "use-strict": true
-  }
+	"rules": {
+		"curly": true,
+		"eofline": true,
+		"indent": "tabs",
+		"no-console": true,
+		"no-construct": true,
+		"no-constructor-vars": true,
+		"no-debugger": true,
+		"no-duplicate-key": true,
+		"no-duplicate-variable": true,
+		"no-eval": true,
+		"no-internal-module": true,
+		"no-shadowed-variable": true,
+		"no-string-literal": true,
+		"no-switch-case-fall-through": true,
+		"no-unreachable": true,
+		"no-unused-expression": false,
+		"no-unused-variable": false,
+		"no-use-before-declare": true,
+		"no-var-keyword": false,
+		"no-var-requires": true,
+		"quotemark": [
+			false,
+			"single",
+			"avoid-escape"
+		],
+		"radix": true,
+		"semicolon": true,
+		"use-strict": true
+	}
 }

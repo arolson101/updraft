@@ -6,13 +6,15 @@ import chaAsPromised = require('chai-as-promised');
 import { Updraft } from '../src/index';
 import sqlite3 = require('sqlite3');
 
+var async = require('asyncawait/async');
+var await = require('asyncawait/await');
+
 chai.use(chaAsPromised);
 var expect = chai.expect;
 
 import Column = Updraft.Column;
 import Q = Updraft.Query;
 import M = Updraft.Mutate;
-
 
 describe('tables', function() {
 	interface _Todo<key, bool, str, strset> {
@@ -37,7 +39,7 @@ describe('tables', function() {
 		}
 	};
 
-	it('check schema', async function() {
+	it('check schema', async(function() {
 		var db = new sqlite3.Database(':memory:');
 		//db.on('trace', (sql: string) => console.log(sql));
 		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
@@ -53,31 +55,35 @@ describe('tables', function() {
 			}
 		};
 
-		await store.open();
-		var schema = await store.readSchema();
+		await (store.open());
+		var schema = await (store.readSchema());
 		expect(schema).to.deep.equal(expectedSchema);
-		await db.close();
-	});
+		await (db.close());
+	}));
 
-	// it('saving', function() {
-	// 	var baselines: Updraft.TableChange<Todo, TodoMutator>[] = [];
-	// 	var todos: Todo[] = [];
+	it('saving', async(function() {
+		var baselines: Updraft.TableChange<Todo, TodoMutator>[] = [];
+		var todos: Todo[] = [];
 
-	// 	for (var i = 0; i < 10; i++) {
-	// 		var todo = {
-	// 			id: i,
-	// 			completed: false,
-	// 			text: 'todo ' + i
-	// 		};
-	// 		baselines.push({ save: todo });
-	// 		todos.push(todo);
-	// 	}
+		for (var i = 0; i < 10; i++) {
+			var todo = {
+				id: i,
+				completed: false,
+				text: 'todo ' + i
+			};
+			baselines.push({ save: todo });
+			todos.push(todo);
+		}
 
-	// 	var db = new sqlite3.Database(':memory:');
-	// 	db.on('trace', (sql: string) => console.log(sql));
-	// 	var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
-	// 	var todoTable: TodoTable = store.addTable(todoTableSpec);
+		var db = new sqlite3.Database(':memory:');
+		db.on('trace', (sql: string) => console.log(sql));
+		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
+		var todoTable: TodoTable = store.addTable(todoTableSpec);
 
-	// 	expect(store.open().then(() => todoTable.apply(...baselines))).to.eventually.be.fulfilled;
-	// });
+		await (store.open());
+		console.log("start timer");
+		console.log("end timer");
+		todoTable.apply(...baselines);
+		await (db.close());
+	}));
 });

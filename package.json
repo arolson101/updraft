@@ -31,6 +31,7 @@
     "object-assign": "^4.0.1"
   },
   "devDependencies": {
+    "asyncawait": "^1.0.1",
     "chai": "^1.10.0",
     "chai-as-promised": "^4.1.1",
     "enum": "^2.0.2",
