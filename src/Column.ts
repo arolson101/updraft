@@ -160,10 +160,6 @@ export class Column {
 		if ('defaultValue' in val) {
 			stmt += ' DEFAULT ' + val.defaultValue;
 		}
-		
-		if (val.isKey) {
-			stmt += ' PRIMARY KEY';
-		}
 
 		return stmt;
 	}
@@ -202,11 +198,7 @@ export class Column {
 
 		for(var i=1; i<parts.length; i++) {
 			var hasNext: boolean = (i+1 < parts.length);
-			if (hasNext && parts[i] == 'PRIMARY' && parts[i+1] == 'KEY') {
-				col = col.Key();
-				i++;
-			}
-			else if (parts[i] == 'DEFAULT') {
+			if (parts[i] == 'DEFAULT') {
 				col = col.Default(parts[i+1]);
 				i++;
 			}
@@ -214,7 +206,7 @@ export class Column {
 
 		return col;
 	}
-	
+
 	static equal(a: Column, b: Column): boolean {
 		if(a.type != b.type) {
 			return false;

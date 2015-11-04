@@ -57,7 +57,7 @@ describe('tables', function() {
 					text: Column.String(),
 
 					updraft_deleted: Column.Bool(),
-					updraft_time: Column.DateTime(),
+					updraft_time: Column.DateTime().Key(),
 					updraft_latest: Column.Bool()
 				}
 			},
@@ -67,8 +67,8 @@ describe('tables', function() {
 				indices: <string[]>[],
 				triggers: {},
 				columns: {
-					key: Column.Int().Index(),
-					time: Column.DateTime(),
+					key: Column.Int().Key(),
+					time: Column.DateTime().Key(),
 					change: Column.JSON()
 				}
 			}

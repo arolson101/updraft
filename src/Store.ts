@@ -40,11 +40,17 @@ interface SqliteMasterRow {
 }
 
 
+const ROWID = '_rowid_';
 const internal_prefix = 'updraft_';
 const internalColumn: ColumnSet = {};
 internalColumn[internal_prefix + 'deleted'] = Column.Bool();
-internalColumn[internal_prefix + 'time'] = Column.DateTime();
+internalColumn[internal_prefix + 'time'] = Column.DateTime().Key();
 internalColumn[internal_prefix + 'latest'] = Column.Bool();
+
+function getChangeTableName(name: string): string {
+	return internal_prefix + 'changes_' + name;
+}
+
 
 export class Store {
 	private params: CreateStoreParams;
@@ -58,6 +64,38 @@ export class Store {
 	}
 
 	createTable<Element, Mutator, Query>(spec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query> {
+		function buildIndices(spec: TableSpecAny) {
+			spec.indices = spec.indices || [];
+			for(var col in spec.columns) {
+				if (spec.columns[col].isIndex) {
+					spec.indices.push([col]);
+				}
+			}
+		}
+	
+		function createInternalTableSpec(spec: TableSpecAny): TableSpecAny {
+			var newSpec = clone(spec);
+			for(var col in internalColumn) {
+				invariant(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
+				newSpec.columns[col] = internalColumn[col];
+			}
+			buildIndices(newSpec);
+			return newSpec;
+		}
+	
+		function createChangeTableSpec(spec: TableSpecAny): TableSpecAny {
+			var spec = <TableSpecAny>{
+				name: getChangeTableName(spec.name),
+				columns: {
+					key: Column.Int().Key(),
+					time: Column.DateTime().Key(),
+					change: Column.JSON(),
+				}
+			};
+			buildIndices(spec);
+			return spec;
+		}
+	
 		invariant(!this.db, "createTable() can only be added before open()");
 		invariant(!startsWith(spec.name, internal_prefix), "table name %s cannot begin with %s", spec.name, internal_prefix);
 		for(var col in spec.columns) {
@@ -66,48 +104,11 @@ export class Store {
 		var table = new Table<Element, Mutator, Query>(spec);
 		table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.add(table, ...changes);
 		table.find = (query: Query): Promise<Element[]> => this.find(table, query);
-		this.tables.push(this.createInternalTableSpec(spec));
-		this.tables.push(this.createChangeTableSpec(spec));
+		this.tables.push(createInternalTableSpec(spec));
+		this.tables.push(createChangeTableSpec(spec));
 		return table;
 	}
 	
-	private buildIndices(spec: TableSpecAny) {
-		spec.indices = spec.indices || [];
-		for(var col in spec.columns) {
-			if (spec.columns[col].isIndex) {
-				spec.indices.push([col]);
-			}
-		}
-	}
-
-	private createInternalTableSpec(spec: TableSpecAny): TableSpecAny {
-		var newSpec = clone(spec);
-		for(var col in internalColumn) {
-			invariant(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
-			newSpec.columns[col] = internalColumn[col];
-		}
-		this.buildIndices(newSpec);
-		return newSpec;
-	}
-
-	private changeTableName(name: string): string {
-		return internal_prefix + 'changes_' + name;
-	}
-
-	private createChangeTableSpec(spec: TableSpecAny): TableSpecAny {
-		var spec = <TableSpecAny>{
-			name: this.changeTableName(spec.name),
-			columns: {
-				key: Column.Int().Index(),
-				time: Column.DateTime(),
-				change: Column.JSON(),
-			}
-		};
-		
-		this.buildIndices(spec);
-		return spec;
-	}
-
 	open(): Promise<any> {
 		invariant(!this.db, "open() called more than once!");
 		invariant(this.tables.length, "open() called before any tables were added");
@@ -147,7 +148,8 @@ export class Store {
 			var table = <TableSpecAny>{ name: name, columns: {}, indices: [], triggers: {} };
 			var matches = sql.match(/\((.*)\)/);
 			if (matches) {
-				var fields = matches[1].split(',');
+				var pksplit: string[] = matches[1].split(/PRIMARY KEY/i);
+				var fields = pksplit[0].split(',');
 				for (var i = 0; i < fields.length; i++) {
 					var ignore = /^\s*(primary|foreign)\s+key/i;  // ignore standalone 'PRIMARY KEY xxx'
 					if (fields[i].match(ignore)) {
@@ -161,6 +163,17 @@ export class Store {
 					}
 					if (parts) {
 						table.columns[parts[1]] = Column.fromSql(parts[2]);
+					}
+				}
+				
+				if(pksplit.length > 1) {
+					var pk = pksplit[1].match(/\((.*)\)/);
+					if(pk) {
+						var keys = pk[1].split(',');
+						for(var i=0; i<keys.length; i++) {
+							var key = keys[i].trim();
+							table.columns[key].isKey = true;
+						}
 					}
 				}
 			}
@@ -238,6 +251,7 @@ export class Store {
 	private syncTable(transaction: SQLTransaction, schema: Schema, spec: TableSpecAny) {
 		function createTable(name: string) {
 			var cols: string[] = [];
+			var pk: string[] = [];
 			for (var col in spec.columns) {
 				var attrs: Column = spec.columns[col];
 				var decl: string;
@@ -257,10 +271,16 @@ export class Store {
 				default:
 					decl = col + ' ' + Column.sql(attrs);
 					cols.push(decl);
+					if (attrs.isKey) {
+						pk.push(col);
+					}
 					break;
 				}
 			}
-			transaction.executeSql('CREATE ' + (spec.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')');
+			invariant(pk.length, "table %s has no keys", name);
+			cols.push('PRIMARY KEY(' + pk.join(', ')  + ')');
+			var stmt = 'CREATE ' + (spec.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')';
+			transaction.executeSql(stmt);
 		}
 
 		function dropTable(name: string) {
