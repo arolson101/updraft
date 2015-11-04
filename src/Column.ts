@@ -6,7 +6,7 @@ export enum ColumnType {
 	bool,
 	text,
 	blob,
-	enum,
+	// enum,
 	date,
 	datetime,
 	json,
@@ -136,10 +136,14 @@ export class Column {
 				stmt = 'REAL';
 				break;
 			case ColumnType.text:
-			case ColumnType.json:
-			case ColumnType.enum:
 				stmt = 'TEXT';
 				break;
+			case ColumnType.json:
+				stmt = 'CLOB';
+				break;
+			// case ColumnType.enum:
+			// 	stmt = 'CHARACTER(20)';
+			// 	break;
 			case ColumnType.blob:
 				stmt = 'BLOB';
 				break;
@@ -155,6 +159,10 @@ export class Column {
 
 		if ('defaultValue' in val) {
 			stmt += ' DEFAULT ' + val.defaultValue;
+		}
+		
+		if (val.isKey) {
+			stmt += ' PRIMARY KEY';
 		}
 
 		return stmt;
@@ -176,7 +184,12 @@ export class Column {
 			case 'TEXT':
 				col = Column.Text();
 				break;
-				// TODO: json/enum
+			case 'CLOB':
+				col = Column.JSON();
+				break;
+			// case 'CHARACTER(20)';
+			// 	col = Column.Enum()
+			// 	break;
 			case 'DATE':
 				col = Column.Date();
 				break;
@@ -200,6 +213,19 @@ export class Column {
 		}
 
 		return col;
+	}
+	
+	static equal(a: Column, b: Column): boolean {
+		if(a.type != b.type) {
+			return false;
+		}
+		if((a.defaultValue || b.defaultValue) && (a.defaultValue != b.defaultValue)) {
+			return false;
+		}
+		if((a.isKey || b.isKey) && (a.isKey != b.isKey)) {
+			return false;
+		}
+		return true;
 	}
 }
 

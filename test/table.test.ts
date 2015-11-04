@@ -16,6 +16,8 @@ import Q = Updraft.Query;
 import M = Updraft.Mutate;
 
 describe('tables', function() {
+	//this.timeout(0);
+
 	interface _Todo<key, bool, str, strset> {
 		id?: key;
 		completed?: bool;
@@ -40,21 +42,34 @@ describe('tables', function() {
 
 	it('check schema', async(function() {
 		var db = new sqlite3.Database(':memory:');
-		db.on('trace', (sql: string) => console.log(sql));
+		//db.on('trace', (sql: string) => console.log(sql));
 		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 		var todoTable: TodoTable = store.createTable(todoTableSpec);
 
 		var expectedSchema = {
 			todos: {
-				indices: {},
+				name: 'todos',
+				indices: <string[]>[],
 				triggers: {},
 				columns: {
 					id: Column.Int().Key(),
 					completed: Column.Bool(),
 					text: Column.String(),
 
-					_updraft_deleted: Column.Bool(),
-					_updraft_time: Column.DateTime(),
+					updraft_deleted: Column.Bool(),
+					updraft_time: Column.DateTime(),
+					updraft_latest: Column.Bool()
+				}
+			},
+			
+			updraft_changes_todos: {
+				name: 'updraft_changes_todos',
+				indices: <string[]>[],
+				triggers: {},
+				columns: {
+					key: Column.Int().Index(),
+					time: Column.DateTime(),
+					change: Column.JSON()
 				}
 			}
 		};
@@ -65,7 +80,7 @@ describe('tables', function() {
 		await (db.close());
 	}));
 
-	xit('saving', async(function() {
+	it('saving', async(function() {
 		var baselines: Updraft.TableChange<Todo, TodoMutator>[] = [];
 		var todos: Todo[] = [];
 
@@ -80,7 +95,7 @@ describe('tables', function() {
 		}
 
 		var db = new sqlite3.Database(':memory:');
-		db.on('trace', (sql: string) => console.log(sql));
+		//db.on('trace', (sql: string) => console.log(sql));
 		var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 		var todoTable: TodoTable = store.createTable(todoTableSpec);
 

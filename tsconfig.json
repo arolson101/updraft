@@ -10,20 +10,23 @@
 				"preserveConstEnums": true,
 				"suppressImplicitAnyIndexErrors": true,
 				"sourceMap": false,
+				"inlineSourceMap": false,
 				"noEmit": false
 		},
 		"filesGlob": [
 				"./src/**/*.ts",
+				"./test/**/*.ts",
 				"!./node_modules/**/*.ts"
 		],
 		"files": [
-				"./src/index.ts",
 				"./src/Column.ts",
 				"./src/Mutate.ts",
-				"./src/Table.ts",
-				"./src/Store.ts",
 				"./src/Query.ts",
+				"./src/Store.ts",
+				"./src/Table.ts",
 				"./src/WebsqlWrapper.ts",
+				"./src/index.ts",
+				"./src/websql.d.ts",
 				"./test/mutate.test.ts",
 				"./test/table.test.ts"
 		]
