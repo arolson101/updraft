@@ -419,7 +419,7 @@ export class Store {
 				for(var i=0; i<changes.length; i++) {
 					var change = changes[i];
 					var time = change.time || Date.now();
-					invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) == 1, 'change can only specify one action at a time');
+					invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, 'change must specify exactly one action at a time');
 					if(change.save) {
 						var element = change.save;
 						var columns = Object.keys(element).filter(k => k in table.spec.columns);
