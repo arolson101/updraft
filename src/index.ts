@@ -5,6 +5,7 @@ import * as Mutate_ from "./Mutate";
 import * as Query_ from "./Query";
 import * as Store_ from "./Store";
 import * as Table_ from "./Table";
+import * as SQLiteWrapper_ from "./SQLiteWrapper";
 import * as WebsqlWrapper_ from "./WebsqlWrapper";
 
 export namespace Updraft {
@@ -22,7 +23,8 @@ export namespace Updraft {
 
 	export import mutate = Mutate_.mutate;
 
-	export import wrapSql = WebsqlWrapper_.wrapSql;
+	export import wrapSql = SQLiteWrapper_.wrapSql;
+	export import wrapWebSql = WebsqlWrapper_.wrapWebsql;
 }
 
 

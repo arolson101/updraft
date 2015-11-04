@@ -1,122 +1,78 @@
-///<reference path="../typings/tsd.d.ts"/>
 ///<reference path="./websql.d.ts"/>
-'use strict';
-import clone = require("clone");
 
-// compatible with sqlite3
-export interface IDatabase {
-	run(sql: string, callback?: (err: Error) => void): IDatabase;
-	all(sql: string, params?: any[], callback?: (err: Error, rows: any[]) => void): IDatabase;
-	serialize(callback?: () => void): void;
-	parallelize(callback?: () => void): void;
+import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback } from "./Database";
+
+interface WebsqlTransaction extends DbTransaction {
+	realTransaction: SQLTransaction;
 }
 
-
-class WebsqlWrapper implements Database {
-	private db: IDatabase;
-	version: string;
-
-	constructor(db: IDatabase) {
-		this.db = db;
-	}
-
-	checkError(err: Error, errorCallback?: SQLTransactionErrorCallback) {
-		if (err) {
-			console.log("checkerror: ", err);
-			if(errorCallback) {
-				errorCallback(err);
-			} else {
-				throw err;
-			}
-		}
-	}
-
-	transaction(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
-		interface Tx extends SQLTransaction {
-			commit: () => void;
-		}
-
-		var db = this.db;
-		var checkError = this.checkError;
-
-		function commit(): void {
-			db.run("COMMIT TRANSACTION", (err: Error) => {
-				checkError(err, errorCallback);
-				if (successCallback) {
-					successCallback();
-				}
-			});
-		}
+class WebsqlWrapper implements DbWrapper {
+	db: Database;
+	
+	constructor(name: string, version?: string, displayName?: string, estimatedSize?: number) {
+		version = version || "1.0";
+		displayName = displayName || name;
+		estimatedSize = estimatedSize || 5 * 1024 * 1024;
 		
-		function executeSql(thisTx: Tx, sqlStatement: string, args?: string[], cb?: SQLStatementCallback, ecb?: SQLStatementErrorCallback) {
-			//console.log("execute: " + sqlStatement, args);
-			db.all(sqlStatement, args, (err: Error, rows: any[]) => {
-				if(err) {
-					console.log("error while running '" + sqlStatement + "': ", err);
-					if (ecb) {
-						ecb(thisTx, err);
-					} else {
-						throw err;
-					}
-				}
-				else {
-					//console.log("results: ", rows);
-					var resultSet = <SQLResultSet>{
-						rows: {
-							length: rows.length,
-							item: function(index: number): Object {
-								return rows[index];
-							}
-						}
-					};
-
-					if(cb) {
-						var tx2: Tx = {
-							commit: thisTx.commit,
-							executeSql: (sqlStatement: string, args?: string[], cb?: SQLStatementCallback, ecb?: SQLStatementErrorCallback) => executeSql(tx2, sqlStatement, args, cb, ecb) 
-						};
-						thisTx.commit = null;
-						cb(tx2, resultSet);
+		this.db = window.openDatabase(name, version, displayName, estimatedSize);
+	}
+	
+	all(tx: WebsqlTransaction, statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
+		return new Promise((resolve, reject) => {
+			tx.realTransaction.executeSql(statement, params,
+				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
+					var results: any[] = [];
+					for(var i=0; i<resultSet.rows.length; i++) {
+						var row = resultSet.rows.item(i);
+						results.push(row);
 					}
 					
-					if(thisTx.commit) {
-						thisTx.commit();
+					if(callback) {
+						callback(this.wrapTransaction(transaction), results)
+						.then(resolve, reject);
 					}
+					else {
+						resolve();
+					}
+				},
+				(transaction: SQLTransaction, error: SQLError) => {
+					reject(error);
+					return true;
 				}
-			});
+			);
+		});
+	}
+	
+	private wrapTransaction(transaction: SQLTransaction): WebsqlTransaction {
+		var tx: WebsqlTransaction = {
+			realTransaction: transaction,
+			executeSql: (statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
+				return this.all(tx, statement, params, callback);
+			}
 		}
-
-		db.serialize(() => {
-			db.run("BEGIN TRANSACTION", (err: Error) => {
-				if(err) {
-					errorCallback(err);
-				}
-				
-				var transaction: Tx = {
-					commit: commit,
-					executeSql: (sqlStatement: string, args?: string[], cb?: SQLStatementCallback, ecb?: SQLStatementErrorCallback) => executeSql(transaction, sqlStatement, args, cb, ecb) 
-				};
-
-				callback(transaction);
-				
-				if(transaction.commit) {
-					transaction.commit();
-				}
+		return tx;
+	}
+	
+	transaction(callback: DbTransactionCallback): Promise<any> {
+		return new Promise((resolve, reject) => {
+			this.db.transaction((transaction: SQLTransaction) => {
+				var tx = this.wrapTransaction(transaction);
+				callback(tx).then(resolve, reject);
 			});
 		});
 	}
 
-	readTransaction(callback: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
-		this.transaction(callback, errorCallback, successCallback);
-	}
-
-	changeVersion(oldVersion: string, newVersion: string, callback?: SQLTransactionCallback, errorCallback?: SQLTransactionErrorCallback, successCallback?: SQLVoidCallback): void {
-		throw new Error("changeVersion() not implemented");
+	readTransaction(callback: DbTransactionCallback): Promise<any> {
+		return new Promise((resolve, reject) => {
+			this.db.readTransaction((transaction: SQLTransaction) => {
+				var tx = this.wrapTransaction(transaction);
+				callback(tx).then(resolve, reject);
+			});
+		});
 	}
 }
 
 
-
-export function wrapSql(db: IDatabase): Database {
-		return new WebsqlWrapper(db);
+export function wrapWebsql(name: string, version?: string, displayName?: string, estimatedSize?: number): DbWrapper {
+		return new WebsqlWrapper(name, version, displayName, estimatedSize);
 }

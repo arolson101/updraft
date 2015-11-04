@@ -20,9 +20,11 @@
 		],
 		"files": [
 				"./src/Column.ts",
+				"./src/Database.ts",
 				"./src/Mutate.ts",
 				"./src/Query.ts",
 				"./src/Store.ts",
+				"./src/SqliteWrapper.ts",
 				"./src/Table.ts",
 				"./src/WebsqlWrapper.ts",
 				"./src/index.ts",
