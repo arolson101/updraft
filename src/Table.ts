@@ -25,7 +25,7 @@ export interface RenamedColumnSet {
 }
 
 
-export function keyOf(spec: TableSpec<any, any, any>): KeyType {
+export function tableKey(spec: TableSpec<any, any, any>): KeyType {
 	var key: KeyType = null;
 	for (var name in spec.columns) {
 		var column = spec.columns[name];
@@ -46,7 +46,7 @@ export class Table<Element, Mutator, Query> {
 
 	constructor(spec: TableSpec<Element, Mutator, Query>) {
 		this.spec = spec;
-		this.key = keyOf(spec);
+		this.key = tableKey(spec);
 	}
 
 	keyValue(element: Element | Mutator): KeyType {

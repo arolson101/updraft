@@ -34,7 +34,7 @@ interface SQLTransactionErrorCallback {
 
 // 4.3.1 Executing SQL statements
 interface SQLTransaction {
-  executeSql(sqlStatement: string, arguments?: string[], callback?: SQLStatementCallback, errorCallback?: SQLStatementErrorCallback): void;
+  executeSql(sqlStatement: string, arguments?: (string | number)[], callback?: SQLStatementCallback, errorCallback?: SQLStatementErrorCallback): void;
 }
 
 interface SQLStatementCallback {

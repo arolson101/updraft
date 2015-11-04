@@ -1,8 +1,9 @@
 ///<reference path="./websql.d.ts"/>
 'use strict';
 
+import { hasOwnProperty, keyOf, mutate, isMutated } from "./Mutate";
 import { Column, ColumnType, ColumnSet } from "./Column";
-import { TableSpec, Table, TableChange, keyOf } from "./Table";
+import { TableSpec, Table, TableChange, tableKey, KeyType } from "./Table";
 import { IDatabase } from "./WebsqlWrapper";
 import invariant = require("invariant");
 import clone = require("clone");
@@ -39,13 +40,24 @@ interface SqliteMasterRow {
 	sql: string;
 }
 
+interface ChangeRow {
+	key?: KeyType;
+	time?: number;
+	change?: string;
+}
+
 
 const ROWID = '_rowid_';
 const internal_prefix = 'updraft_';
+const internal_column_deleted = internal_prefix + 'deleted'; 
+const internal_column_time = internal_prefix + 'time'; 
+const internal_column_latest = internal_prefix + 'latest'; 
 const internalColumn: ColumnSet = {};
-internalColumn[internal_prefix + 'deleted'] = Column.Bool();
-internalColumn[internal_prefix + 'time'] = Column.DateTime().Key();
-internalColumn[internal_prefix + 'latest'] = Column.Bool();
+internalColumn[internal_column_deleted] = Column.Bool();
+internalColumn[internal_column_time] = Column.DateTime().Key();
+internalColumn[internal_column_latest] = Column.Bool();
+
+const deleteRow_action = { internal_column_deleted: { $set: true } };
 
 function getChangeTableName(name: string): string {
 	return internal_prefix + 'changes_' + name;
@@ -219,7 +231,6 @@ export class Store {
 				});
 			},
 			(error: SQLError) => {
-				this.reportError(error);
 				reject(error);
 			},
 			() => {
@@ -239,7 +250,6 @@ export class Store {
 				});
 			},
 			(error: SQLError) => {
-				this.reportError(error);
 				reject(error);
 			},
 			() => {
@@ -279,8 +289,7 @@ export class Store {
 			}
 			invariant(pk.length, "table %s has no keys", name);
 			cols.push('PRIMARY KEY(' + pk.join(', ')  + ')');
-			var stmt = 'CREATE ' + (spec.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')';
-			transaction.executeSql(stmt);
+			transaction.executeSql('CREATE ' + (spec.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')');
 		}
 
 		function dropTable(name: string) {
@@ -382,14 +391,12 @@ export class Store {
 					if (oldTableColumns.length && newTableColumns.length) {
 						var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
 						stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
-						// TODO: clean up error handling
-						transaction.executeSql(stmt, null, (err) => invariant(!err, "error executing %s: %s", stmt, err));
+						transaction.executeSql(stmt);
 					}
 				}
 
 				function renameTable(oldName: string, newName: string) {
-					var stmt = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName;
-					transaction.executeSql(stmt, null, (err) => invariant(!err, "error executing %s: %s", stmt, err));
+					transaction.executeSql('ALTER TABLE ' + oldName + ' RENAME TO ' + newName);
 				}
 
 				var tempTableName = 'temp_' + spec.name;
@@ -409,8 +416,7 @@ export class Store {
 				for(var col in addedColumns) {
 					var attrs: Column = spec.columns[col];
 					var columnDecl = col + ' ' + Column.sql(attrs);
-					var stmt = 'ALTER TABLE ' + spec.name + ' ADD COLUMN ' + columnDecl;
-					transaction.executeSql(stmt, null, (err) => invariant(!err, "error executing %s: %s", stmt, err));
+					transaction.executeSql('ALTER TABLE ' + spec.name + ' ADD COLUMN ' + columnDecl);
 				}
 				createIndices();
 			}
@@ -426,44 +432,139 @@ export class Store {
 		}
 	}
 
-	private reportError(error: SQLError) {
-		console.log(error);
-	}
-
 
 	add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
+		function insert(transaction: SQLTransaction, tableName: string, columns: string[], values: any[]) {
+			var questionMarks = values.map(v => '?');
+			transaction.executeSql('INSERT OR REPLACE INTO ' + tableName + ' (' + columns.join(', ') + ') VALUES (' + questionMarks.join(', ') + ')', values);
+		}
+
 		invariant(this.db, "apply(): not opened");
+		var changeTable = getChangeTableName(table.spec.name);
 
 		return new Promise((resolve, reject) => {
 			this.db.transaction((transaction: SQLTransaction) => {
+				var toResolve = new Set<KeyType>();
 				for(var i=0; i<changes.length; i++) {
 					var change = changes[i];
 					var time = change.time || Date.now();
 					invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, 'change must specify exactly one action at a time');
 					if(change.save) {
 						var element = change.save;
+						var keyValue = table.keyValue(element);
 						var columns = Object.keys(element).filter(k => k in table.spec.columns);
-						var values = columns.map(k => element[k]);
-						//columns = [TIMESTAMP, ...columns];
-						//values = [time, ...values];
-						var questionMarks = values.map(v => '?');
-						transaction.executeSql('INSERT OR REPLACE INTO ' + table.spec.name + ' (' + columns.join(', ') + ') VALUES (' + questionMarks.join(', ') + ')', values);
+						var values: any[] = columns.map(k => element[k]);
+
+						// append internal column values
+						columns = [internal_column_time, ...columns];
+						values = [time, ...values];
+						
+						insert(transaction, table.spec.name, columns, values);
+						toResolve.add(keyValue);
 					}
-					else if(change.change) {
-						var mutator = change.change;
-						var key = table.keyValue(mutator);
+					else if(change.change || change.delete) {
 						// insert into change table
-					}
-					else if(change.delete) {
-						// mark deleted
+						var changeRow: ChangeRow = {
+							key: null,
+							time: time,
+							change: null
+						};
+						if (change.change) {
+							// store changes
+							var mutator = clone(change.change);
+							changeRow.key = table.keyValue(mutator);
+							delete mutator[table.key];
+							changeRow.change = JSON.stringify(mutator);
+						}
+						else {
+							// mark deleted
+							changeRow.key = change.delete;
+							changeRow.change = JSON.stringify(deleteRow_action);
+						}
+						
+						var columns = Object.keys(changeRow);
+						var values: any[] = columns.map(k => changeRow[k]);
+						insert(transaction, changeTable, columns, values);
+						toResolve.add(keyValue);
 					}
 					else {
 						throw new Error("no operation specified for change- should be one of save, change, or delete");
 					}
-					//transaction.executeSql()
 				}
+				
+				// these could be done in parallel
+				toResolve.forEach((keyValue: KeyType) => {
+					var baselineCols = [ROWID, internal_column_time, internal_column_deleted, ...Object.keys(table.spec.columns)];
+					transaction.executeSql(
+						'SELECT ' + baselineCols.join(', ')
+						 + ' FROM ' + table.spec.name
+						 + ' WHERE ' + table.key + '=?'
+						 + ' ORDER BY ' + internal_column_time + ' DESC'
+						 + ' LIMIT 1', 
+						[keyValue],
+						(transaction: SQLTransaction, baselineResults: SQLResultSet) => {
+							var baseline = <Element>{};
+							var baseTime = 0;
+							var baseRowId = -1;
+							if (baselineResults.rows.length) {
+								baseline = <Element>baselineResults.rows.item(0);
+								baseTime = baseline[internal_column_time];
+							}
+							else {
+								baseline[table.key] = keyValue;
+							}
+							var mutation = baseline;
+							var mutationTime = baseTime;
+							
+							transaction.executeSql(
+								'SELECT key, time, change'
+								 + ' FROM ' + changeTable
+								 + ' WHERE key=? AND time>=?'
+								 + ' ORDER BY time ASC',
+								[keyValue, baseTime],
+								(transaction: SQLTransaction, changeResults: SQLResultSet) => {
+									for(var i=0; i<changeResults.rows.length; i++) {
+										var row = <ChangeRow>changeResults.rows.item(i);
+										var mutator = <Mutator>JSON.parse(row.change);
+										mutation = mutate(mutation, mutator);
+										mutationTime = Math.max(mutationTime, row.time);
+									}
+									
+									if(baseRowId != -1 && !isMutated(mutation, baseline)) {
+										// mark it as latest (and others as not)
+										transaction.executeSql(
+											'UPDATE ' + table.spec.name
+											 + ' SET ' + internal_column_latest + ' = ( ' + ROWID + '=' + baseRowId + ' )'
+											 + ' WHERE ' + table.key + '=?',
+											[keyValue]);
+									}
+									else {
+										// invalidate old latest rows
+										transaction.executeSql(
+											'UPDATE ' + table.spec.name
+											 + ' SET ' + internal_column_latest + ' = FALSE'
+											 + ' WHERE ' + table.key + '=?',
+											[keyValue]);
+
+										// insert new latest row
+										mutation[internal_column_latest] = true;
+										mutation[internal_column_time] = mutationTime;
+										var columns = Object.keys(mutation).filter(key => (key in table.spec.columns) || (key in internalColumn));
+										var values = columns.map(col => mutation[col]);
+										insert(transaction, table.spec.name, columns, values);
+									}
+								}
+							);
+						},
+						(tx: SQLTransaction, err: Error) => {
+							console.log("error: ", err);
+							return true;
+						}
+					);
+				});
 			},
 			(error: SQLError) => {
+				reject(error);
 			},
 			() => {
 				resolve();

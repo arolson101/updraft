@@ -82,8 +82,8 @@ function shallowCopy<T>(x: T): T {
   }
 }
 
-var hasOwnProperty = {}.hasOwnProperty;
-function keyOf(obj: Object) { return Object.keys(obj)[0]; }
+export var hasOwnProperty = {}.hasOwnProperty;
+export function keyOf(obj: Object) { return Object.keys(obj)[0]; }
 
 var command = {
   set: keyOf({$set: null}),
@@ -267,4 +267,10 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 	}
 
 	return nextValue;
+}
+
+
+export function isMutated<Element>(a: Element, b: Element): boolean {
+  // TODO: this isn't right because mutate will always return a new object
+  return a !== b;
 }
