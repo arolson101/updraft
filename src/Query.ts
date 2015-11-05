@@ -13,6 +13,10 @@ interface SetConditions<T> {
 	$size?: number | NumericConditions;
 }
 
+export interface FieldSpec {
+	[fieldName: string]: boolean;
+}
+
 export type bool = boolean;
 export type num = number | NumericConditions;
 export type str = string | RegExp;

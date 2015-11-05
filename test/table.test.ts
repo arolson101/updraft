@@ -101,7 +101,8 @@ describe('tables', function() {
 
 		await (store.open());
 		await (todoTable.add(...baselines));
-		var found = await (todoTable.find({}));
+		var found: Todo[] = await (todoTable.find({}));
+		expect(found.length).to.equal(10);
 		await (db.close());
 	}));
 });

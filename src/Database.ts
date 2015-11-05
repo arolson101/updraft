@@ -13,5 +13,5 @@ export interface DbTransaction {
 }
 
 export interface DbResultsCallback {
-	(transaction: DbTransaction, results: any[]): Promise<any>;
+	(transaction: DbTransaction, results: any[]): any | Promise<any>;
 }

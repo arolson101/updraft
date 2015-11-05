@@ -31,7 +31,7 @@ class WebsqlWrapper implements DbWrapper {
 						resolve(callback(this.wrapTransaction(transaction), results));
 					}
 					else {
-						resolve();
+						resolve(results);
 					}
 				},
 				(transaction: SQLTransaction, error: SQLError) => {

@@ -4,6 +4,7 @@ import { hasOwnProperty, keyOf, mutate, isMutated } from "./Mutate";
 import { Column, ColumnType, ColumnSet } from "./Column";
 import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback } from "./Database";
 import { TableSpec, Table, TableChange, tableKey, KeyType } from "./Table";
+import { FieldSpec } from "./Query";
 import invariant = require("invariant");
 import clone = require("clone");
 
@@ -36,7 +37,7 @@ interface ChangeRow {
 }
 
 
-const ROWID = '_rowid_';
+const ROWID = 'rowid';
 const internal_prefix = 'updraft_';
 const internal_column_deleted = internal_prefix + 'deleted'; 
 const internal_column_time = internal_prefix + 'time'; 
@@ -169,9 +170,9 @@ export class Store {
 			return matches[1].split(',').map((x: string) => x.trim());
 		}
 
-		var schema: Schema = {};
 		return this.db.readTransaction((transaction: DbTransaction) => {
 			return transaction.executeSql('SELECT name, tbl_name, type, sql FROM sqlite_master', [], (tx: DbTransaction, resultSet: any[]) => {
+				var schema: Schema = {};
 				for (var i = 0; i < resultSet.length; i++) {
 					var row = <SqliteMasterRow>resultSet[i];
 					if (row.name[0] != '_' && !startsWith(row.name, 'sqlite')) {
@@ -198,9 +199,9 @@ export class Store {
 					}
 				}
 				
-				return null;
+				return schema;
 			});
-		}).then(() => Promise.resolve(schema));
+		});
 	}
 
 
@@ -477,6 +478,8 @@ export class Store {
 						if (baselineResults.length) {
 							baseline = <Element>baselineResults[0];
 							baseTime = baseline[internal_column_time];
+							invariant(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(', '))
+							baseRowId = baseline[ROWID];
 						}
 						else {
 							baseline[table.key] = keyValue;
@@ -535,8 +538,49 @@ export class Store {
 		});
 	}
 
-	find<Element, Query>(table: Table<Element, any, Query>, query: Query): Promise<Element[]> {
-		return null;
+	find<Element, Query>(table: Table<Element, any, Query>, query: Query, fields?: FieldSpec): Promise<Element[]> {
+		const numericConditions = {
+			$gt: '>',
+			$gte: '>=',
+			$lt: '<',
+			$lte: '<='
+		};
+		
+		var conditions: string[] = [];
+		var values: (string | number)[] = [];
+
+		conditions.push(internal_column_deleted + '!=1');
+		conditions.push(internal_column_latest + '=1');
+
+		for(var col in query) {
+			var spec = query[col];
+			
+			for(var condition in numericConditions) {
+				if(hasOwnProperty.call(spec, condition)) {
+					conditions.push('(' + col + ' ' + numericConditions[condition] + ' ?)');
+					var value = spec[condition];
+					invariant(parseInt(value, 10) == value, 'condition %s must have a numeric argument: %s', condition, value);
+					values.push(value);
+				}
+			}
+		}
+
+		var columns: string[] = Object.keys(fields || table.spec.columns);
+		var stmt = 'SELECT ' + columns.join(', ')
+			+ ' FROM ' + table.spec.name
+			+ ' WHERE ' + conditions.join(' AND ');
+
+		return this.db.readTransaction((tx1: DbTransaction): Promise<any> => {
+			return tx1.executeSql(stmt, values, (tx2: DbTransaction, rows: any[]) => {
+				var results: Element[] = [];
+				for(var i=0; i<rows.length; i++) {
+					var row = rows[i];
+					// TODO: add constructable objects
+					results.push(row);
+				}
+				return Promise.resolve(results);
+			});
+		});
 	}
 
 }

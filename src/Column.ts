@@ -28,6 +28,9 @@ export class Column {
 
 	constructor(type: ColumnType) {
 		this.type = type;
+		if(type == ColumnType.bool) {
+			this.defaultValue = 0;
+		}
 	}
 
 	/**
@@ -51,6 +54,9 @@ export class Column {
 		*/
 	// TODO
 	Default(value: number | boolean | string): Column {
+		if(this.type == ColumnType.bool) {
+			value = (value != false) ? 1 : 0;
+		}
 		this.defaultValue = value;
 		return this;
 	}

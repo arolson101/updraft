@@ -43,7 +43,7 @@ class SQLiteWrapper implements DbWrapper {
 					if (callback) {
 						resolve(callback(tx, rows));
 					} else {
-						resolve();
+						resolve(rows);
 					}
 				}
 			});
@@ -51,6 +51,7 @@ class SQLiteWrapper implements DbWrapper {
 	}
 	
 	transaction(callback: DbTransactionCallback): Promise<any> {
+		var result: any = undefined;
 		return Promise.resolve()
 			.then(() => this.run("BEGIN TRANSACTION"))
 			.then(() => {
@@ -61,7 +62,9 @@ class SQLiteWrapper implements DbWrapper {
 				}
 				return callback(tx);
 			})
+			.then((ret) => result = ret)
 			.then(() => this.run("COMMIT TRANSACTION"))
+			.then(() => result)
 			.catch((err: Error) => {
 				console.log("encountered error, rolling back transaction: ", err);
 				this.run("ROLLBACK TRANSACTION");
