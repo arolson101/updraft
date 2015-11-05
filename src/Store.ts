@@ -554,14 +554,51 @@ export class Store {
 
 		for(var col in query) {
 			var spec = query[col];
+			var found = false;
 			
 			for(var condition in numericConditions) {
 				if(hasOwnProperty.call(spec, condition)) {
-					conditions.push('(' + col + ' ' + numericConditions[condition] + ' ?)');
+					conditions.push('(' + col + numericConditions[condition] + '?)');
 					var value = spec[condition];
 					invariant(parseInt(value, 10) == value, 'condition %s must have a numeric argument: %s', condition, value);
 					values.push(value);
+					found = true;
+					break;
 				}
+			}
+			
+			if(!found) {
+				if(typeof spec === 'boolean') {
+					conditions.push('(' + col + '=' + (spec ? 1 : 0) + ')');
+					found = true;
+				}
+				else if(typeof spec === 'number' || typeof spec === 'string') {
+					conditions.push('(' + col + '=?)');
+					values.push(spec);
+					found = true;
+				}
+				else if(spec instanceof RegExp) {
+					var rx: RegExp = spec;
+					var arg = rx.source.replace(/\.\*/g, '%').replace(/\./g, '_');
+					if(arg[0] == '^') {
+						arg = arg.substring(1);
+					}
+					else {
+						arg = '%' + arg;
+					}
+					if(arg[arg.length - 1] == '$') {
+						arg = arg.substring(0, arg.length - 2);
+					}
+					else {
+						arg = arg + '%';
+					}
+					invariant(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
+					conditions.push('(' + col + ' LIKE ?)');
+					values.push(arg);
+					found = true;
+				}
+				
+				invariant(found, "unknown query condition for %s: %s", col, JSON.stringify(spec));
 			}
 		}
 
@@ -575,6 +612,11 @@ export class Store {
 				var results: Element[] = [];
 				for(var i=0; i<rows.length; i++) {
 					var row = rows[i];
+					for(var col in row) {
+						if(table.spec.columns[col].type == ColumnType.bool) {
+							row[col] = row[col] ? true : false;
+						}
+					}
 					// TODO: add constructable objects
 					results.push(row);
 				}

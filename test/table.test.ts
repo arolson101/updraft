@@ -101,8 +101,11 @@ describe('tables', function() {
 
 		await (store.open());
 		await (todoTable.add(...baselines));
-		var found: Todo[] = await (todoTable.find({}));
-		expect(found.length).to.equal(10);
+		expect(await(todoTable.find({text: /todo 1/}))).to.deep.equal([todos[1]]);
+		expect(await(todoTable.find({id: 2}))).to.deep.equal([todos[2]]);
+		expect(await(todoTable.find({completed: false}))).to.deep.equal(todos);
+		expect(await(todoTable.find({completed: true}))).to.deep.equal([]);
+		expect(await(todoTable.find({}))).to.deep.equal(todos);
 		await (db.close());
 	}));
 });
