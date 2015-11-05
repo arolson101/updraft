@@ -14,6 +14,7 @@ var expect = chai.expect;
 import Column = Updraft.Column;
 import Q = Updraft.Query;
 import M = Updraft.Mutate;
+import OrderBy = Updraft.OrderBy;
 
 describe('tables', function() {
 	//this.timeout(0);
@@ -106,6 +107,11 @@ describe('tables', function() {
 		expect(await(todoTable.find({completed: false}))).to.deep.equal(todos);
 		expect(await(todoTable.find({completed: true}))).to.deep.equal([]);
 		expect(await(todoTable.find({}))).to.deep.equal(todos);
+		expect(await(todoTable.find({text: {$in: ['todo 4', 'todo 3']}}))).to.deep.equal([todos[3], todos[4]]);
+		expect(await(todoTable.find({text: {$in: ['todo 4', 'todo 3']}}, {orderBy: {id: OrderBy.DESC}}))).to.deep.equal([todos[4], todos[3]]);
+		expect(await(todoTable.find({id: 2}, {fields: {id: true, text: true}}))).to.deep.equal([{id: 2, text: 'todo 2'}]);
+		expect(await(todoTable.find({}, {offset: 2, limit: 1}))).to.deep.equal([todos[2]]);
+		expect(await(todoTable.find({}, {count: true}))).to.equal(10);
 		await (db.close());
 	}));
 });

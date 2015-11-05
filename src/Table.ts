@@ -1,6 +1,7 @@
 ///<reference path="./Store"/>
 
 import { ColumnSet } from "./Column";
+import { FieldSpec } from "./Query";
 import invariant = require("invariant");
 
 export type KeyType = string | number;
@@ -24,21 +25,22 @@ export interface RenamedColumnSet {
     [oldColumnName: string]: string;
 }
 
-
-export function tableKey(spec: TableSpec<any, any, any>): KeyType {
-	var key: KeyType = null;
-	for (var name in spec.columns) {
-		var column = spec.columns[name];
-		if (column.isKey) {
-			invariant(!key, "Table %s has more than one key- %s and %s", spec.name, key, name);
-			key = name;
-		}
-	}
-
-	invariant(key, "Table %s does not have a key", spec.name);
-	return key;
+export enum OrderBy {
+	ASC,
+	DESC
 }
 
+export interface OrderBySpec {
+	[name: string]: OrderBy;
+}
+
+export interface FindOpts {
+	fields?: FieldSpec;
+	orderBy?: OrderBySpec;
+	offset?: number;
+	limit?: number;
+	count?: boolean;
+}
 
 export class Table<Element, Mutator, Query> {
 	spec: TableSpec<Element, Mutator, Query>;
@@ -54,6 +56,21 @@ export class Table<Element, Mutator, Query> {
 		return element[this.key];
 	}
 
-	find: (query: Query) => Promise<Element[]>;
+	find: (query: Query, opts?: FindOpts) => Promise<Element[]>;
 	add: (...changes: TableChange<Element, Mutator>[]) => Promise<any>;
+}
+
+
+export function tableKey(spec: TableSpec<any, any, any>): KeyType {
+	var key: KeyType = null;
+	for (var name in spec.columns) {
+		var column = spec.columns[name];
+		if (column.isKey) {
+			invariant(!key, "Table %s has more than one key- %s and %s", spec.name, key, name);
+			key = name;
+		}
+	}
+
+	invariant(key, "Table %s does not have a key", spec.name);
+	return key;
 }

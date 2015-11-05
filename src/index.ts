@@ -11,9 +11,10 @@ import * as WebsqlWrapper_ from "./WebsqlWrapper";
 export namespace Updraft {
 	export import Query = Query_;
 	export import Mutate = Mutate_;
-
+	
 	export import ColumnType = Column_.ColumnType;
 	export import Column = Column_.Column;
+	export import OrderBy = Table_.OrderBy;
 	export import Table = Table_.Table;
 	export import TableSpec = Table_.TableSpec;
 	export import TableChange = Table_.TableChange;

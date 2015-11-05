@@ -3,8 +3,7 @@
 import { hasOwnProperty, keyOf, mutate, isMutated } from "./Mutate";
 import { Column, ColumnType, ColumnSet } from "./Column";
 import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback } from "./Database";
-import { TableSpec, Table, TableChange, tableKey, KeyType } from "./Table";
-import { FieldSpec } from "./Query";
+import { TableSpec, Table, TableChange, tableKey, KeyType, FindOpts, OrderBy } from "./Table";
 import invariant = require("invariant");
 import clone = require("clone");
 
@@ -38,6 +37,7 @@ interface ChangeRow {
 
 
 const ROWID = 'rowid';
+const COUNT = 'COUNT(*)';
 const internal_prefix = 'updraft_';
 const internal_column_deleted = internal_prefix + 'deleted'; 
 const internal_column_time = internal_prefix + 'time'; 
@@ -106,7 +106,7 @@ export class Store {
 		}
 		var table = new Table<Element, Mutator, Query>(spec);
 		table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.add(table, ...changes);
-		table.find = (query: Query): Promise<Element[]> => this.find(table, query);
+		table.find = (query: Query, opts?: FindOpts): Promise<Element[]> => this.find(table, query, opts);
 		this.tables.push(createInternalTableSpec(spec));
 		this.tables.push(createChangeTableSpec(spec));
 		return table;
@@ -538,7 +538,9 @@ export class Store {
 		});
 	}
 
-	find<Element, Query>(table: Table<Element, any, Query>, query: Query, fields?: FieldSpec): Promise<Element[]> {
+	find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]> {
+		opts = opts || {};
+
 		const numericConditions = {
 			$gt: '>',
 			$gte: '>=',
@@ -546,13 +548,15 @@ export class Store {
 			$lte: '<='
 		};
 		
+		const inCondition = keyOf({ $in: false });
+		
 		var conditions: string[] = [];
 		var values: (string | number)[] = [];
 
-		conditions.push(internal_column_deleted + '!=1');
+		conditions.push(internal_column_deleted + '=0');
 		conditions.push(internal_column_latest + '=1');
 
-		for(var col in query) {
+		for(let col in query) {
 			var spec = query[col];
 			var found = false;
 			
@@ -564,6 +568,15 @@ export class Store {
 					values.push(value);
 					found = true;
 					break;
+				}
+			}
+			
+			if(!found) {
+				if(hasOwnProperty.call(spec, inCondition)) {
+					invariant(spec[inCondition] instanceof Array, "must be an array: %s", JSON.stringify(spec[inCondition]));
+					conditions.push(col + ' IN (' + spec[inCondition].map((x: any) => '?').join(', ') + ')');
+					values.push(...spec[inCondition]);
+					found = true;
 				}
 			}
 			
@@ -601,26 +614,46 @@ export class Store {
 				invariant(found, "unknown query condition for %s: %s", col, JSON.stringify(spec));
 			}
 		}
+		
+		var columns: string[] = Object.keys(opts.fields || table.spec.columns);
+		var stmt = 'SELECT ' + (opts.count ? COUNT : columns.join(', '));
+		stmt += ' FROM ' + table.spec.name
+		stmt += ' WHERE ' + conditions.join(' AND ');
+			
+		if(opts.orderBy) {
+			let col = keyOf(opts.orderBy);
+			let order = opts.orderBy[col];
+			stmt += ' ORDER BY ' + col + ' ' + (order == OrderBy.ASC ? 'ASC' : 'DESC');
+		}
+		
+		if(opts.limit) {
+			stmt += ' LIMIT ' + opts.limit;
+		}
 
-		var columns: string[] = Object.keys(fields || table.spec.columns);
-		var stmt = 'SELECT ' + columns.join(', ')
-			+ ' FROM ' + table.spec.name
-			+ ' WHERE ' + conditions.join(' AND ');
+		if(opts.offset) {
+			stmt += ' OFFSET ' + opts.offset;
+		}
 
 		return this.db.readTransaction((tx1: DbTransaction): Promise<any> => {
 			return tx1.executeSql(stmt, values, (tx2: DbTransaction, rows: any[]) => {
-				var results: Element[] = [];
-				for(var i=0; i<rows.length; i++) {
-					var row = rows[i];
-					for(var col in row) {
-						if(table.spec.columns[col].type == ColumnType.bool) {
-							row[col] = row[col] ? true : false;
-						}
-					}
-					// TODO: add constructable objects
-					results.push(row);
+				if(opts.count) {
+					let count = parseInt(rows[0][COUNT], 10);
+					return Promise.resolve(count);
 				}
-				return Promise.resolve(results);
+				else {
+					let results: Element[] = [];
+					for(var i=0; i<rows.length; i++) {
+						var row = rows[i];
+						for(var col in row) {
+							if(table.spec.columns[col].type == ColumnType.bool) {
+								row[col] = row[col] ? true : false;
+							}
+						}
+						// TODO: add constructable objects
+						results.push(row);
+					}
+					return Promise.resolve(results);
+				}
 			});
 		});
 	}
