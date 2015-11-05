@@ -28,8 +28,7 @@ class WebsqlWrapper implements DbWrapper {
 					}
 					
 					if(callback) {
-						callback(this.wrapTransaction(transaction), results)
-						.then(resolve, reject);
+						resolve(callback(this.wrapTransaction(transaction), results));
 					}
 					else {
 						resolve();
@@ -57,7 +56,7 @@ class WebsqlWrapper implements DbWrapper {
 		return new Promise((resolve, reject) => {
 			this.db.transaction((transaction: SQLTransaction) => {
 				var tx = this.wrapTransaction(transaction);
-				callback(tx).then(resolve, reject);
+				resolve(callback(tx));
 			});
 		});
 	}
@@ -66,7 +65,7 @@ class WebsqlWrapper implements DbWrapper {
 		return new Promise((resolve, reject) => {
 			this.db.readTransaction((transaction: SQLTransaction) => {
 				var tx = this.wrapTransaction(transaction);
-				callback(tx).then(resolve, reject);
+				resolve(callback(tx));
 			});
 		});
 	}

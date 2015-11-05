@@ -100,7 +100,8 @@ describe('tables', function() {
 		var todoTable: TodoTable = store.createTable(todoTableSpec);
 
 		await (store.open());
-		todoTable.add(...baselines);
+		await (todoTable.add(...baselines));
+		var found = await (todoTable.find({}));
 		await (db.close());
 	}));
 });

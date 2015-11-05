@@ -41,10 +41,8 @@ class SQLiteWrapper implements DbWrapper {
 				}
 				else {
 					if (callback) {
-						callback(tx, rows)
-							.then(resolve, reject);
-					}
-					else {
+						resolve(callback(tx, rows));
+					} else {
 						resolve();
 					}
 				}

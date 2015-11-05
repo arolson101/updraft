@@ -198,7 +198,7 @@ export class Store {
 					}
 				}
 				
-				return Promise.resolve();
+				return null;
 			});
 		}).then(() => Promise.resolve(schema));
 	}
@@ -470,7 +470,7 @@ export class Store {
 						+ ' ORDER BY ' + internal_column_time + ' DESC'
 						+ ' LIMIT 1', 
 					[keyValue],
-					(transaction: DbTransaction, baselineResults: any[]): Promise<any> => {
+					(tx1: DbTransaction, baselineResults: any[]): Promise<any> => {
 						var baseline = <Element>{};
 						var baseTime = 0;
 						var baseRowId = -1;
@@ -484,13 +484,13 @@ export class Store {
 						var mutation = baseline;
 						var mutationTime = baseTime;
 						
-						return transaction.executeSql(
+						return tx1.executeSql(
 							'SELECT key, time, change'
 								+ ' FROM ' + changeTable
 								+ ' WHERE key=? AND time>=?'
 								+ ' ORDER BY time ASC',
 							[keyValue, baseTime],
-							(transaction: DbTransaction, changeResults: any[]): Promise<any> => {
+							(tx2: DbTransaction, changeResults: any[]): Promise<any> => {
 								var p2 = Promise.resolve();
 								for(var i=0; i<changeResults.length; i++) {
 									var row = <ChangeRow>changeResults[i];
@@ -501,7 +501,7 @@ export class Store {
 								
 								if(baseRowId != -1 && !isMutated(mutation, baseline)) {
 									// mark it as latest (and others as not)
-									p2 = p2.then(() => transaction.executeSql(
+									p2 = p2.then(() => tx2.executeSql(
 										'UPDATE ' + table.spec.name
 											+ ' SET ' + internal_column_latest + '=( ' + ROWID + '=' + baseRowId + ' )'
 											+ ' WHERE ' + table.key + '=?',
@@ -510,19 +510,19 @@ export class Store {
 								}
 								else {
 									// invalidate old latest rows
-									p2 = p2.then(() => transaction.executeSql(
+									p2 = p2.then(() => tx2.executeSql(
 										'UPDATE ' + table.spec.name
 											+ ' SET ' + internal_column_latest + '=0'
 											+ ' WHERE ' + table.key + '=?',
 										[keyValue])
 									);
-
+									
 									// insert new latest row
 									mutation[internal_column_latest] = true;
 									mutation[internal_column_time] = mutationTime;
 									var columns = Object.keys(mutation).filter(key => (key in table.spec.columns) || (key in internalColumn));
 									var values = columns.map(col => mutation[col]);
-									p2 = p2.then(() => insert(transaction, table.spec.name, columns, values));
+									p2 = p2.then(() => insert(tx2, table.spec.name, columns, values));
 								}
 								
 								return p2;
