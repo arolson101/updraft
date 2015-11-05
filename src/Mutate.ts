@@ -6,6 +6,7 @@
 
 import assign = require("object-assign");
 import invariant = require("invariant");
+var equal = require('deep-equal');
 
 interface setter<T> {
 	$set: T;
@@ -82,6 +83,7 @@ function shallowCopy<T>(x: T): T {
   }
 }
 
+
 export var hasOwnProperty = {}.hasOwnProperty;
 export function keyOf(obj: Object) { return Object.keys(obj)[0]; }
 
@@ -156,7 +158,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
       command.set
     );
 
-    return spec[command.set];
+    return equal(value, spec[command.set]) ? value : spec[command.set];
   }
 
 	if (hasOwnProperty.call(spec, command.increment)) {
@@ -171,7 +173,8 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 		return value + spec[command.increment];
 	}
 
-  var nextValue = shallowCopy(value);
+  var nextValue = <any>shallowCopy(value);
+  var changed = false;
 
   if (hasOwnProperty.call(spec, command.merge)) {
     var mergeObj = spec[command.merge];
@@ -188,7 +191,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
       nextValue
     );
     assign(nextValue, spec[command.merge]);
-    return nextValue;
+    return equal(value, nextValue) ? value : nextValue;
   }
 
   if (hasOwnProperty.call(spec, command.deleter) && (typeof value === 'object') && !(value instanceof Set)) {
@@ -199,8 +202,13 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
       command.deleter,
       key
     );
-		delete nextValue[key];
-    return nextValue;
+    if (key in nextValue) {
+      delete nextValue[key];
+      return nextValue;
+    }
+    else {
+      return value;
+    }
 	}
 
   if (hasOwnProperty.call(spec, command.push)) {
@@ -208,13 +216,18 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
     spec[command.push].forEach(function(item: any) {
       (<any>nextValue).push(item);
     });
-    return nextValue;
+    return equal(value, nextValue) ? value : nextValue;
   }
 
   if (hasOwnProperty.call(spec, command.unshift)) {
     invariantArrayCase(value, spec, command.unshift);
-    (<any>nextValue).unshift.apply(nextValue, spec[command.unshift]);
-    return nextValue;
+    if (spec[command.unshift].length) {
+      (<any>nextValue).unshift.apply(nextValue, spec[command.unshift]);
+      return nextValue;
+    }
+    else {
+      return value;
+    }
   }
 
   if (hasOwnProperty.call(spec, command.splice)) {
@@ -241,32 +254,42 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
       );
       (<any>nextValue).splice.apply(nextValue, args);
     });
-    return nextValue;
+    return equal(value, nextValue) ? value : nextValue;
   }
 
   if (hasOwnProperty.call(spec, command.add)) {
     invariantSetCase(value, spec, command.add);
     spec[command.add].forEach(function(item: any) {
-      (<any>nextValue).add(item);
+      if(!(<Set<any>>nextValue).has(item)) {
+        (<Set<any>>nextValue).add(item);
+        changed = true;
+      }
     });
-    return nextValue;
+    return changed ? nextValue : value;
 	}
 
   if (hasOwnProperty.call(spec, command.deleter) && (value instanceof Set)) {
     invariantSetCase(value, spec, command.deleter);
     spec[command.deleter].forEach(function(item: any) {
-      (<any>nextValue).delete(item);
+      if((<Set<any>>nextValue).delete(item)) {
+        changed = true;
+      }
     });
-    return nextValue;
+    return changed ? nextValue : value;
 	}
 
 	for(var k in spec) {
 		if(!(command.hasOwnProperty(k) && command[k])) {
-			nextValue[k] = mutate(value[k], spec[k]);
+      var oldValue = value[k];
+      var newValue = mutate(oldValue, spec[k]);
+      if(oldValue !== newValue) {
+        nextValue[k] = newValue;
+        changed = true;
+      }
 		}
 	}
 
-	return nextValue;
+  return changed ? nextValue : value;
 }
 
 

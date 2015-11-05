@@ -7,22 +7,23 @@ import { Updraft } from '../src/index';
 
 import M = Updraft.Mutate;
 
+interface _Test<bool, str, num, obj, strArray, numArray, objArray, strSet> {
+	myBool?: bool;
+	myString?: str;
+	myNumber?: num;
+	myObject?: obj;
+	myStrArray?: strArray;
+	myNumArray?: numArray;
+	myObjArray?: objArray;
+	myStrSet?: strSet;
+}
+
+interface Test extends _Test<boolean, string, number, Object, Array<string>, Array<number>, Array<Object>, Set<string>> {};
+interface TestMutator extends _Test<M.bool, M.str, M.num, M.obj, M.strArray, M.numArray, M.objArray, M.strSet> {};
+function mutate(value: Test, spec: TestMutator): Test { return Updraft.mutate<Test, TestMutator>(value, spec); }
+
 
 describe('mutate() operations', function() {
-	interface _Test<bool, str, num, obj, strArray, numArray, objArray, strSet> {
-		myBool?: bool;
-		myString?: str;
-		myNumber?: num;
-		myObject?: obj;
-		myStrArray?: strArray;
-		myNumArray?: numArray;
-		myObjArray?: objArray;
-		myStrSet?: strSet;
-	}
-
-	interface Test extends _Test<boolean, string, number, Object, Array<string>, Array<number>, Array<Object>, Set<string>> {};
-	interface TestMutator extends _Test<M.bool, M.str, M.num, M.obj, M.strArray, M.numArray, M.objArray, M.strSet> {};
-	function mutate(value: Test, spec: TestMutator): Test { return Updraft.mutate<Test, TestMutator>(value, spec); }
 
 	var base: Test = {
 		myBool: true,
@@ -131,5 +132,90 @@ describe('mutate() operations', function() {
 
 		expect((<any>Array).from(mutated.myStrSet)).to.deep.equal(['a', 'b']);
 		expect(base).to.deep.equal(backup);
+	});
+});
+
+
+describe('mutate() no-ops', function() {
+
+	var base: Test = {
+		myBool: true,
+		myString: 'my string',
+		myNumber: 123,
+		myObject: { foo: 'bar' },
+		myStrArray: ['a', 'b', 'c'],
+		myNumArray: [1, 2, 3],
+		myObjArray: [{a: 1}, {b: 2}, {c: 3}],
+		myStrSet: new Set<string>(['a', 'b', 'c'])
+	};
+
+	var backup: Test = clone(base);
+	var mutated: Test;
+
+	it('$set', function() {
+		mutated = mutate(base, <TestMutator>{
+			myBool: {$set: true},
+			myString: {$set: 'my string'},
+			myNumber: {$set: 123},
+			myObject: <any>{foo: {$set: 'bar'}}, // TODO: revisit <any> cast
+			myStrArray: {$set: ['a', 'b', 'c']},
+			myNumArray: {$set: [1, 2, 3]},
+			myStrSet: {$set: new Set<string>(['a', 'b', 'c'])},
+		});
+		
+		expect(mutated).to.equal(base);
+	});
+
+	it('$inc', function() {
+		mutated = mutate(base, <TestMutator>{ myNumber: {$inc: 0} });
+		expect(mutated).to.equal(base);
+	});
+
+	it('$push', function() {
+		mutated = mutate(base, <TestMutator>{
+			myStrArray: {$push: []},
+		});
+
+		expect(mutated).to.equal(base);
+	});
+
+	it('$unshift', function() {
+		mutated = mutate(base, <TestMutator>{
+			myStrArray: {$unshift: []},
+		});
+
+		expect(mutated).to.equal(base);
+	});
+
+	it('$splice', function() {
+		mutated = mutate(base, <TestMutator>{
+			myStrArray: {$splice: [[0, 0]]},
+		});
+
+		expect(mutated).to.equal(base);
+	});
+
+	it('$merge', function() {
+		mutated = mutate(base, <TestMutator>{
+			myObject: <any>{$merge: {foo: 'bar'}}, // TODO: revisit <any> cast
+		});
+
+		expect(mutated).to.equal(base);
+	});
+
+	it('$add', function() {
+		mutated = mutate(base, <TestMutator>{
+			myStrSet: {$add: ['a', 'b', 'c']},
+		});
+
+		expect(mutated).to.equal(base);
+	});
+
+	it('$delete', function() {
+		mutated = mutate(base, <TestMutator>{
+			myStrSet: {$delete: ['d']},
+		});
+
+		expect(mutated).to.equal(base);
 	});
 });
