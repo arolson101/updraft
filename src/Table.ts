@@ -62,9 +62,9 @@ export class Table<Element, Mutator, Query> {
 
 
 export function tableKey(spec: TableSpec<any, any, any>): KeyType {
-	var key: KeyType = null;
-	for (var name in spec.columns) {
-		var column = spec.columns[name];
+	let key: KeyType = null;
+	for (let name in spec.columns) {
+		let column = spec.columns[name];
 		invariant(column, "column '%s' is not in %s", name, JSON.stringify(spec));
 		if (column.isKey) {
 			invariant(!key, "Table %s has more than one key- %s and %s", spec.name, key, name);

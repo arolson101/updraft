@@ -1,4 +1,5 @@
 ///<reference path="./websql.d.ts"/>
+'use strict';
 
 import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback, DbEachResultCallback } from "./Database";
 
@@ -21,9 +22,9 @@ class WebsqlWrapper implements DbWrapper {
 		return new Promise((resolve, reject) => {
 			tx.realTransaction.executeSql(statement, params,
 				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
-					var results: any[] = [];
-					for(var i=0; i<resultSet.rows.length; i++) {
-						var row = resultSet.rows.item(i);
+					let results: any[] = [];
+					for(let i=0; i<resultSet.rows.length; i++) {
+						let row = resultSet.rows.item(i);
 						results.push(row);
 					}
 					
@@ -46,9 +47,9 @@ class WebsqlWrapper implements DbWrapper {
 		return new Promise((resolve, reject) => {
 			tx.realTransaction.executeSql(statement, params,
 				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
-					var p = Promise.resolve();
-					for(var i=0; i<resultSet.rows.length; i++) {
-						var row = resultSet.rows.item(i);
+					let p = Promise.resolve();
+					for(let i=0; i<resultSet.rows.length; i++) {
+						let row = resultSet.rows.item(i);
 						if(callback) {
 							p = p.then(() => callback(tx, row));
 						}
@@ -65,7 +66,7 @@ class WebsqlWrapper implements DbWrapper {
 	}
 
 	private wrapTransaction(transaction: SQLTransaction): WebsqlTransaction {
-		var tx: WebsqlTransaction = {
+		let tx: WebsqlTransaction = {
 			realTransaction: transaction,
 			executeSql: (statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
 				return this.all(tx, statement, params, callback);
@@ -73,14 +74,14 @@ class WebsqlWrapper implements DbWrapper {
 			each: (sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> => {
 				return this.each(tx, sql, params, callback);
 			}
-		}
+		};
 		return tx;
 	}
 	
 	transaction(callback: DbTransactionCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
 			this.db.transaction((transaction: SQLTransaction) => {
-				var tx = this.wrapTransaction(transaction);
+				let tx = this.wrapTransaction(transaction);
 				resolve(callback(tx));
 			});
 		});
@@ -89,7 +90,7 @@ class WebsqlWrapper implements DbWrapper {
 	readTransaction(callback: DbTransactionCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
 			this.db.readTransaction((transaction: SQLTransaction) => {
-				var tx = this.wrapTransaction(transaction);
+				let tx = this.wrapTransaction(transaction);
 				resolve(callback(tx));
 			});
 		});

@@ -29,7 +29,7 @@ class SQLiteWrapper implements DbWrapper {
 				else {
 					resolve();
 				}
-			})
+			});
 		});
 	}
 	
@@ -52,7 +52,7 @@ class SQLiteWrapper implements DbWrapper {
 	}
 	
 	each(tx: DbTransaction, sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
-		var p = Promise.resolve();
+		let p = Promise.resolve();
 		return new Promise((resolve, reject) => {
 			this.db.each(sql, params, (err: Error, row: any) => {
 				if(err) {
@@ -78,18 +78,18 @@ class SQLiteWrapper implements DbWrapper {
 	}
 	
 	transaction(callback: DbTransactionCallback): Promise<any> {
-		var result: any = undefined;
+		let result: any = undefined;
 		return Promise.resolve()
 			.then(() => this.run("BEGIN TRANSACTION"))
 			.then(() => {
-				var tx: DbTransaction = {
-					executeSql: (sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
-						return this.all(tx, sql, params, callback);
+				let tx: DbTransaction = {
+					executeSql: (sql: string, params?: (string | number)[], resultsCb?: DbResultsCallback): Promise<any> => {
+						return this.all(tx, sql, params, resultsCb);
 					},
-					each: (sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> => {
-						return this.each(tx, sql, params, callback);
+					each: (sql: string, params?: (string | number)[], resultsCb?: DbEachResultCallback): Promise<any> => {
+						return this.each(tx, sql, params, resultsCb);
 					}
-				}
+				};
 				return callback(tx);
 			})
 			.then((ret) => result = ret)

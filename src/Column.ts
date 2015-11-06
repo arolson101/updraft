@@ -91,13 +91,13 @@ export class Column {
 
 	/** create a column with 'BLOB' affinity */
 	static Blob(): Column {
-		var c = new Column(ColumnType.blob);
+		let c = new Column(ColumnType.blob);
 		return c;
 	}
 
 	// /** a javascript object with instance method 'toString' and class method 'get' (e.g. {@link https://github.com/adrai/enum}). */
 	// static Enum(enum_: EnumClass | TypeScriptEnum): Column {
-	//   var c = new Column(ColumnType.enum);
+	//   let c = new Column(ColumnType.enum);
 	//   c.enum = enum_;
 	//   return c;
 	// }
@@ -119,21 +119,21 @@ export class Column {
 
 	// /** points to an object in another table.  Its affinity will automatically be that table's key's affinity */
 	// static Ptr(ref: ClassTemplate<any>): Column {
-	//   var c = new Column(ColumnType.ptr);
+	//   let c = new Column(ColumnType.ptr);
 	//   c.ref = ref;
 	//   return c;
 	// }
 
 	// /** unordered collection */
 	// static Set(ref: ClassTemplate<any> /*| ColumnType*/): Column {
-	//   var c = new Column(ColumnType.set);
+	//   let c = new Column(ColumnType.set);
 	//   c.ref = ref;
 	//   return c;
 	// }
 
 
 	static sql(val: Column): string {
-		var stmt = "";
+		let stmt = "";
 		switch (val.type) {
 			case ColumnType.int:
 				stmt = 'INTEGER';
@@ -185,8 +185,8 @@ export class Column {
 	}
 
 	static fromSql(text: string): Column {
-		var parts: string[] = text.split(' ');
-		var col: Column = null;
+		let parts: string[] = text.split(' ');
+		let col: Column = null;
 		switch(parts[0]) {
 			case 'INTEGER':
 				col = Column.Int();
@@ -216,16 +216,16 @@ export class Column {
 				throw new Error("unsupported type: " + parts[0]);
 		}
 
-		var match = text.match(/DEFAULT\s+'((?:[^']|'')*)'/i);
+		let match = text.match(/DEFAULT\s+'((?:[^']|'')*)'/i);
 		if(match) {
-			var val: any = match[1].replace(/''/g, "'");
+			let val: any = match[1].replace(/''/g, "'");
 			col.Default(val);
 		}
 		else {
 			match = text.match(/DEFAULT\s+(\w+)/i);
 			if(match) {
-				var val: any = match[1];
-				var valnum = parseInt(val, 10);
+				let val: any = match[1];
+				let valnum = parseInt(val, 10);
 				if(val == valnum) {
 					val = valnum;
 				}

@@ -1,4 +1,5 @@
 ///<reference path="../typings/tsd.d.ts"/>
+'use strict';
 
 import chai = require('chai');
 import chaAsPromised = require('chai-as-promised');
@@ -7,7 +8,7 @@ import sqlite3 = require('sqlite3');
 import clone = require('clone');
 
 chai.use(chaAsPromised);
-var expect = chai.expect;
+let expect = chai.expect;
 
 import Column = Updraft.Column;
 import Q = Updraft.Query;
@@ -69,10 +70,10 @@ const todoTableExpectedSchema = {
 };
 
 function sampleTodos(count: number) {
-	var todos: Todo[] = [];
+	let todos: Todo[] = [];
 
-	for (var i = 0; i < count; i++) {
-		var todo = {
+	for (let i = 0; i < count; i++) {
+		let todo = {
 			id: i,
 			completed: false,
 			text: 'todo ' + i
@@ -84,10 +85,10 @@ function sampleTodos(count: number) {
 }
 
 function sampleMutators(count: number) {
-	var mutators: TodoMutator[] = [];
+	let mutators: TodoMutator[] = [];
 	
-	for(var i=0; i<count; i++) {
-		var m: TodoMutator = {
+	for(let i=0; i<count; i++) {
+		let m: TodoMutator = {
 			id: i,
 		};
 		
@@ -113,9 +114,9 @@ function sampleMutators(count: number) {
 }
 
 function populateData(db: sqlite3.Database, count: number) {
-	var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
-	var todoTable: TodoTable = store.createTable(todoTableSpec);
-	var p = store.open();
+	let store = Updraft.createStore({ db: Updraft.wrapSql(db) });
+	let todoTable: TodoTable = store.createTable(todoTableSpec);
+	let p = store.open();
 	p = p.then(() => todoTable.add(...sampleTodos(count).map(todo => <TodoChange>{ time: 1, save: todo })));
 	p = p.then(() => todoTable.add(...sampleMutators(count).map(m => <TodoChange>{ time: 2, change: m })));
 	return p;
@@ -125,35 +126,37 @@ function populateData(db: sqlite3.Database, count: number) {
 describe('table', function() {
 	this.timeout(0);
 	
+	// TODO: test indexes
+	
 	describe('schema migrations', function() {
 		function runMigration(newFields: {[name: string]: Column}, deletedFields: string[], rename: {[old: string]: string}, debug?: boolean) {
-			var newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clone(todoTableSpec);
-			var newSchema = clone(todoTableExpectedSchema);
-			var dataCount = 10;
-			var newData = sampleTodos(dataCount);
+			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clone(todoTableSpec);
+			let newSchema = clone(todoTableExpectedSchema);
+			let dataCount = 10;
+			let newData = sampleTodos(dataCount);
 			sampleMutators(dataCount).forEach((m) => {
-				var id = m.id;
+				let id = m.id;
 				delete m.id;
 				newData[id] = mutate(newData[id], m);
 			});
 			
 			if(newFields) {
 				for(let col in newFields) {
-					var colSpec: Column = newFields[col];
+					let colSpec: Column = newFields[col];
 					newSpec.columns[col] = colSpec; 
 					newSchema.todos.columns[col] = colSpec; 
-					for(var i=0; i<newData.length; i++) {
+					for(let i=0; i<newData.length; i++) {
 						newData[i][col] = colSpec.defaultValue;
 					}
 				}
 			}
 
 			if(deletedFields) {
-				for(var i=0; i<deletedFields.length; i++) {
+				for(let i=0; i<deletedFields.length; i++) {
 					let col = deletedFields[i];
 					delete newSpec.columns[col]; 
 					delete newSchema.todos.columns[col]; 
-					for(var i=0; i<newData.length; i++) {
+					for(let i=0; i<newData.length; i++) {
 						delete newData[i][col];
 					}
 				}
@@ -162,28 +165,28 @@ describe('table', function() {
 			if(rename) {
 				newSpec.renamedColumns = <any>rename;
 				
-				for(var oldCol in rename) {
-					var newCol = rename[oldCol];
+				for(let oldCol in rename) {
+					let newCol = rename[oldCol];
 					newSpec.columns[newCol] = newSpec.columns[oldCol];
 					newSchema.todos.columns[newCol] = newSchema.todos.columns[oldCol];
 					delete newSpec.columns[oldCol]; 
 					delete newSchema.todos.columns[oldCol];
-					for(var i=0; i<newData.length; i++) {
+					for(let i=0; i<newData.length; i++) {
 						newData[i][newCol] = newData[i][oldCol];
 						delete newData[i][oldCol];
 					}
 				}
 			}
 
-			var db = new sqlite3.Database(0 ? 'test.db' : ':memory:');
+			let db = new sqlite3.Database(0 ? 'test.db' : ':memory:');
 			if(debug) {
 				db.on('trace', (sql: string) => console.log(sql));
 			}
 
-			var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
-			var todoTable: TodoTable = store.createTable(newSpec);
+			let store = Updraft.createStore({ db: Updraft.wrapSql(db) });
+			let todoTable: TodoTable = store.createTable(newSpec);
 			
-			var close = () => db.close();
+			let close = () => db.close();
 
 			return Promise.resolve()
 				.then(() => populateData(db, dataCount))
@@ -200,7 +203,7 @@ describe('table', function() {
 		});
 		
 		it('add columns (simple migration)', function() {
-			var newFields = {
+			let newFields = {
 				newIntField: Column.Int().Default(10),
 				newTextField: Column.Text().Default('test single (\') and double (") and single double (\'\') quote marks')
 			};
@@ -208,47 +211,47 @@ describe('table', function() {
 		});
 		
 		it('remove columns', function() {
-			var deletedFields = [ 'completed' ];
+			let deletedFields = [ 'completed' ];
 			return runMigration(null, deletedFields, null);
 		});
 
 		it('rename columns', function() {
-			var rename = {
+			let rename = {
 				text: 'description',
 				completed: 'done'
-			}
+			};
 			return runMigration(null, null, <any>rename);
 		});
 
 		it('simultaneously added, renamed, and removed columns', function() {
-			var newFields = {
+			let newFields = {
 				newIntField: Column.Int().Default(-10),
 			};
-			var deletedFields = [ 'completed' ];
-			var rename = {
+			let deletedFields = [ 'completed' ];
+			let rename = {
 				text: 'description',
-			}
+			};
 			return runMigration(<any>newFields, deletedFields, <any>rename);
 		});
 	});
 	
 	describe('merge changes', function() {
 		function runChanges(changes: TodoChange[], expectedResult: Todo, debug?: boolean) {
-			var db: sqlite3.Database;
-			var todoTable: TodoTable;
+			let db: sqlite3.Database;
+			let todoTable: TodoTable;
 		
 			db = new sqlite3.Database(0 ? 'test.db' : ':memory:');
 			if(debug) {
 				db.on('trace', (sql: string) => console.log(sql));
 			}
 
-			var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
+			let store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 			todoTable = store.createTable(todoTableSpec);
 
 			return Promise.resolve()
 				.then(() => store.open())
 				.then(() => {
-					var p = Promise.resolve();
+					let p = Promise.resolve();
 					changes.forEach((change: TodoChange) => {
 						p = p.then(() => todoTable.add(change));
 					});
@@ -260,7 +263,7 @@ describe('table', function() {
 		}
 		
 		it('simple change progression', function() {
-			var changes: TodoChange[] = [
+			let changes: TodoChange[] = [
 				{ time: 1,
 					save: {
 						id: 1,
@@ -292,7 +295,7 @@ describe('table', function() {
 		});
 
 		it('multiple baselines', function() {
-			var changes: TodoChange[] = [
+			let changes: TodoChange[] = [
 				{ time: 1,
 					save: {
 						id: 1,
@@ -325,7 +328,7 @@ describe('table', function() {
 		});
 
 		it('out-of-order changes', function() {
-			var changes: TodoChange[] = [
+			let changes: TodoChange[] = [
 				{ time: 1,
 					save: {
 						id: 1,
@@ -358,9 +361,9 @@ describe('table', function() {
 	});
 	
 	describe('find()', function() {
-		var db: sqlite3.Database;
-		var todoTable: TodoTable;
-		var todos: Todo[];
+		let db: sqlite3.Database;
+		let todoTable: TodoTable;
+		let todos: Todo[];
 		
 		before(() => {
 			todos = sampleTodos(12);
@@ -368,12 +371,13 @@ describe('table', function() {
 			db = new sqlite3.Database(0 ? 'test.db' : ':memory:');
 			//db.on('trace', (sql: string) => console.log(sql));
 
-			var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
+			let store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 			todoTable = store.createTable(todoTableSpec);
 
 			return Promise.resolve()
 				.then(() => store.open())
 				.then(() => todoTable.add(...todos.map(todo => <TodoChange>{ time: 1, save: todo })))
+				;
 		});
 		
 		after(() => {
@@ -425,14 +429,13 @@ describe('table', function() {
 		
 		describe('result operations', function() {
 			it('fields', function() {
-				var todosInReverse = todos.slice().reverse();
 				return Promise.resolve()
 					.then(() => todoTable.find({text: 'todo 1'}, {fields: {id: true, completed: true}}).then((results) => expect(results).to.deep.equal([{id: 1, completed: false}])))
 					;
 			});
 
 			it('orderBy', function() {
-				var todosInReverse = todos.slice().reverse();
+				let todosInReverse = todos.slice().reverse();
 				return Promise.resolve()
 					.then(() => todoTable.find({}, {orderBy: {id: OrderBy.DESC}}).then((results) => expect(results).to.deep.equal(todosInReverse)))
 					.then(() => todoTable.find({}, {orderBy: {id: OrderBy.ASC}}).then((results) => expect(results).to.deep.equal(todos)))
@@ -440,7 +443,6 @@ describe('table', function() {
 			});
 			
 			it('limit', function() {
-				var todosInReverse = todos.slice().reverse();
 				return Promise.resolve()
 					.then(() => todoTable.find({}, {limit: 2}).then((results) => expect(results).to.deep.equal([todos[0], todos[1]])))
 					.then(() => todoTable.find({}, {orderBy: {id: OrderBy.DESC}, limit: 1}).then((results) => expect(results).to.deep.equal([todos[11]])))

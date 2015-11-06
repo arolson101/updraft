@@ -24,7 +24,7 @@ function mutate(value: Test, spec: TestMutator): Test { return Updraft.mutate<Te
 
 describe('mutate()', function() {
 	describe('operations', function() {
-		var base: Test = {
+		let base: Test = {
 			myBool: true,
 			myString: 'my string',
 			myNumber: 123,
@@ -35,8 +35,8 @@ describe('mutate()', function() {
 			myStrSet: new Set<string>(['a', 'b', 'c'])
 		};
 	
-		var backup: Test = clone(base);
-		var mutated: Test;
+		let backup: Test = clone(base);
+		let mutated: Test;
 	
 		it('$set', function() {
 			mutated = mutate(base, <TestMutator>{
@@ -136,7 +136,7 @@ describe('mutate()', function() {
 	
 	
 	describe('no-ops', function() {
-		var base: Test = {
+		let base: Test = {
 			myBool: true,
 			myString: 'my string',
 			myNumber: 123,
@@ -147,8 +147,7 @@ describe('mutate()', function() {
 			myStrSet: new Set<string>(['a', 'b', 'c'])
 		};
 	
-		var backup: Test = clone(base);
-		var mutated: Test;
+		let mutated: Test;
 	
 		it('$set', function() {
 			mutated = mutate(base, <TestMutator>{

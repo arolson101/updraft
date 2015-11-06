@@ -6,7 +6,7 @@
 
 import assign = require("object-assign");
 import invariant = require("invariant");
-var equal = require('deep-equal');
+let equal = require('deep-equal');
 
 interface setter<T> {
 	$set: T;
@@ -84,10 +84,10 @@ function shallowCopy<T>(x: T): T {
 }
 
 
-export var hasOwnProperty = {}.hasOwnProperty;
+export let hasOwnProperty = {}.hasOwnProperty;
 export function keyOf(obj: Object) { return Object.keys(obj)[0]; }
 
-var command = {
+let command = {
   set: keyOf({$set: null}),
   increment: keyOf({$inc: null}),
   push: keyOf({$push: null}),
@@ -106,7 +106,7 @@ function invariantArrayCase(value: any, spec: any, c: string) {
     c,
     value
   );
-  var specValue = spec[c];
+  let specValue = spec[c];
   invariant(
     Array.isArray(specValue),
     'mutate(): expected spec of %s to be an array; got %s. ' +
@@ -123,7 +123,7 @@ function invariantSetCase(value: any, spec: any, c: string) {
     c,
     value
   );
-  var specValue = spec[c];
+  let specValue = spec[c];
   invariant(
     Array.isArray(specValue),
     'mutate(): expected spec of %s to be an array; got %s. ' +
@@ -173,11 +173,11 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 		return value + spec[command.increment];
 	}
 
-  var nextValue = <any>shallowCopy(value);
-  var changed = false;
+  let nextValue = <any>shallowCopy(value);
+  let changed = false;
 
   if (hasOwnProperty.call(spec, command.merge)) {
-    var mergeObj = spec[command.merge];
+    let mergeObj = spec[command.merge];
     invariant(
       mergeObj && typeof mergeObj === 'object',
       'mutate(): %s expects a spec of type \'object\'; got %s',
@@ -195,7 +195,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   }
 
   if (hasOwnProperty.call(spec, command.deleter) && (typeof value === 'object') && !(value instanceof Set)) {
-		var key = spec[command.merge];
+		let key = spec[command.merge];
     invariant(
       key && typeof key === 'string',
       'mutate(): %s expects a spec of type \'string\'; got %s',
@@ -278,10 +278,10 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
     return changed ? nextValue : value;
 	}
 
-	for(var k in spec) {
+	for(let k in spec) {
 		if(!(command.hasOwnProperty(k) && command[k])) {
-      var oldValue = value[k];
-      var newValue = mutate(oldValue, spec[k]);
+      let oldValue = value[k];
+      let newValue = mutate(oldValue, spec[k]);
       if(oldValue !== newValue) {
         nextValue[k] = newValue;
         changed = true;
