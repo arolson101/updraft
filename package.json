@@ -32,7 +32,6 @@
     "object-assign": "^4.0.1"
   },
   "devDependencies": {
-    "asyncawait": "^1.0.1",
     "chai": "^1.10.0",
     "chai-as-promised": "^4.1.1",
     "enum": "^2.0.2",
@@ -44,7 +43,6 @@
     "gulp-typedoc": "^1.1.0",
     "gulp-typescript": "^2.9.2",
     "gulp-uglify": "^1.0.2",
-    "harmonize": "^1.4.4",
     "lie": "^2.8.0",
     "merge2": "^0.3.5",
     "mocha": "^2.0.1",

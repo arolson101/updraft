@@ -6,9 +6,6 @@ import { Updraft } from '../src/index';
 import sqlite3 = require('sqlite3');
 import clone = require('clone');
 
-var async = require('asyncawait/async');
-var await = require('asyncawait/await');
-
 chai.use(chaAsPromised);
 var expect = chai.expect;
 
@@ -198,32 +195,32 @@ describe('table', function() {
 				.then(close, close);
 		}
 		
-		it('no change', async(function() {
+		it('no change', function() {
 			return runMigration(null, null, null);
-		}));
+		});
 		
-		it('add columns (simple migration)', async(function() {
+		it('add columns (simple migration)', function() {
 			var newFields = {
 				newIntField: Column.Int().Default(10),
 				newTextField: Column.Text().Default('test single (\') and double (") and single double (\'\') quote marks')
 			};
 			return runMigration(<any>newFields, null, null);
-		}));
+		});
 		
-		it('remove columns', async(function() {
+		it('remove columns', function() {
 			var deletedFields = [ 'completed' ];
 			return runMigration(null, deletedFields, null);
-		}));
+		});
 
-		it('rename columns', async(function() {
+		it('rename columns', function() {
 			var rename = {
 				text: 'description',
 				completed: 'done'
 			}
 			return runMigration(null, null, <any>rename);
-		}));
+		});
 
-		it('simultaneously added, renamed, and removed columns', async(function() {
+		it('simultaneously added, renamed, and removed columns', function() {
 			var newFields = {
 				newIntField: Column.Int().Default(-10),
 			};
@@ -232,7 +229,7 @@ describe('table', function() {
 				text: 'description',
 			}
 			return runMigration(<any>newFields, deletedFields, <any>rename);
-		}));
+		});
 	});
 	
 	describe('merge changes', function() {
