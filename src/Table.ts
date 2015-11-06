@@ -65,6 +65,7 @@ export function tableKey(spec: TableSpec<any, any, any>): KeyType {
 	var key: KeyType = null;
 	for (var name in spec.columns) {
 		var column = spec.columns[name];
+		invariant(column, "column '%s' is not in %s", name, JSON.stringify(spec));
 		if (column.isKey) {
 			invariant(!key, "Table %s has more than one key- %s and %s", spec.name, key, name);
 			key = name;

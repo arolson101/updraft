@@ -1,5 +1,8 @@
 'use strict';
 
+import invariant = require("invariant");
+
+
 export enum ColumnType {
 	int,
 	real,
@@ -164,7 +167,18 @@ export class Column {
 		}
 
 		if ('defaultValue' in val) {
-			stmt += ' DEFAULT ' + val.defaultValue;
+			function escape(x: string | number | boolean): string {
+				if(typeof x === 'number') {
+					return <any>x;
+				}
+				else if(typeof x === 'string') {
+					return "'" + (<string>x).replace(/'/g, "''") + "'"; 
+				}
+				else {
+					invariant(false, 'default value (%s) must be number or string', x);
+				}
+			}
+			stmt += ' DEFAULT ' + escape(val.defaultValue);
 		}
 
 		return stmt;
@@ -202,11 +216,20 @@ export class Column {
 				throw new Error("unsupported type: " + parts[0]);
 		}
 
-		for(var i=1; i<parts.length; i++) {
-			var hasNext: boolean = (i+1 < parts.length);
-			if (parts[i] == 'DEFAULT') {
-				col = col.Default(parts[i+1]);
-				i++;
+		var match = text.match(/DEFAULT\s+'((?:[^']|'')*)'/i);
+		if(match) {
+			var val: any = match[1].replace(/''/g, "'");
+			col.Default(val);
+		}
+		else {
+			match = text.match(/DEFAULT\s+(\w+)/i);
+			if(match) {
+				var val: any = match[1];
+				var valnum = parseInt(val, 10);
+				if(val == valnum) {
+					val = valnum;
+				}
+				col.Default(val);
 			}
 		}
 

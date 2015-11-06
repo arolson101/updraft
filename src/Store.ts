@@ -315,14 +315,14 @@ export class Store {
 			var newColumns = spec.columns;
 			var recreateTable: boolean = false;
 			
-			for(var col in oldColumns) {
-				if(!(col in newColumns)) {
+			for(var colName in oldColumns) {
+				if(!(colName in newColumns)) {
 					recreateTable = true;
 					break;
 				}
 				
-				var oldCol = oldColumns[col];
-				var newCol = newColumns[col];
+				var oldCol = oldColumns[colName];
+				var newCol = newColumns[colName];
 				if(!Column.equal(oldCol, newCol)) {
 					recreateTable = true;
 					break;
@@ -330,20 +330,17 @@ export class Store {
 			}
 			
 			var renamedColumns = spec.renamedColumns || {};
-			if (!recreateTable) {
-				for (var col in renamedColumns) {
-					if (col in oldColumns) {
-						recreateTable = true;
-						break;
-					}
+			for (var colName in renamedColumns) {
+				if (colName in oldColumns) {
+					recreateTable = true;
 				}
 			}
 			
-			var addedColumns: Column[] = [];
+			var addedColumns: {[name: string]: Column} = {};
 			if(!recreateTable) {
-				for(var col in newColumns) {
-					if(!(col in oldColumns)) {
-						addedColumns.push(newColumns[col]);
+				for(var colName in newColumns) {
+					if(!(colName in oldColumns)) {
+						addedColumns[colName] = newColumns[colName];
 					}
 				}
 			}
@@ -351,7 +348,7 @@ export class Store {
 			if (recreateTable) {
 				// recreate and migrate data
 				function copyData(oldName: string, newName: string): Promise<any> {
-					var oldTableColumns = Object.keys(newColumns).filter(col => (col in spec.columns) || (col in renamedColumns));
+					var oldTableColumns = Object.keys(oldColumns).filter(col => (col in spec.columns) || (col in renamedColumns));
 					var newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
 					if (oldTableColumns.length && newTableColumns.length) {
 						var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
@@ -379,13 +376,13 @@ export class Store {
 				p = p.then(() => renameTable(tempTableName, spec.name));
 				p = p.then(() => createIndices(true));
 			}
-			else if (addedColumns.length > 0) {
+			else if (addedColumns != {}) {
 				// alter table, add columns
-				for(var col in addedColumns) {
-					var attrs: Column = spec.columns[col];
-					var columnDecl = col + ' ' + Column.sql(attrs);
+				Object.keys(addedColumns).forEach((colName) => {
+					var col: Column = spec.columns[colName];
+					var columnDecl = colName + ' ' + Column.sql(col);
 					p = p.then(() => transaction.executeSql('ALTER TABLE ' + spec.name + ' ADD COLUMN ' + columnDecl));
-				}
+				});
 				p = p.then(() => createIndices());
 			}
 			else {
@@ -417,7 +414,7 @@ export class Store {
 			var toResolve = new Set<KeyType>();
 			changes.forEach((change: TableChange<Element, Mutator>) => {
 				var time = change.time || Date.now();
-				invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, 'change must specify exactly one action at a time');
+				invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, 'change (%s) must specify exactly one action at a time', JSON.stringify(change));
 				if(change.save) {
 					var element = change.save;
 					var keyValue = table.keyValue(element);
@@ -454,7 +451,7 @@ export class Store {
 					var columns = Object.keys(changeRow);
 					var values: any[] = columns.map(k => changeRow[k]);
 					p1 = p1.then(() => insert(transaction, changeTable, columns, values));
-					toResolve.add(keyValue);
+					toResolve.add(changeRow.key);
 				}
 				else {
 					throw new Error("no operation specified for change- should be one of save, change, or delete");
@@ -506,7 +503,7 @@ export class Store {
 									// mark it as latest (and others as not)
 									p2 = p2.then(() => tx2.executeSql(
 										'UPDATE ' + table.spec.name
-											+ ' SET ' + internal_column_latest + '=( ' + ROWID + '=' + baseRowId + ' )'
+											+ ' SET ' + internal_column_latest + '=(' + ROWID + '=' + baseRowId + ')'
 											+ ' WHERE ' + table.key + '=?',
 										[keyValue])
 									);
