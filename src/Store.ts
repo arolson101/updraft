@@ -41,11 +41,13 @@ const COUNT = 'COUNT(*)';
 const internal_prefix = 'updraft_';
 const internal_column_deleted = internal_prefix + 'deleted'; 
 const internal_column_time = internal_prefix + 'time'; 
-const internal_column_latest = internal_prefix + 'latest'; 
+const internal_column_latest = internal_prefix + 'latest';
+const internal_column_composed = internal_prefix + 'composed'; 
 const internalColumn: ColumnSet = {};
 internalColumn[internal_column_deleted] = Column.Bool();
 internalColumn[internal_column_time] = Column.DateTime().Key();
 internalColumn[internal_column_latest] = Column.Bool();
+internalColumn[internal_column_composed] = Column.Bool();
 
 const deleteRow_action = { internal_column_deleted: { $set: true } };
 
@@ -515,7 +517,7 @@ export class Store {
 				p1 = p1.then(() => transaction.executeSql(
 					'SELECT ' + baselineCols.join(', ')
 					+ ' FROM ' + table.spec.name
-					+ ' WHERE ' + table.key + '=?'
+					+ ' WHERE ' + table.key + '=?' + ' AND ' + internal_column_composed + '=0'
 					+ ' ORDER BY ' + internal_column_time + ' DESC'
 					+ ' LIMIT 1', 
 					[keyValue],
@@ -571,6 +573,7 @@ export class Store {
 									// insert new latest row
 									mutation[internal_column_latest] = true;
 									mutation[internal_column_time] = mutationTime;
+									mutation[internal_column_composed] = true;
 									var columns = Object.keys(mutation).filter(key => (key in table.spec.columns) || (key in internalColumn));
 									var values = columns.map(col => mutation[col]);
 									p2 = p2.then(() => insert(tx2, table.spec.name, columns, values));

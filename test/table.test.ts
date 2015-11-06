@@ -225,7 +225,7 @@ describe('table', function() {
 
 		it('simultaneously added, renamed, and removed columns', async(function() {
 			var newFields = {
-				newIntField: Column.Int().Default(10),
+				newIntField: Column.Int().Default(-10),
 			};
 			var deletedFields = [ 'completed' ];
 			var rename = {
@@ -233,6 +233,131 @@ describe('table', function() {
 			}
 			return runMigration(<any>newFields, deletedFields, <any>rename);
 		}));
+	});
+	
+	describe('merge changes', function() {
+		function runChanges(changes: TodoChange[], expectedResult: Todo, debug?: boolean) {
+			var db: sqlite3.Database;
+			var todoTable: TodoTable;
+		
+			db = new sqlite3.Database(0 ? 'test.db' : ':memory:');
+			if(debug) {
+				db.on('trace', (sql: string) => console.log(sql));
+			}
+
+			var store = Updraft.createStore({ db: Updraft.wrapSql(db) });
+			todoTable = store.createTable(todoTableSpec);
+
+			return Promise.resolve()
+				.then(() => store.open())
+				.then(() => {
+					var p = Promise.resolve();
+					changes.forEach((change: TodoChange) => {
+						p = p.then(() => todoTable.add(change));
+					});
+					return p;
+				})
+				.then(() => todoTable.find({}))
+				.then((results) => expect(results).to.deep.equal([expectedResult]))
+				.then(() => db.close());
+		}
+		
+		it('simple change progression', function() {
+			var changes: TodoChange[] = [
+				{ time: 1,
+					save: {
+						id: 1,
+						text: 'base text',
+						completed: false
+					},
+				},
+				{ time: 2,
+					change: {
+						id: 1,
+						text: { $set: 'modified at time 2' }
+					}
+				},
+				{ time: 3,
+					change: {
+						id: 1,
+						text: { $set: 'modified at time 3' }
+					}
+				},
+				{ time: 4,
+					change: {
+						id: 1,
+						completed: { $set: true }
+					}
+				},
+			];
+			
+			return runChanges(changes, {id: 1, text: 'modified at time 3', completed: true});
+		});
+
+		it('multiple baselines', function() {
+			var changes: TodoChange[] = [
+				{ time: 1,
+					save: {
+						id: 1,
+						text: 'base text 1',
+						completed: false
+					},
+				},
+				{ time: 2,
+					change: {
+						id: 1,
+						text: { $set: 'modified at time 2' }
+					}
+				},
+				{ time: 3,
+					save: {
+						id: 1,
+						text: 'base text 2',
+						completed: false
+					},
+				},
+				{ time: 4,
+					change: {
+						id: 1,
+						completed: { $set: true }
+					}
+				},
+			];
+			
+			return runChanges(changes, {id: 1, text: 'base text 2', completed: true});
+		});
+
+		it('out-of-order changes', function() {
+			var changes: TodoChange[] = [
+				{ time: 1,
+					save: {
+						id: 1,
+						text: 'base text',
+						completed: false
+					},
+				},
+				{ time: 4,
+					change: {
+						id: 1,
+						completed: { $set: true }
+					}
+				},
+				{ time: 3,
+					change: {
+						id: 1,
+						text: { $set: 'modified at time 3' }
+					}
+				},
+				{ time: 2,
+					change: {
+						id: 1,
+						text: { $set: 'modified at time 2' }
+					}
+				},
+			];
+			
+			return runChanges(changes, {id: 1, text: 'modified at time 3', completed: true});
+		});
 	});
 	
 	describe('find()', function() {
