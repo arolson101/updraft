@@ -1,11 +1,12 @@
 ///<reference path="../typings/tsd.d.ts"/>
 
-import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback } from "./Database";
+import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback, DbEachResultCallback } from "./Database";
 
 // compatible with sqlite3
 export interface IDatabase {
 	run(sql: string, callback?: (err: Error) => void): IDatabase;
 	all(sql: string, params?: any[], callback?: (err: Error, rows: any[]) => void): IDatabase;
+	each(sql: string, params?: any[], callback?: (err: Error, row: any) => void, complete?: (err: Error, count: number) => void): IDatabase;
 	serialize(callback?: () => void): void;
 	parallelize(callback?: () => void): void;
 }
@@ -32,11 +33,11 @@ class SQLiteWrapper implements DbWrapper {
 		});
 	}
 	
-	all(tx: DbTransaction, statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
+	all(tx: DbTransaction, sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
-			this.db.all(statement, params, (err: Error, rows: any[]) => {
+			this.db.all(sql, params, (err: Error, rows: any[]) => {
 				if(err) {
-					console.log("SQLiteWrapper.all(): error executing '" + statement + "': ", err);
+					console.log("SQLiteWrapper.all(): error executing '" + sql + "': ", err);
 					reject(err);
 				}
 				else {
@@ -50,14 +51,43 @@ class SQLiteWrapper implements DbWrapper {
 		});
 	}
 	
+	each(tx: DbTransaction, sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
+		var p = Promise.resolve();
+		return new Promise((resolve, reject) => {
+			this.db.each(sql, params, (err: Error, row: any) => {
+				if(err) {
+					console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
+					reject(err);
+				}
+				else {
+					if (callback) {
+						p = p.then(() => callback(tx, row));
+					}
+				}
+			},
+			(err: Error, count: number) => {
+				if(err) {
+					console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
+					reject(err);
+				}
+				else {
+					resolve(p);
+				}
+			});
+		});
+	}
+	
 	transaction(callback: DbTransactionCallback): Promise<any> {
 		var result: any = undefined;
 		return Promise.resolve()
 			.then(() => this.run("BEGIN TRANSACTION"))
 			.then(() => {
 				var tx: DbTransaction = {
-					executeSql: (statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
-						return this.all(tx, statement, params, callback);
+					executeSql: (sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
+						return this.all(tx, sql, params, callback);
+					},
+					each: (sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> => {
+						return this.each(tx, sql, params, callback);
 					}
 				}
 				return callback(tx);

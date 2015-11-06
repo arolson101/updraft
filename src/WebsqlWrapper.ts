@@ -1,6 +1,6 @@
 ///<reference path="./websql.d.ts"/>
 
-import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback } from "./Database";
+import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback, DbEachResultCallback } from "./Database";
 
 interface WebsqlTransaction extends DbTransaction {
 	realTransaction: SQLTransaction;
@@ -42,11 +42,36 @@ class WebsqlWrapper implements DbWrapper {
 		});
 	}
 	
+	each(tx: WebsqlTransaction, statement: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
+		return new Promise((resolve, reject) => {
+			tx.realTransaction.executeSql(statement, params,
+				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
+					var p = Promise.resolve();
+					for(var i=0; i<resultSet.rows.length; i++) {
+						var row = resultSet.rows.item(i);
+						if(callback) {
+							p = p.then(() => callback(tx, row));
+						}
+					}
+
+					resolve(p);
+				},
+				(transaction: SQLTransaction, error: SQLError) => {
+					reject(error);
+					return true;
+				}
+			);
+		});
+	}
+
 	private wrapTransaction(transaction: SQLTransaction): WebsqlTransaction {
 		var tx: WebsqlTransaction = {
 			realTransaction: transaction,
 			executeSql: (statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
 				return this.all(tx, statement, params, callback);
+			},
+			each: (sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> => {
+				return this.each(tx, sql, params, callback);
 			}
 		}
 		return tx;

@@ -350,14 +350,63 @@ export class Store {
 				function copyData(oldName: string, newName: string): Promise<any> {
 					var oldTableColumns = Object.keys(oldColumns).filter(col => (col in spec.columns) || (col in renamedColumns));
 					var newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
+					var p = Promise.resolve();
 					if (oldTableColumns.length && newTableColumns.length) {
 						var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
 						stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
-						return transaction.executeSql(stmt);
+						p = transaction.executeSql(stmt);
 					}
-					else {
-						return Promise.resolve();
+					return p;
+				}
+				
+				function migrateChangeTable(changeTableName: string) {
+					var deletedColumns = Object.keys(oldColumns).filter(col => !(col in spec.columns) && !(col in renamedColumns));
+					var p = Promise.resolve();
+					if(spec.renamedColumns || deletedColumns) {
+						p = p.then(() => {
+							return transaction.each(
+								'SELECT ' + ROWID + ', change'
+								+ ' FROM ' + changeTableName,
+								[],
+								(transaction: DbTransaction, row: any) => {
+									var change = JSON.parse(row.change);
+									var changed = false;
+									for(let oldCol in spec.renamedColumns) {
+										var newCol = spec.renamedColumns[oldCol];
+										if(oldCol in change) {
+											change[newCol] = change[oldCol];
+											delete change[oldCol];
+											changed = true;
+										}
+									}
+									for(let oldCol of deletedColumns) {
+										if(oldCol in change) {
+											delete change[oldCol];
+											changed = true;
+										}
+									}
+									if(changed) {
+										if(Object.keys(change).length) {
+											return transaction.executeSql(
+												'UPDATE ' + changeTableName
+												+ ' SET change=?'
+												+ ' WHERE ' + ROWID + '=?',
+												[JSON.stringify(change), row[ROWID]]
+											);
+										}
+										else {
+											return transaction.executeSql(
+												'DELETE FROM ' + changeTableName
+												+ ' WHERE ' + ROWID + '=?',
+												[row[ROWID]]
+											);
+										}
+									}
+								}
+							);
+						});
 					}
+					return p;
 				}
 
 				function renameTable(oldName: string, newName: string): Promise<any> {
@@ -365,7 +414,8 @@ export class Store {
 				}
 
 				var tempTableName = 'temp_' + spec.name;
-				
+				var changeTableName = getChangeTableName(spec.name);
+
 				if (tempTableName in schema) {
 					// yikes!  migration failed but transaction got committed?
 					p = p.then(() => dropTable(tempTableName));
@@ -374,6 +424,7 @@ export class Store {
 				p = p.then(() => copyData(spec.name, tempTableName));
 				p = p.then(() => dropTable(spec.name));
 				p = p.then(() => renameTable(tempTableName, spec.name));
+				p = p.then(() => migrateChangeTable(changeTableName))
 				p = p.then(() => createIndices(true));
 			}
 			else if (addedColumns != {}) {
@@ -463,10 +514,10 @@ export class Store {
 				var baselineCols = [ROWID, internal_column_time, internal_column_deleted, ...Object.keys(table.spec.columns)];
 				p1 = p1.then(() => transaction.executeSql(
 					'SELECT ' + baselineCols.join(', ')
-						+ ' FROM ' + table.spec.name
-						+ ' WHERE ' + table.key + '=?'
-						+ ' ORDER BY ' + internal_column_time + ' DESC'
-						+ ' LIMIT 1', 
+					+ ' FROM ' + table.spec.name
+					+ ' WHERE ' + table.key + '=?'
+					+ ' ORDER BY ' + internal_column_time + ' DESC'
+					+ ' LIMIT 1', 
 					[keyValue],
 					(tx1: DbTransaction, baselineResults: any[]): Promise<any> => {
 						var baseline = <Element>{};
@@ -486,9 +537,9 @@ export class Store {
 						
 						return tx1.executeSql(
 							'SELECT key, time, change'
-								+ ' FROM ' + changeTable
-								+ ' WHERE key=? AND time>=?'
-								+ ' ORDER BY time ASC',
+							+ ' FROM ' + changeTable
+							+ ' WHERE key=? AND time>=?'
+							+ ' ORDER BY time ASC',
 							[keyValue, baseTime],
 							(tx2: DbTransaction, changeResults: any[]): Promise<any> => {
 								var p2 = Promise.resolve();
@@ -503,8 +554,8 @@ export class Store {
 									// mark it as latest (and others as not)
 									p2 = p2.then(() => tx2.executeSql(
 										'UPDATE ' + table.spec.name
-											+ ' SET ' + internal_column_latest + '=(' + ROWID + '=' + baseRowId + ')'
-											+ ' WHERE ' + table.key + '=?',
+										+ ' SET ' + internal_column_latest + '=(' + ROWID + '=' + baseRowId + ')'
+										+ ' WHERE ' + table.key + '=?',
 										[keyValue])
 									);
 								}
@@ -512,8 +563,8 @@ export class Store {
 									// invalidate old latest rows
 									p2 = p2.then(() => tx2.executeSql(
 										'UPDATE ' + table.spec.name
-											+ ' SET ' + internal_column_latest + '=0'
-											+ ' WHERE ' + table.key + '=?',
+										+ ' SET ' + internal_column_latest + '=0'
+										+ ' WHERE ' + table.key + '=?',
 										[keyValue])
 									);
 									
@@ -597,7 +648,7 @@ export class Store {
 						arg = '%' + arg;
 					}
 					if(arg[arg.length - 1] == '$') {
-						arg = arg.substring(0, arg.length - 2);
+						arg = arg.substring(0, arg.length - 1);
 					}
 					else {
 						arg = arg + '%';

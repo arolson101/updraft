@@ -9,9 +9,14 @@ export interface DbTransactionCallback {
 }
 
 export interface DbTransaction {
-	executeSql(statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any>;
+	executeSql(sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any>;
+	each(sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any>;
 }
 
 export interface DbResultsCallback {
 	(transaction: DbTransaction, results: any[]): any | Promise<any>;
+}
+
+export interface DbEachResultCallback {
+	(transaction: DbTransaction, result: any): any | Promise<any>;
 }
