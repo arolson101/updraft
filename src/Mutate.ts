@@ -6,7 +6,7 @@
 
 import assign = require("object-assign");
 import invariant = require("invariant");
-let equal = require("deep-equal");
+import equal = require("deep-equal");
 
 interface setter<T> {
 	$set: T;

@@ -15,3 +15,8 @@ declare module "invariant" {
 	function invariant(condition: any, format: string, a?: any, b?: any, c?: any, d?: any, e?: any, f?: any): void;
 	export = invariant;
 }
+
+declare module "deep-equal" {
+	function equal(a: any, b: any): boolean;
+	export = equal;
+}
