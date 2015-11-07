@@ -21,8 +21,8 @@
 		"no-var-keyword": true,
 		"no-var-requires": false,
 		"quotemark": [
-			false,
-			"single",
+			true,
+			"double",
 			"avoid-escape"
 		],
 		"radix": true,

@@ -1,11 +1,11 @@
 ///<reference path="../typings/tsd.d.ts"/>
-'use strict';
+"use strict";
 
-import chai = require('chai');
-import chaAsPromised = require('chai-as-promised');
-import { Updraft } from '../src/index';
-import sqlite3 = require('sqlite3');
-import clone = require('clone');
+import chai = require("chai");
+import chaAsPromised = require("chai-as-promised");
+import { Updraft } from "../src/index";
+import sqlite3 = require("sqlite3");
+import clone = require("clone");
 
 chai.use(chaAsPromised);
 let expect = chai.expect;
@@ -33,7 +33,7 @@ type TodoChange = Updraft.TableChange<Todo, TodoMutator>;
 type TodoTableSpec = Updraft.TableSpec<Todo, TodoMutator, TodoQuery>;
 
 const todoTableSpec: TodoTableSpec = {
-	name: 'todos',
+	name: "todos",
 	columns: {
 		id: Column.Int().Key(),
 		completed: Column.Bool(),
@@ -43,7 +43,7 @@ const todoTableSpec: TodoTableSpec = {
 
 const todoTableExpectedSchema = {
 	todos: {
-		name: 'todos',
+		name: "todos",
 		indices: <string[]>[],
 		triggers: {},
 		columns: {
@@ -56,9 +56,9 @@ const todoTableExpectedSchema = {
 			updraft_latest: Column.Bool()
 		}
 	},
-	
+
 	updraft_changes_todos: {
-		name: 'updraft_changes_todos',
+		name: "updraft_changes_todos",
 		indices: <string[]>[],
 		triggers: {},
 		columns: {
@@ -76,40 +76,40 @@ function sampleTodos(count: number) {
 		let todo = {
 			id: i,
 			completed: false,
-			text: 'todo ' + i
+			text: "todo " + i
 		};
 		todos.push(todo);
 	}
-	
+
 	return todos;
 }
 
 function sampleMutators(count: number) {
 	let mutators: TodoMutator[] = [];
-	
+
 	for(let i=0; i<count; i++) {
 		let m: TodoMutator = {
 			id: i,
 		};
-		
+
 		switch(i % 3) {
 		case 0:
 			m.completed = { $set: true };
 			break;
-			
+
 		case 1:
-			m.text = { $set: 'modified ' + i };
-			break; 
+			m.text = { $set: "modified " + i };
+			break;
 
 		case 2:
 			m.completed = { $set: true };
-			m.text = { $set: 'modified ' + i };
-			break; 
+			m.text = { $set: "modified " + i };
+			break;
 		}
-		
+
 		mutators.push(m);
 	}
-	
+
 	return mutators;
 }
 
@@ -123,12 +123,12 @@ function populateData(db: sqlite3.Database, count: number) {
 }
 
 
-describe('table', function() {
+describe("table", function() {
 	this.timeout(0);
-	
+
 	// TODO: test indexes
-	
-	describe('schema migrations', function() {
+
+	describe("schema migrations", function() {
 		function runMigration(newFields: {[name: string]: Column}, deletedFields: string[], rename: {[old: string]: string}, debug?: boolean) {
 			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clone(todoTableSpec);
 			let newSchema = clone(todoTableExpectedSchema);
@@ -139,12 +139,12 @@ describe('table', function() {
 				delete m.id;
 				newData[id] = mutate(newData[id], m);
 			});
-			
+
 			if(newFields) {
 				for(let col in newFields) {
 					let colSpec: Column = newFields[col];
-					newSpec.columns[col] = colSpec; 
-					newSchema.todos.columns[col] = colSpec; 
+					newSpec.columns[col] = colSpec;
+					newSchema.todos.columns[col] = colSpec;
 					for(let i=0; i<newData.length; i++) {
 						newData[i][col] = colSpec.defaultValue;
 					}
@@ -154,22 +154,22 @@ describe('table', function() {
 			if(deletedFields) {
 				for(let i=0; i<deletedFields.length; i++) {
 					let col = deletedFields[i];
-					delete newSpec.columns[col]; 
-					delete newSchema.todos.columns[col]; 
+					delete newSpec.columns[col];
+					delete newSchema.todos.columns[col];
 					for(let i=0; i<newData.length; i++) {
 						delete newData[i][col];
 					}
 				}
 			}
-			
+
 			if(rename) {
 				newSpec.renamedColumns = <any>rename;
-				
+
 				for(let oldCol in rename) {
 					let newCol = rename[oldCol];
 					newSpec.columns[newCol] = newSpec.columns[oldCol];
 					newSchema.todos.columns[newCol] = newSchema.todos.columns[oldCol];
-					delete newSpec.columns[oldCol]; 
+					delete newSpec.columns[oldCol];
 					delete newSchema.todos.columns[oldCol];
 					for(let i=0; i<newData.length; i++) {
 						newData[i][newCol] = newData[i][oldCol];
@@ -178,14 +178,14 @@ describe('table', function() {
 				}
 			}
 
-			let db = new sqlite3.Database(0 ? 'test.db' : ':memory:');
+			let db = new sqlite3.Database(0 ? "test.db" : ":memory:");
 			if(debug) {
-				db.on('trace', (sql: string) => console.log(sql));
+				db.on("trace", (sql: string) => console.log(sql));
 			}
 
 			let store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 			let todoTable: TodoTable = store.createTable(newSpec);
-			
+
 			let close = () => db.close();
 
 			return Promise.resolve()
@@ -197,52 +197,52 @@ describe('table', function() {
 				.then((data: any[]) => expect(data).to.deep.equal(newData))
 				.then(close, close);
 		}
-		
-		it('no change', function() {
+
+		it("no change", function() {
 			return runMigration(null, null, null);
 		});
-		
-		it('add columns (simple migration)', function() {
+
+		it("add columns (simple migration)", function() {
 			let newFields = {
 				newIntField: Column.Int().Default(10),
-				newTextField: Column.Text().Default('test single (\') and double (") and single double (\'\') quote marks')
+				newTextField: Column.Text().Default("test single (') and double (\") and single double ('') quote marks")
 			};
 			return runMigration(<any>newFields, null, null);
 		});
-		
-		it('remove columns', function() {
-			let deletedFields = [ 'completed' ];
+
+		it("remove columns", function() {
+			let deletedFields = [ "completed" ];
 			return runMigration(null, deletedFields, null);
 		});
 
-		it('rename columns', function() {
+		it("rename columns", function() {
 			let rename = {
-				text: 'description',
-				completed: 'done'
+				text: "description",
+				completed: "done"
 			};
 			return runMigration(null, null, <any>rename);
 		});
 
-		it('simultaneously added, renamed, and removed columns', function() {
+		it("simultaneously added, renamed, and removed columns", function() {
 			let newFields = {
 				newIntField: Column.Int().Default(-10),
 			};
-			let deletedFields = [ 'completed' ];
+			let deletedFields = [ "completed" ];
 			let rename = {
-				text: 'description',
+				text: "description",
 			};
 			return runMigration(<any>newFields, deletedFields, <any>rename);
 		});
 	});
-	
-	describe('merge changes', function() {
+
+	describe("merge changes", function() {
 		function runChanges(changes: TodoChange[], expectedResult: Todo, debug?: boolean) {
 			let db: sqlite3.Database;
 			let todoTable: TodoTable;
-		
-			db = new sqlite3.Database(0 ? 'test.db' : ':memory:');
+
+			db = new sqlite3.Database(0 ? "test.db" : ":memory:");
 			if(debug) {
-				db.on('trace', (sql: string) => console.log(sql));
+				db.on("trace", (sql: string) => console.log(sql));
 			}
 
 			let store = Updraft.createStore({ db: Updraft.wrapSql(db) });
@@ -261,26 +261,26 @@ describe('table', function() {
 				.then((results) => expect(results).to.deep.equal([expectedResult]))
 				.then(() => db.close());
 		}
-		
-		it('simple change progression', function() {
+
+		it("simple change progression", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
 					save: {
 						id: 1,
-						text: 'base text',
+						text: "base text",
 						completed: false
 					},
 				},
 				{ time: 2,
 					change: {
 						id: 1,
-						text: { $set: 'modified at time 2' }
+						text: { $set: "modified at time 2" }
 					}
 				},
 				{ time: 3,
 					change: {
 						id: 1,
-						text: { $set: 'modified at time 3' }
+						text: { $set: "modified at time 3" }
 					}
 				},
 				{ time: 4,
@@ -290,29 +290,29 @@ describe('table', function() {
 					}
 				},
 			];
-			
-			return runChanges(changes, {id: 1, text: 'modified at time 3', completed: true});
+
+			return runChanges(changes, {id: 1, text: "modified at time 3", completed: true});
 		});
 
-		it('multiple baselines', function() {
+		it("multiple baselines", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
 					save: {
 						id: 1,
-						text: 'base text 1',
+						text: "base text 1",
 						completed: false
 					},
 				},
 				{ time: 2,
 					change: {
 						id: 1,
-						text: { $set: 'modified at time 2' }
+						text: { $set: "modified at time 2" }
 					}
 				},
 				{ time: 3,
 					save: {
 						id: 1,
-						text: 'base text 2',
+						text: "base text 2",
 						completed: false
 					},
 				},
@@ -323,16 +323,16 @@ describe('table', function() {
 					}
 				},
 			];
-			
-			return runChanges(changes, {id: 1, text: 'base text 2', completed: true});
+
+			return runChanges(changes, {id: 1, text: "base text 2", completed: true});
 		});
 
-		it('out-of-order changes', function() {
+		it("out-of-order changes", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
 					save: {
 						id: 1,
-						text: 'base text',
+						text: "base text",
 						completed: false
 					},
 				},
@@ -345,31 +345,31 @@ describe('table', function() {
 				{ time: 3,
 					change: {
 						id: 1,
-						text: { $set: 'modified at time 3' }
+						text: { $set: "modified at time 3" }
 					}
 				},
 				{ time: 2,
 					change: {
 						id: 1,
-						text: { $set: 'modified at time 2' }
+						text: { $set: "modified at time 2" }
 					}
 				},
 			];
-			
-			return runChanges(changes, {id: 1, text: 'modified at time 3', completed: true});
+
+			return runChanges(changes, {id: 1, text: "modified at time 3", completed: true});
 		});
 	});
-	
-	describe('find()', function() {
+
+	describe("find()", function() {
 		let db: sqlite3.Database;
 		let todoTable: TodoTable;
 		let todos: Todo[];
-		
+
 		before(() => {
 			todos = sampleTodos(12);
-			
-			db = new sqlite3.Database(0 ? 'test.db' : ':memory:');
-			//db.on('trace', (sql: string) => console.log(sql));
+
+			db = new sqlite3.Database(0 ? "test.db" : ":memory:");
+			//db.on("trace", (sql: string) => console.log(sql));
 
 			let store = Updraft.createStore({ db: Updraft.wrapSql(db) });
 			todoTable = store.createTable(todoTableSpec);
@@ -379,26 +379,26 @@ describe('table', function() {
 				.then(() => todoTable.add(...todos.map(todo => <TodoChange>{ time: 1, save: todo })))
 				;
 		});
-		
+
 		after(() => {
 			db.close();
 		});
-		
-		describe('search operations', function() {
-			it('empty query', function() {
+
+		describe("search operations", function() {
+			it("empty query", function() {
 				return todoTable.find({}).then((results) => expect(results).to.deep.equal(todos));
 			});
-	
-			it('equality', function() {
+
+			it("equality", function() {
 				return Promise.resolve()
-					.then(() => todoTable.find({text: 'todo 1'}).then((results) => expect(results).to.deep.equal([todos[1]])))
+					.then(() => todoTable.find({text: "todo 1"}).then((results) => expect(results).to.deep.equal([todos[1]])))
 					.then(() => todoTable.find({completed: false}).then((results) => expect(results).to.deep.equal(todos)))
 					.then(() => todoTable.find({completed: true}).then((results) => expect(results).to.deep.equal([])))
 					.then(() => todoTable.find({id: 1}).then((results) => expect(results).to.deep.equal([todos[1]])))
 					;
 			});
-	
-			it('numeric comparisons', function() {
+
+			it("numeric comparisons", function() {
 				return Promise.resolve()
 					.then(() => todoTable.find({id: {$lt: 1}}).then((results) => expect(results).to.deep.equal([todos[0]])))
 					.then(() => todoTable.find({id: {$lte: 1}}).then((results) => expect(results).to.deep.equal([todos[0], todos[1]])))
@@ -406,8 +406,8 @@ describe('table', function() {
 					.then(() => todoTable.find({id: {$gte: 10}}).then((results) => expect(results).to.deep.equal([todos[10], todos[11]])))
 					;
 			});
-	
-			it('regex', function() {
+
+			it("regex", function() {
 				return Promise.resolve()
 					.then(() => todoTable.find({text: /todo 1/}).then((results) => expect(results).to.deep.equal([todos[1], todos[10], todos[11]])))
 					.then(() => todoTable.find({text: /todo 1$/}).then((results) => expect(results).to.deep.equal([todos[1]])))
@@ -417,46 +417,46 @@ describe('table', function() {
 					.then(() => todoTable.find({text: /t.*0/}).then((results) => expect(results).to.deep.equal([todos[0], todos[10]])))
 					;
 			});
-	
-			it('$in', function() {
+
+			it("$in", function() {
 				return Promise.resolve()
-					.then(() => todoTable.find({text: {$in: ['todo 3', 'todo 4']}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
-					.then(() => todoTable.find({text: {$in: ['todo 4', 'todo 3']}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
+					.then(() => todoTable.find({text: {$in: ["todo 3", "todo 4"]}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
+					.then(() => todoTable.find({text: {$in: ["todo 4", "todo 3"]}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
 					.then(() => todoTable.find({id: {$in: [3, 4]}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
 					;
 			});
 		});
-		
-		describe('result operations', function() {
-			it('fields', function() {
+
+		describe("result operations", function() {
+			it("fields", function() {
 				return Promise.resolve()
-					.then(() => todoTable.find({text: 'todo 1'}, {fields: {id: true, completed: true}}).then((results) => expect(results).to.deep.equal([{id: 1, completed: false}])))
+					.then(() => todoTable.find({text: "todo 1"}, {fields: {id: true, completed: true}}).then((results) => expect(results).to.deep.equal([{id: 1, completed: false}])))
 					;
 			});
 
-			it('orderBy', function() {
+			it("orderBy", function() {
 				let todosInReverse = todos.slice().reverse();
 				return Promise.resolve()
 					.then(() => todoTable.find({}, {orderBy: {id: OrderBy.DESC}}).then((results) => expect(results).to.deep.equal(todosInReverse)))
 					.then(() => todoTable.find({}, {orderBy: {id: OrderBy.ASC}}).then((results) => expect(results).to.deep.equal(todos)))
 					;
 			});
-			
-			it('limit', function() {
+
+			it("limit", function() {
 				return Promise.resolve()
 					.then(() => todoTable.find({}, {limit: 2}).then((results) => expect(results).to.deep.equal([todos[0], todos[1]])))
 					.then(() => todoTable.find({}, {orderBy: {id: OrderBy.DESC}, limit: 1}).then((results) => expect(results).to.deep.equal([todos[11]])))
 					;
 			});
-			
-			it('offset', function() {
+
+			it("offset", function() {
 				return Promise.resolve()
 					.then(() => todoTable.find({}, {offset: 5, limit: 2}).then((results) => expect(results).to.deep.equal([todos[5], todos[6]])))
 					.then(() => todoTable.find({}, {orderBy: {id: OrderBy.DESC}, offset: 10, limit: 1}).then((results) => expect(results).to.deep.equal([todos[1]])))
 					;
 			});
 
-			it('count', function() {
+			it("count", function() {
 				return Promise.resolve()
 					.then(() => todoTable.find({}, {count: true}).then((results) => expect(results).to.equal(12)))
 					.then(() => todoTable.find({text: /todo 1/}, {count: true}).then((results) => expect(results).to.equal(3)))

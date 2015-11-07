@@ -1,12 +1,12 @@
-// written to React's immutability helpers spec
+// written to React"s immutability helpers spec
 // see https://facebook.github.io/react/docs/update.html
 
 ///<reference path="../typings/tsd.d.ts"/>
-'use strict';
+"use strict";
 
 import assign = require("object-assign");
 import invariant = require("invariant");
-let equal = require('deep-equal');
+let equal = require("deep-equal");
 
 interface setter<T> {
 	$set: T;
@@ -75,7 +75,7 @@ function shallowCopy<T>(x: T): T {
   else if (x instanceof Set) {
     return <any>new Set<T>(<any>x);
   }
-  else if (x && typeof x === 'object') {
+  else if (x && typeof x === "object") {
     return assign(new (<any>x).constructor(), x);
   }
   else {
@@ -102,15 +102,15 @@ let command = {
 function invariantArrayCase(value: any, spec: any, c: string) {
   invariant(
     Array.isArray(value),
-    'mutate(): expected target of %s to be an array; got %s.',
+    "mutate(): expected target of %s to be an array; got %s.",
     c,
     value
   );
   let specValue = spec[c];
   invariant(
     Array.isArray(specValue),
-    'mutate(): expected spec of %s to be an array; got %s. ' +
-    'Did you forget to wrap your parameter in an array?',
+    "mutate(): expected spec of %s to be an array; got %s. " +
+    "Did you forget to wrap your parameter in an array?",
     c,
     specValue
   );
@@ -119,15 +119,15 @@ function invariantArrayCase(value: any, spec: any, c: string) {
 function invariantSetCase(value: any, spec: any, c: string) {
   invariant(
     value instanceof Set,
-    'mutate(): expected target of %s to be a set; got %s.',
+    "mutate(): expected target of %s to be a set; got %s.",
     c,
     value
   );
   let specValue = spec[c];
   invariant(
     Array.isArray(specValue),
-    'mutate(): expected spec of %s to be an array; got %s. ' +
-    'Did you forget to wrap your parameter in an array?',
+    "mutate(): expected spec of %s to be an array; got %s. " +
+    "Did you forget to wrap your parameter in an array?",
     c,
     specValue
   );
@@ -135,10 +135,10 @@ function invariantSetCase(value: any, spec: any, c: string) {
 
 export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element {
   invariant(
-    typeof spec === 'object',
-    'mutate(): You provided a key path to mutate() that did not contain one ' +
-    'of %s. Did you forget to include {%s: ...}?',
-    Object.keys(command).join(', '),
+    typeof spec === "object",
+    "mutate(): You provided a key path to mutate() that did not contain one " +
+    "of %s. Did you forget to include {%s: ...}?",
+    Object.keys(command).join(", "),
     command.set
   );
 
@@ -146,15 +146,15 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 	// 	Object.keys(spec).reduce( function(previousValue: boolean, currentValue: string): boolean {
 	// 		return previousValue && (keyOf(spec[currentValue]) in command);
 	// 	}, true),
-	// 	'mutate(): argument has an unknown key; supported keys are (%s).  mutator: %s',
-	// 	Object.keys(command).join(', '),
+	// 	"mutate(): argument has an unknown key; supported keys are (%s).  mutator: %s",
+	// 	Object.keys(command).join(", "),
 	// 	spec
 	// );
 
   if (hasOwnProperty.call(spec, command.set)) {
     invariant(
       Object.keys(spec).length === 1,
-      'Cannot have more than one key in an object with %s',
+      "Cannot have more than one key in an object with %s",
       command.set
     );
 
@@ -163,8 +163,8 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 
 	if (hasOwnProperty.call(spec, command.increment)) {
 		invariant(
-			typeof(value) === 'number' && typeof(spec[command.increment]) === 'number',
-			'Source (%s) and argument (%s) to %s must be numbers',
+			typeof(value) === "number" && typeof(spec[command.increment]) === "number",
+			"Source (%s) and argument (%s) to %s must be numbers",
 			value,
 			spec[command.increment],
 			command.increment
@@ -179,14 +179,14 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   if (hasOwnProperty.call(spec, command.merge)) {
     let mergeObj = spec[command.merge];
     invariant(
-      mergeObj && typeof mergeObj === 'object',
-      'mutate(): %s expects a spec of type \'object\'; got %s',
+      mergeObj && typeof mergeObj === "object",
+      "mutate(): %s expects a spec of type 'object'; got %s",
       command.merge,
       mergeObj
     );
     invariant(
-      nextValue && typeof nextValue === 'object',
-      'mutate(): %s expects a target of type \'object\'; got %s',
+      nextValue && typeof nextValue === "object",
+      "mutate(): %s expects a target of type 'object'; got %s",
       command.merge,
       nextValue
     );
@@ -194,11 +194,11 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
     return equal(value, nextValue) ? value : nextValue;
   }
 
-  if (hasOwnProperty.call(spec, command.deleter) && (typeof value === 'object') && !(value instanceof Set)) {
+  if (hasOwnProperty.call(spec, command.deleter) && (typeof value === "object") && !(value instanceof Set)) {
 		let key = spec[command.merge];
     invariant(
-      key && typeof key === 'string',
-      'mutate(): %s expects a spec of type \'string\'; got %s',
+      key && typeof key === "string",
+      "mutate(): %s expects a spec of type 'string'; got %s",
       command.deleter,
       key
     );
@@ -233,22 +233,22 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   if (hasOwnProperty.call(spec, command.splice)) {
     invariant(
       Array.isArray(value),
-      'Expected %s target to be an array; got %s',
+      "Expected %s target to be an array; got %s",
       command.splice,
       value
     );
     invariant(
       Array.isArray(spec[command.splice]),
-      'mutate(): expected spec of %s to be an array of arrays; got %s. ' +
-      'Did you forget to wrap your parameters in an array?',
+      "mutate(): expected spec of %s to be an array of arrays; got %s. " +
+      "Did you forget to wrap your parameters in an array?",
       command.splice,
       spec[command.splice]
     );
     spec[command.splice].forEach(function(args: any) {
       invariant(
         Array.isArray(args),
-        'mutate(): expected spec of %s to be an array of arrays; got %s. ' +
-        'Did you forget to wrap your parameters in an array?',
+        "mutate(): expected spec of %s to be an array of arrays; got %s. " +
+        "Did you forget to wrap your parameters in an array?",
         command.splice,
         spec[command.splice]
       );
@@ -294,6 +294,6 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 
 
 export function isMutated<Element>(a: Element, b: Element): boolean {
-  // TODO: this isn't right because mutate will always return a new object
+  // TODO: this isn"t right because mutate will always return a new object
   return a !== b;
 }

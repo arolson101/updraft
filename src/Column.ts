@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 import invariant = require("invariant");
 
@@ -64,38 +64,38 @@ export class Column {
 		return this;
 	}
 
-	/** create a column with 'INTEGER' affinity */
+	/** create a column with "INTEGER" affinity */
 	static Int(): Column {
 		return new Column(ColumnType.int);
 	}
 
-	/** create a column with 'REAL' affinity */
+	/** create a column with "REAL" affinity */
 	static Real(): Column {
 		return new Column(ColumnType.real);
 	}
 
-	/** create a column with 'BOOL' affinity */
+	/** create a column with "BOOL" affinity */
 	static Bool(): Column {
 		return new Column(ColumnType.bool);
 	}
 
-	/** create a column with 'TEXT' affinity */
+	/** create a column with "TEXT" affinity */
 	static Text(): Column {
 		return new Column(ColumnType.text);
 	}
 
-	/** create a column with 'TEXT' affinity */
+	/** create a column with "TEXT" affinity */
 	static String(): Column {
 		return new Column(ColumnType.text);
 	}
 
-	/** create a column with 'BLOB' affinity */
+	/** create a column with "BLOB" affinity */
 	static Blob(): Column {
 		let c = new Column(ColumnType.blob);
 		return c;
 	}
 
-	// /** a javascript object with instance method 'toString' and class method 'get' (e.g. {@link https://github.com/adrai/enum}). */
+	// /** a javascript object with instance method "toString" and class method "get" (e.g. {@link https://github.com/adrai/enum}). */
 	// static Enum(enum_: EnumClass | TypeScriptEnum): Column {
 	//   let c = new Column(ColumnType.enum);
 	//   c.enum = enum_;
@@ -136,80 +136,80 @@ export class Column {
 		let stmt = "";
 		switch (val.type) {
 			case ColumnType.int:
-				stmt = 'INTEGER';
+				stmt = "INTEGER";
 				break;
 			case ColumnType.bool:
-				stmt = 'BOOLEAN';
+				stmt = "BOOLEAN";
 				break;
 			case ColumnType.real:
-				stmt = 'REAL';
+				stmt = "REAL";
 				break;
 			case ColumnType.text:
-				stmt = 'TEXT';
+				stmt = "TEXT";
 				break;
 			case ColumnType.json:
-				stmt = 'CLOB';
+				stmt = "CLOB";
 				break;
 			// case ColumnType.enum:
-			// 	stmt = 'CHARACTER(20)';
+			// 	stmt = "CHARACTER(20)";
 			// 	break;
 			case ColumnType.blob:
-				stmt = 'BLOB';
+				stmt = "BLOB";
 				break;
 			case ColumnType.date:
-				stmt = 'DATE';
+				stmt = "DATE";
 				break;
 			case ColumnType.datetime:
-				stmt = 'DATETIME';
+				stmt = "DATETIME";
 				break;
 			default:
 				throw new Error("unsupported type");
 		}
 
-		if ('defaultValue' in val) {
+		if ("defaultValue" in val) {
 			function escape(x: string | number | boolean): string {
-				if(typeof x === 'number') {
+				if(typeof x === "number") {
 					return <any>x;
 				}
-				else if(typeof x === 'string') {
-					return "'" + (<string>x).replace(/'/g, "''") + "'"; 
+				else if(typeof x === "string") {
+					return "'" + (<string>x).replace(/'/g, "''") + "'";
 				}
 				else {
-					invariant(false, 'default value (%s) must be number or string', x);
+					invariant(false, "default value (%s) must be number or string", x);
 				}
 			}
-			stmt += ' DEFAULT ' + escape(val.defaultValue);
+			stmt += " DEFAULT " + escape(val.defaultValue);
 		}
 
 		return stmt;
 	}
 
 	static fromSql(text: string): Column {
-		let parts: string[] = text.split(' ');
+		let parts: string[] = text.split(" ");
 		let col: Column = null;
 		switch(parts[0]) {
-			case 'INTEGER':
+			case "INTEGER":
 				col = Column.Int();
 				break;
-			case 'BOOLEAN':
+			case "BOOLEAN":
 				col = Column.Bool();
 				break;
-			case 'REAL':
+			case "REAL":
 				col = Column.Real();
 				break;
-			case 'TEXT':
+			case "TEXT":
 				col = Column.Text();
 				break;
-			case 'CLOB':
+			case "CLOB":
 				col = Column.JSON();
 				break;
-			// case 'CHARACTER(20)';
+			// case "CHARACTER(20)";
 			// 	col = Column.Enum()
 			// 	break;
-			case 'DATE':
+			case "DATE":
 				col = Column.Date();
 				break;
-			case 'DATETIME':
+			case "DATETIME":
 				col = Column.DateTime();
 				break;
 			default:

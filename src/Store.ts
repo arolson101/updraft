@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 import { hasOwnProperty, keyOf, mutate, isMutated } from "./Mutate";
 import { Column, ColumnType, ColumnSet } from "./Column";
@@ -36,13 +36,13 @@ interface ChangeRow {
 }
 
 
-const ROWID = 'rowid';
-const COUNT = 'COUNT(*)';
-const internal_prefix = 'updraft_';
-const internal_column_deleted = internal_prefix + 'deleted'; 
-const internal_column_time = internal_prefix + 'time'; 
-const internal_column_latest = internal_prefix + 'latest';
-const internal_column_composed = internal_prefix + 'composed'; 
+const ROWID = "rowid";
+const COUNT = "COUNT(*)";
+const internal_prefix = "updraft_";
+const internal_column_deleted = internal_prefix + "deleted";
+const internal_column_time = internal_prefix + "time";
+const internal_column_latest = internal_prefix + "latest";
+const internal_column_composed = internal_prefix + "composed";
 const internalColumn: ColumnSet = {};
 internalColumn[internal_column_deleted] = Column.Bool();
 internalColumn[internal_column_time] = Column.DateTime().Key();
@@ -52,7 +52,7 @@ internalColumn[internal_column_composed] = Column.Bool();
 const deleteRow_action = { internal_column_deleted: { $set: true } };
 
 function getChangeTableName(name: string): string {
-	return internal_prefix + 'changes_' + name;
+	return internal_prefix + "changes_" + name;
 }
 
 
@@ -77,7 +77,7 @@ export class Store {
 				}
 			}
 		}
-	
+
 		function createInternalTableSpec(spec: TableSpecAny): TableSpecAny {
 			let newSpec = clone(spec);
 			for(let col in internalColumn) {
@@ -87,7 +87,7 @@ export class Store {
 			buildIndices(newSpec);
 			return newSpec;
 		}
-	
+
 		function createChangeTableSpec(spec: TableSpecAny): TableSpecAny {
 			let newSpec = <TableSpecAny>{
 				name: getChangeTableName(spec.name),
@@ -100,7 +100,7 @@ export class Store {
 			buildIndices(newSpec);
 			return newSpec;
 		}
-	
+
 		invariant(!this.db, "createTable() can only be added before open()");
 		invariant(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
 		for(let col in tableSpec.columns) {
@@ -113,7 +113,7 @@ export class Store {
 		this.tables.push(createChangeTableSpec(tableSpec));
 		return table;
 	}
-	
+
 	open(): Promise<any> {
 		invariant(!this.db, "open() called more than once!");
 		invariant(this.tables.length, "open() called before any tables were added");
@@ -134,9 +134,9 @@ export class Store {
 			let matches = sql.match(/\((.*)\)/);
 			if (matches) {
 				let pksplit: string[] = matches[1].split(/PRIMARY KEY/i);
-				let fields = pksplit[0].split(',');
+				let fields = pksplit[0].split(",");
 				for (let i = 0; i < fields.length; i++) {
-					let ignore = /^\s*(primary|foreign)\s+key/i;  // ignore standalone 'PRIMARY KEY xxx'
+					let ignore = /^\s*(primary|foreign)\s+key/i;  // ignore standalone "PRIMARY KEY xxx"
 					if (fields[i].match(ignore)) {
 						continue;
 					}
@@ -150,11 +150,11 @@ export class Store {
 						table.columns[parts[1]] = Column.fromSql(parts[2]);
 					}
 				}
-				
+
 				if(pksplit.length > 1) {
 					let pk = pksplit[1].match(/\((.*)\)/);
 					if(pk) {
-						let keys = pk[1].split(',');
+						let keys = pk[1].split(",");
 						for(let i=0; i<keys.length; i++) {
 							let key = keys[i].trim();
 							table.columns[key].isKey = true;
@@ -164,25 +164,25 @@ export class Store {
 			}
 			return table;
 		}
-		
+
 		function indexFromSql(sql: string): string[] {
 			let regex = /\((.*)\)/;
 			let matches = regex.exec(sql);
 			invariant(matches, "bad format on index- couldn't determine column names from sql: %s", sql);
-			return matches[1].split(',').map((x: string) => x.trim());
+			return matches[1].split(",").map((x: string) => x.trim());
 		}
 
 		return this.db.readTransaction((transaction: DbTransaction) => {
-			return transaction.executeSql('SELECT name, tbl_name, type, sql FROM sqlite_master', [], (tx: DbTransaction, resultSet: any[]) => {
+			return transaction.executeSql("SELECT name, tbl_name, type, sql FROM sqlite_master", [], (tx: DbTransaction, resultSet: any[]) => {
 				let schema: Schema = {};
 				for (let i = 0; i < resultSet.length; i++) {
 					let row = <SqliteMasterRow>resultSet[i];
-					if (row.name[0] != '_' && !startsWith(row.name, 'sqlite')) {
+					if (row.name[0] != "_" && !startsWith(row.name, "sqlite")) {
 						switch (row.type) {
-							case 'table':
+							case "table":
 								schema[row.name] = tableFromSql(row.name, row.sql);
 								break;
-							case 'index':
+							case "index":
 								let index = indexFromSql(row.sql);
 								if(index.length == 1) {
 									let col = index[0];
@@ -194,13 +194,13 @@ export class Store {
 									schema[row.tbl_name].indices.push(index);
 								}
 								break;
-							case 'trigger':
+							case "trigger":
 								//schema[row.tbl_name].triggers[row.name] = row.sql;
 								break;
 						}
 					}
 				}
-				
+
 				return schema;
 			});
 		});
@@ -211,7 +211,7 @@ export class Store {
 		invariant(this.db, "syncTables(): not opened");
 
 		return this.db.transaction((transaction: DbTransaction) => {
-			let p = Promise.resolve(); 
+			let p = Promise.resolve();
 			this.tables.forEach(
 				(table: TableSpecAny) => {
 					p = p.then(() => this.syncTable(transaction, schema, table));
@@ -235,14 +235,14 @@ export class Store {
 					//   console.assert(attrs.ret.table.name != null);
 					//   console.assert(attrs.ref.key != null);
 					//   let foreignCol: Column = attrs.ref.columns[attrs.ref.key];
-					//   decl = col + ' ' + Column.sql(foreignCol);
+					//   decl = col + " " + Column.sql(foreignCol);
 					//   cols.push(decl);
 					//   break;
 				// case ColumnType.set:
 				// 	break;
 
 				default:
-					decl = col + ' ' + Column.sql(attrs);
+					decl = col + " " + Column.sql(attrs);
 					cols.push(decl);
 					if (attrs.isKey) {
 						pk.push(col);
@@ -251,12 +251,12 @@ export class Store {
 				}
 			}
 			invariant(pk.length, "table %s has no keys", name);
-			cols.push('PRIMARY KEY(' + pk.join(', ')  + ')');
-			return transaction.executeSql('CREATE ' + (spec.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')');
+			cols.push("PRIMARY KEY(" + pk.join(", ")  + ")");
+			return transaction.executeSql("CREATE " + (spec.temp ? "TEMP " : "") + "TABLE " + name + " (" + cols.join(", ") + ")");
 		}
 
 		function dropTable(name: string): Promise<any> {
-			return transaction.executeSql('DROP TABLE ' + name);
+			return transaction.executeSql("DROP TABLE " + name);
 		}
 
 		function createIndices(force: boolean = false): Promise<any> {
@@ -276,37 +276,37 @@ export class Store {
 			let oldIndices = (spec.name in schema) ? schema[spec.name].indices : [];
 			let newIndices = spec.indices;
 			function getIndexName(indices: string[]): string {
-					return 'index_' + spec.name + '__' + indices.join('_');
+					return "index_" + spec.name + "__" + indices.join("_");
 			}
 
 			oldIndices.forEach((value: string[], i: number) => {
 				let drop = true;
-				
+
 				for(let j=0; j<newIndices.length; j++) {
 					if(indicesEqual(oldIndices[i], newIndices[j])) {
 						drop = false;
 						break;
 					}
 				}
-				
+
 				if(drop) {
-					p = p.then(() => transaction.executeSql('DROP INDEX ' + getIndexName(oldIndices[i])));
+					p = p.then(() => transaction.executeSql("DROP INDEX " + getIndexName(oldIndices[i])));
 				}
 			});
-			
+
 			newIndices.forEach((value: string[], j: number) => {
 				let create = true;
-				
+
 				for(let i=0; i<oldIndices.length; i++) {
 					if(indicesEqual(oldIndices[i], newIndices[j])) {
 						create = false;
 						break;
 					}
 				}
-				
+
 				if(create || force) {
 					let index = newIndices[j];
-					let sql = 'CREATE INDEX ' + getIndexName(index) + ' ON ' + spec.name + ' (' + index.join(', ') + ')';
+					let sql = "CREATE INDEX " + getIndexName(index) + " ON " + spec.name + " (" + index.join(", ") + ")";
 					p = p.then(() => transaction.executeSql(sql));
 				}
 			});
@@ -319,13 +319,13 @@ export class Store {
 			let oldColumns = schema[spec.name].columns;
 			let newColumns = spec.columns;
 			let recreateTable: boolean = false;
-			
+
 			for(let colName in oldColumns) {
 				if(!(colName in newColumns)) {
 					recreateTable = true;
 					break;
 				}
-				
+
 				let oldCol = oldColumns[colName];
 				let newCol = newColumns[colName];
 				if(!Column.equal(oldCol, newCol)) {
@@ -333,14 +333,14 @@ export class Store {
 					break;
 				}
 			}
-			
+
 			let renamedColumns = spec.renamedColumns || {};
 			for (let colName in renamedColumns) {
 				if (colName in oldColumns) {
 					recreateTable = true;
 				}
 			}
-			
+
 			let addedColumns: {[name: string]: Column} = {};
 			if(!recreateTable) {
 				for(let colName in newColumns) {
@@ -349,7 +349,7 @@ export class Store {
 					}
 				}
 			}
-			
+
 			if (recreateTable) {
 				// recreate and migrate data
 				function copyData(oldName: string, newName: string): Promise<any> {
@@ -363,15 +363,15 @@ export class Store {
 					}
 					return p2;
 				}
-				
+
 				function migrateChangeTable(changeTableName: string) {
 					let deletedColumns = Object.keys(oldColumns).filter(col => !(col in spec.columns) && !(col in renamedColumns));
 					let p2 = Promise.resolve();
 					if(spec.renamedColumns || deletedColumns) {
 						p2 = p2.then(() => {
 							return transaction.each(
-								'SELECT ' + ROWID + ', change'
-								+ ' FROM ' + changeTableName,
+								"SELECT " + ROWID + ", change"
+								+ " FROM " + changeTableName,
 								[],
 								(selectChangeTransaction: DbTransaction, row: any) => {
 									let change = JSON.parse(row.change);
@@ -393,16 +393,16 @@ export class Store {
 									if(changed) {
 										if(Object.keys(change).length) {
 											return selectChangeTransaction.executeSql(
-												'UPDATE ' + changeTableName
-												+ ' SET change=?'
-												+ ' WHERE ' + ROWID + '=?',
+												"UPDATE " + changeTableName
+												+ " SET change=?"
+												+ " WHERE " + ROWID + "=?",
 												[JSON.stringify(change), row[ROWID]]
 											);
 										}
 										else {
 											return selectChangeTransaction.executeSql(
-												'DELETE FROM ' + changeTableName
-												+ ' WHERE ' + ROWID + '=?',
+												"DELETE FROM " + changeTableName
+												+ " WHERE " + ROWID + "=?",
 												[row[ROWID]]
 											);
 										}
@@ -415,10 +415,10 @@ export class Store {
 				}
 
 				function renameTable(oldName: string, newName: string): Promise<any> {
-					return transaction.executeSql('ALTER TABLE ' + oldName + ' RENAME TO ' + newName);
+					return transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName);
 				}
 
-				let tempTableName = 'temp_' + spec.name;
+				let tempTableName = "temp_" + spec.name;
 				let changeTableName = getChangeTableName(spec.name);
 
 				if (tempTableName in schema) {
@@ -436,8 +436,8 @@ export class Store {
 				// alter table, add columns
 				Object.keys(addedColumns).forEach((colName) => {
 					let col: Column = spec.columns[colName];
-					let columnDecl = colName + ' ' + Column.sql(col);
-					p = p.then(() => transaction.executeSql('ALTER TABLE ' + spec.name + ' ADD COLUMN ' + columnDecl));
+					let columnDecl = colName + " " + Column.sql(col);
+					p = p.then(() => transaction.executeSql("ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl));
 				});
 				p = p.then(() => createIndices());
 			}
@@ -451,15 +451,15 @@ export class Store {
 			p = p.then(() => createTable(spec.name));
 			p = p.then(() => createIndices(true));
 		}
-		
+
 		return p;
 	}
 
 
 	add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
 		function insert(transaction: DbTransaction, tableName: string, columns: string[], values: any[]): Promise<any> {
-			let questionMarks = values.map(v => '?');
-			return transaction.executeSql('INSERT OR REPLACE INTO ' + tableName + ' (' + columns.join(', ') + ') VALUES (' + questionMarks.join(', ') + ')', values);
+			let questionMarks = values.map(v => "?");
+			return transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values);
 		}
 
 		invariant(this.db, "apply(): not opened");
@@ -470,7 +470,7 @@ export class Store {
 			let toResolve = new Set<KeyType>();
 			changes.forEach((change: TableChange<Element, Mutator>) => {
 				let time = change.time || Date.now();
-				invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, 'change (%s) must specify exactly one action at a time', JSON.stringify(change));
+				invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", JSON.stringify(change));
 				if(change.save) {
 					let element = change.save;
 					let keyValue = table.keyValue(element);
@@ -480,7 +480,7 @@ export class Store {
 					// append internal column values
 					columns = [internal_column_time, ...columns];
 					values = [time, ...values];
-					
+
 					p1 = p1.then(() => insert(transaction, table.spec.name, columns, values));
 					toResolve.add(keyValue);
 				}
@@ -503,7 +503,7 @@ export class Store {
 						changeRow.key = change.delete;
 						changeRow.change = JSON.stringify(deleteRow_action);
 					}
-					
+
 					let columns = Object.keys(changeRow);
 					let values: any[] = columns.map(k => changeRow[k]);
 					p1 = p1.then(() => insert(transaction, changeTable, columns, values));
@@ -513,16 +513,16 @@ export class Store {
 					throw new Error("no operation specified for change- should be one of save, change, or delete");
 				}
 			});
-			
+
 			// these could be done in parallel
 			toResolve.forEach((keyValue: KeyType) => {
 				let baselineCols = [ROWID, internal_column_time, internal_column_deleted, ...Object.keys(table.spec.columns)];
 				p1 = p1.then(() => transaction.executeSql(
-					'SELECT ' + baselineCols.join(', ')
-					+ ' FROM ' + table.spec.name
-					+ ' WHERE ' + table.key + '=?' + ' AND ' + internal_column_composed + '=0'
-					+ ' ORDER BY ' + internal_column_time + ' DESC'
-					+ ' LIMIT 1', 
+					"SELECT " + baselineCols.join(", ")
+					+ " FROM " + table.spec.name
+					+ " WHERE " + table.key + "=?" + " AND " + internal_column_composed + "=0"
+					+ " ORDER BY " + internal_column_time + " DESC"
+					+ " LIMIT 1",
 					[keyValue],
 					(tx1: DbTransaction, baselineResults: any[]): Promise<any> => {
 						let baseline = <Element>{};
@@ -531,7 +531,7 @@ export class Store {
 						if (baselineResults.length) {
 							baseline = <Element>baselineResults[0];
 							baseTime = baseline[internal_column_time];
-							invariant(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(', '));
+							invariant(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(", "));
 							baseRowId = baseline[ROWID];
 						}
 						else {
@@ -539,12 +539,12 @@ export class Store {
 						}
 						let mutation = baseline;
 						let mutationTime = baseTime;
-						
+
 						return tx1.executeSql(
-							'SELECT key, time, change'
-							+ ' FROM ' + changeTable
-							+ ' WHERE key=? AND time>=?'
-							+ ' ORDER BY time ASC',
+							"SELECT key, time, change"
+							+ " FROM " + changeTable
+							+ " WHERE key=? AND time>=?"
+							+ " ORDER BY time ASC",
 							[keyValue, baseTime],
 							(tx2: DbTransaction, changeResults: any[]): Promise<any> => {
 								let p2 = Promise.resolve();
@@ -554,25 +554,25 @@ export class Store {
 									mutation = mutate(mutation, mutator);
 									mutationTime = Math.max(mutationTime, row.time);
 								}
-								
+
 								if(baseRowId != -1 && !isMutated(mutation, baseline)) {
 									// mark it as latest (and others as not)
 									p2 = p2.then(() => tx2.executeSql(
-										'UPDATE ' + table.spec.name
-										+ ' SET ' + internal_column_latest + '=(' + ROWID + '=' + baseRowId + ')'
-										+ ' WHERE ' + table.key + '=?',
+										"UPDATE " + table.spec.name
+										+ " SET " + internal_column_latest + "=(" + ROWID + "=" + baseRowId + ")"
+										+ " WHERE " + table.key + "=?",
 										[keyValue])
 									);
 								}
 								else {
 									// invalidate old latest rows
 									p2 = p2.then(() => tx2.executeSql(
-										'UPDATE ' + table.spec.name
-										+ ' SET ' + internal_column_latest + '=0'
-										+ ' WHERE ' + table.key + '=?',
+										"UPDATE " + table.spec.name
+										+ " SET " + internal_column_latest + "=0"
+										+ " WHERE " + table.key + "=?",
 										[keyValue])
 									);
-									
+
 									// insert new latest row
 									mutation[internal_column_latest] = true;
 									mutation[internal_column_time] = mutationTime;
@@ -581,7 +581,7 @@ export class Store {
 									let values = columns.map(col => mutation[col]);
 									p2 = p2.then(() => insert(tx2, table.spec.name, columns, values));
 								}
-								
+
 								return p2;
 							}
 						);
@@ -596,96 +596,96 @@ export class Store {
 		opts = opts || {};
 
 		const numericConditions = {
-			$gt: '>',
-			$gte: '>=',
-			$lt: '<',
-			$lte: '<='
+			$gt: ">",
+			$gte: ">=",
+			$lt: "<",
+			$lte: "<="
 		};
-		
+
 		const inCondition = keyOf({ $in: false });
-		
+
 		let conditions: string[] = [];
 		let values: (string | number)[] = [];
 
-		conditions.push(internal_column_deleted + '=0');
-		conditions.push(internal_column_latest + '=1');
+		conditions.push(internal_column_deleted + "=0");
+		conditions.push(internal_column_latest + "=1");
 
 		for(let col in query) {
 			let spec = query[col];
 			let found = false;
-			
+
 			for(let condition in numericConditions) {
 				if(hasOwnProperty.call(spec, condition)) {
-					conditions.push('(' + col + numericConditions[condition] + '?)');
+					conditions.push("(" + col + numericConditions[condition] + "?)");
 					let value = spec[condition];
-					invariant(parseInt(value, 10) == value, 'condition %s must have a numeric argument: %s', condition, value);
+					invariant(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
 					values.push(value);
 					found = true;
 					break;
 				}
 			}
-			
+
 			if(!found) {
 				if(hasOwnProperty.call(spec, inCondition)) {
 					invariant(spec[inCondition] instanceof Array, "must be an array: %s", JSON.stringify(spec[inCondition]));
-					conditions.push(col + ' IN (' + spec[inCondition].map((x: any) => '?').join(', ') + ')');
+					conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
 					values.push(...spec[inCondition]);
 					found = true;
 				}
 			}
-			
+
 			if(!found) {
-				if(typeof spec === 'boolean') {
-					conditions.push('(' + col + '=' + (spec ? 1 : 0) + ')');
+				if(typeof spec === "boolean") {
+					conditions.push("(" + col + "=" + (spec ? 1 : 0) + ")");
 					found = true;
 				}
-				else if(typeof spec === 'number' || typeof spec === 'string') {
-					conditions.push('(' + col + '=?)');
+				else if(typeof spec === "number" || typeof spec === "string") {
+					conditions.push("(" + col + "=?)");
 					values.push(spec);
 					found = true;
 				}
 				else if(spec instanceof RegExp) {
 					let rx: RegExp = spec;
-					let arg = rx.source.replace(/\.\*/g, '%').replace(/\./g, '_');
-					if(arg[0] == '^') {
+					let arg = rx.source.replace(/\.\*/g, "%").replace(/\./g, "_");
+					if(arg[0] == "^") {
 						arg = arg.substring(1);
 					}
 					else {
-						arg = '%' + arg;
+						arg = "%" + arg;
 					}
-					if(arg[arg.length - 1] == '$') {
+					if(arg[arg.length - 1] == "$") {
 						arg = arg.substring(0, arg.length - 1);
 					}
 					else {
-						arg = arg + '%';
+						arg = arg + "%";
 					}
 					invariant(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
-					conditions.push('(' + col + ' LIKE ?)');
+					conditions.push("(" + col + " LIKE ?)");
 					values.push(arg);
 					found = true;
 				}
-				
+
 				invariant(found, "unknown query condition for %s: %s", col, JSON.stringify(spec));
 			}
 		}
-		
+
 		let columns: string[] = Object.keys(opts.fields || table.spec.columns);
-		let stmt = 'SELECT ' + (opts.count ? COUNT : columns.join(', '));
-		stmt += ' FROM ' + table.spec.name;
-		stmt += ' WHERE ' + conditions.join(' AND ');
-			
+		let stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
+		stmt += " FROM " + table.spec.name;
+		stmt += " WHERE " + conditions.join(" AND ");
+
 		if(opts.orderBy) {
 			let col = keyOf(opts.orderBy);
 			let order = opts.orderBy[col];
-			stmt += ' ORDER BY ' + col + ' ' + (order == OrderBy.ASC ? 'ASC' : 'DESC');
+			stmt += " ORDER BY " + col + " " + (order == OrderBy.ASC ? "ASC" : "DESC");
 		}
-		
+
 		if(opts.limit) {
-			stmt += ' LIMIT ' + opts.limit;
+			stmt += " LIMIT " + opts.limit;
 		}
 
 		if(opts.offset) {
-			stmt += ' OFFSET ' + opts.offset;
+			stmt += " OFFSET " + opts.offset;
 		}
 
 		return this.db.readTransaction((tx1: DbTransaction): Promise<any> => {

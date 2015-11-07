@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 import * as Column_ from "./Column";
 import * as Mutate_ from "./Mutate";
@@ -11,7 +11,7 @@ import * as WebsqlWrapper_ from "./WebsqlWrapper";
 export namespace Updraft {
 	export import Query = Query_;
 	export import Mutate = Mutate_;
-	
+
 	export import ColumnType = Column_.ColumnType;
 	export import Column = Column_.Column;
 	export import OrderBy = Table_.OrderBy;

@@ -1,5 +1,5 @@
 ///<reference path="./websql.d.ts"/>
-'use strict';
+"use strict";
 
 import { DbWrapper, DbTransactionCallback, DbTransaction, DbResultsCallback, DbEachResultCallback } from "./Database";
 
@@ -9,15 +9,15 @@ interface WebsqlTransaction extends DbTransaction {
 
 class WebsqlWrapper implements DbWrapper {
 	db: Database;
-	
+
 	constructor(name: string, version?: string, displayName?: string, estimatedSize?: number) {
 		version = version || "1.0";
 		displayName = displayName || name;
 		estimatedSize = estimatedSize || 5 * 1024 * 1024;
-		
+
 		this.db = window.openDatabase(name, version, displayName, estimatedSize);
 	}
-	
+
 	all(tx: WebsqlTransaction, statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
 			tx.realTransaction.executeSql(statement, params,
@@ -27,7 +27,7 @@ class WebsqlWrapper implements DbWrapper {
 						let row = resultSet.rows.item(i);
 						results.push(row);
 					}
-					
+
 					if(callback) {
 						resolve(callback(this.wrapTransaction(transaction), results));
 					}
@@ -42,7 +42,7 @@ class WebsqlWrapper implements DbWrapper {
 			);
 		});
 	}
-	
+
 	each(tx: WebsqlTransaction, statement: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
 			tx.realTransaction.executeSql(statement, params,
@@ -77,7 +77,7 @@ class WebsqlWrapper implements DbWrapper {
 		};
 		return tx;
 	}
-	
+
 	transaction(callback: DbTransactionCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
 			this.db.transaction((transaction: SQLTransaction) => {

@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 interface NumericConditions {
 	$gt?: number;
