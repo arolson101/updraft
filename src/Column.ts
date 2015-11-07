@@ -31,7 +31,7 @@ export class Column {
 
 	constructor(type: ColumnType) {
 		this.type = type;
-		if(type == ColumnType.bool) {
+		if (type == ColumnType.bool) {
 			this.defaultValue = 0;
 		}
 	}
@@ -57,7 +57,7 @@ export class Column {
 		*/
 	// TODO
 	Default(value: number | boolean | string): Column {
-		if(this.type == ColumnType.bool) {
+		if (this.type == ColumnType.bool) {
 			value = (value != false) ? 1 : 0;
 		}
 		this.defaultValue = value;
@@ -168,10 +168,10 @@ export class Column {
 
 		if ("defaultValue" in val) {
 			function escape(x: string | number | boolean): string {
-				if(typeof x === "number") {
+				if (typeof x === "number") {
 					return <any>x;
 				}
-				else if(typeof x === "string") {
+				else if (typeof x === "string") {
 					return "'" + (<string>x).replace(/'/g, "''") + "'";
 				}
 				else {
@@ -187,7 +187,7 @@ export class Column {
 	static fromSql(text: string): Column {
 		let parts: string[] = text.split(" ");
 		let col: Column = null;
-		switch(parts[0]) {
+		switch (parts[0]) {
 			case "INTEGER":
 				col = Column.Int();
 				break;
@@ -217,16 +217,16 @@ export class Column {
 		}
 
 		let match = text.match(/DEFAULT\s+'((?:[^']|'')*)'/i);
-		if(match) {
+		if (match) {
 			let val: any = match[1].replace(/''/g, "'");
 			col.Default(val);
 		}
 		else {
 			match = text.match(/DEFAULT\s+(\w+)/i);
-			if(match) {
+			if (match) {
 				let val: any = match[1];
 				let valnum = parseInt(val, 10);
-				if(val == valnum) {
+				if (val == valnum) {
 					val = valnum;
 				}
 				col.Default(val);
@@ -237,13 +237,13 @@ export class Column {
 	}
 
 	static equal(a: Column, b: Column): boolean {
-		if(a.type != b.type) {
+		if (a.type != b.type) {
 			return false;
 		}
-		if((a.defaultValue || b.defaultValue) && (a.defaultValue != b.defaultValue)) {
+		if ((a.defaultValue || b.defaultValue) && (a.defaultValue != b.defaultValue)) {
 			return false;
 		}
-		if((a.isKey || b.isKey) && (a.isKey != b.isKey)) {
+		if ((a.isKey || b.isKey) && (a.isKey != b.isKey)) {
 			return false;
 		}
 		return true;

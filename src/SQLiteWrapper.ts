@@ -14,15 +14,15 @@ export interface IDatabase {
 
 class SQLiteWrapper implements DbWrapper {
 	private db: IDatabase;
-	
+
 	constructor(db: IDatabase) {
 		this.db = db;
 	}
-	
+
 	run(sql: string): Promise<any> {
 		return new Promise((resolve, reject) => {
 			this.db.run(sql, (err: Error) => {
-				if(err) {
+				if (err) {
 					console.log("SQLiteWrapper.run(): error executing '" + sql + "': ", err);
 					reject(err);
 				}
@@ -32,11 +32,11 @@ class SQLiteWrapper implements DbWrapper {
 			});
 		});
 	}
-	
+
 	all(tx: DbTransaction, sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
 			this.db.all(sql, params, (err: Error, rows: any[]) => {
-				if(err) {
+				if (err) {
 					console.log("SQLiteWrapper.all(): error executing '" + sql + "': ", err);
 					reject(err);
 				}
@@ -50,12 +50,12 @@ class SQLiteWrapper implements DbWrapper {
 			});
 		});
 	}
-	
+
 	each(tx: DbTransaction, sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
 		let p = Promise.resolve();
 		return new Promise((resolve, reject) => {
 			this.db.each(sql, params, (err: Error, row: any) => {
-				if(err) {
+				if (err) {
 					console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
 					reject(err);
 				}
@@ -66,7 +66,7 @@ class SQLiteWrapper implements DbWrapper {
 				}
 			},
 			(err: Error, count: number) => {
-				if(err) {
+				if (err) {
 					console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
 					reject(err);
 				}
@@ -76,7 +76,7 @@ class SQLiteWrapper implements DbWrapper {
 			});
 		});
 	}
-	
+
 	transaction(callback: DbTransactionCallback): Promise<any> {
 		let result: any = undefined;
 		return Promise.resolve()

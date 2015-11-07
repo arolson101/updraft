@@ -260,7 +260,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   if (hasOwnProperty.call(spec, command.add)) {
     invariantSetCase(value, spec, command.add);
     spec[command.add].forEach(function(item: any) {
-      if(!(<Set<any>>nextValue).has(item)) {
+      if (!(<Set<any>>nextValue).has(item)) {
         (<Set<any>>nextValue).add(item);
         changed = true;
       }
@@ -271,18 +271,18 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   if (hasOwnProperty.call(spec, command.deleter) && (value instanceof Set)) {
     invariantSetCase(value, spec, command.deleter);
     spec[command.deleter].forEach(function(item: any) {
-      if((<Set<any>>nextValue).delete(item)) {
+      if ((<Set<any>>nextValue).delete(item)) {
         changed = true;
       }
     });
     return changed ? nextValue : value;
 	}
 
-	for(let k in spec) {
-		if(!(command.hasOwnProperty(k) && command[k])) {
+	for (let k in spec) {
+		if (!(command.hasOwnProperty(k) && command[k])) {
       let oldValue = value[k];
       let newValue = mutate(oldValue, spec[k]);
-      if(oldValue !== newValue) {
+      if (oldValue !== newValue) {
         nextValue[k] = newValue;
         changed = true;
       }

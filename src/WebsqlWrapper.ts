@@ -18,17 +18,17 @@ class WebsqlWrapper implements DbWrapper {
 		this.db = window.openDatabase(name, version, displayName, estimatedSize);
 	}
 
-	all(tx: WebsqlTransaction, statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
+	all(tx: WebsqlTransaction, sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
-			tx.realTransaction.executeSql(statement, params,
+			tx.realTransaction.executeSql(sql, params,
 				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
 					let results: any[] = [];
-					for(let i=0; i<resultSet.rows.length; i++) {
+					for (let i = 0; i < resultSet.rows.length; i++) {
 						let row = resultSet.rows.item(i);
 						results.push(row);
 					}
 
-					if(callback) {
+					if (callback) {
 						resolve(callback(this.wrapTransaction(transaction), results));
 					}
 					else {
@@ -43,15 +43,17 @@ class WebsqlWrapper implements DbWrapper {
 		});
 	}
 
-	each(tx: WebsqlTransaction, statement: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
+	each(tx: WebsqlTransaction, sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
-			tx.realTransaction.executeSql(statement, params,
+			tx.realTransaction.executeSql(sql, params,
 				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
 					let p = Promise.resolve();
-					for(let i=0; i<resultSet.rows.length; i++) {
+					for (let i = 0; i < resultSet.rows.length; i++) {
 						let row = resultSet.rows.item(i);
-						if(callback) {
-							p = p.then(() => callback(tx, row));
+						if (callback) {
+							(function(row: any) {
+								p = p.then(() => callback(tx, row));
+							})(row);
 						}
 					}
 
@@ -68,8 +70,8 @@ class WebsqlWrapper implements DbWrapper {
 	private wrapTransaction(transaction: SQLTransaction): WebsqlTransaction {
 		let tx: WebsqlTransaction = {
 			realTransaction: transaction,
-			executeSql: (statement: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
-				return this.all(tx, statement, params, callback);
+			executeSql: (sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
+				return this.all(tx, sql, params, callback);
 			},
 			each: (sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> => {
 				return this.each(tx, sql, params, callback);

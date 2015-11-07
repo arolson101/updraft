@@ -87,12 +87,12 @@ function sampleTodos(count: number) {
 function sampleMutators(count: number) {
 	let mutators: TodoMutator[] = [];
 
-	for(let i=0; i<count; i++) {
+	for (let i = 0; i < count; i++) {
 		let m: TodoMutator = {
 			id: i,
 		};
 
-		switch(i % 3) {
+		switch (i % 3) {
 		case 0:
 			m.completed = { $set: true };
 			break;
@@ -140,38 +140,38 @@ describe("table", function() {
 				newData[id] = mutate(newData[id], m);
 			});
 
-			if(newFields) {
-				for(let col in newFields) {
+			if (newFields) {
+				for (let col in newFields) {
 					let colSpec: Column = newFields[col];
 					newSpec.columns[col] = colSpec;
 					newSchema.todos.columns[col] = colSpec;
-					for(let i=0; i<newData.length; i++) {
+					for (let i = 0; i < newData.length; i++) {
 						newData[i][col] = colSpec.defaultValue;
 					}
 				}
 			}
 
-			if(deletedFields) {
-				for(let i=0; i<deletedFields.length; i++) {
+			if (deletedFields) {
+				for (let i = 0; i < deletedFields.length; i++) {
 					let col = deletedFields[i];
 					delete newSpec.columns[col];
 					delete newSchema.todos.columns[col];
-					for(let i=0; i<newData.length; i++) {
+					for (let i = 0; i < newData.length; i++) {
 						delete newData[i][col];
 					}
 				}
 			}
 
-			if(rename) {
+			if (rename) {
 				newSpec.renamedColumns = <any>rename;
 
-				for(let oldCol in rename) {
+				for (let oldCol in rename) {
 					let newCol = rename[oldCol];
 					newSpec.columns[newCol] = newSpec.columns[oldCol];
 					newSchema.todos.columns[newCol] = newSchema.todos.columns[oldCol];
 					delete newSpec.columns[oldCol];
 					delete newSchema.todos.columns[oldCol];
-					for(let i=0; i<newData.length; i++) {
+					for (let i = 0; i < newData.length; i++) {
 						newData[i][newCol] = newData[i][oldCol];
 						delete newData[i][oldCol];
 					}
@@ -179,7 +179,7 @@ describe("table", function() {
 			}
 
 			let db = new sqlite3.Database(0 ? "test.db" : ":memory:");
-			if(debug) {
+			if (debug) {
 				db.on("trace", (sql: string) => console.log(sql));
 			}
 
@@ -241,7 +241,7 @@ describe("table", function() {
 			let todoTable: TodoTable;
 
 			db = new sqlite3.Database(0 ? "test.db" : ":memory:");
-			if(debug) {
+			if (debug) {
 				db.on("trace", (sql: string) => console.log(sql));
 			}
 
