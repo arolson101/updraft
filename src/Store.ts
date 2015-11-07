@@ -607,8 +607,8 @@ export class Store {
 		let conditions: string[] = [];
 		let values: (string | number)[] = [];
 
-		conditions.push(internal_column_deleted + "=0");
-		conditions.push(internal_column_latest + "=1");
+		conditions.push("NOT " + internal_column_deleted);
+		conditions.push(internal_column_latest);
 
 		for (let col in query) {
 			let spec = query[col];
@@ -635,8 +635,8 @@ export class Store {
 			}
 
 			if (!found) {
-				if (typeof spec === "boolean") {
-					conditions.push("(" + col + "=" + (spec ? 1 : 0) + ")");
+				if (table.spec.columns[col].type == ColumnType.bool) {
+					conditions.push((spec ? "" : "NOT ") + col);
 					found = true;
 				}
 				else if (typeof spec === "number" || typeof spec === "string") {
@@ -700,7 +700,7 @@ export class Store {
 						let row = rows[i];
 						for (let col in row) {
 							if (table.spec.columns[col].type == ColumnType.bool) {
-								row[col] = row[col] ? true : false;
+								row[col] = (row[col] && row[col] != 'false') ? true : false;
 							}
 						}
 						// TODO: add constructable objects

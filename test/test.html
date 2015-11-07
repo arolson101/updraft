@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Mocha Test Runner</title>
+		<link rel="stylesheet" href="../node_modules/mocha/mocha.css">
+		<script>
+			// polyfill
+			Object.setPrototypeOf = Object.setPrototypeOf || function(obj, proto) {
+				obj.__proto__ = proto;
+				return obj;
+			}
+
+			// disable enum freezing in phantomjs to prevent error:
+			// TypeError: 'undefined' is not a function (evaluating 'getPropertyValue.bind(null, o[key])')
+			Object.isFrozen = null;
+		</script>
+	</head>
+	<body>
+		<div id="mocha"></div>
+
+		<script src="../node_modules/lie/dist/lie.js"></script>
+		<script src="../node_modules/mocha/mocha.js"></script>
+		<script src="../node_modules/chai/chai.js"></script>
+		<script src="../node_modules/chai-as-promised/lib/chai-as-promised.js"></script>
+		<script>
+			mocha.setup('bdd');
+			mocha.reporter('html');
+		</script>
+
+
+		<script>
+			module = {};
+			exports = {};
+
+			function require(script) {
+				switch (script) {
+					case "clone": return clone;
+					case "chai": return chai;
+					case "invariant": return invariant;
+					case "../src/index": return updraft;
+					default: console.error("unknown module: " + script);
+				}
+			}
+		</script>
+		<script src="../node_modules/clone/clone.js"></script>
+		<script src="../node_modules/invariant/browser.js"></script>
+		<script src="../dist/updraft.js"></script>
+
+
+		<script type="text/typescript" src="mutate.test.ts"></script>
+		<script type="text/typescript" src="table.test.ts"></script>
+
+		<script type="text/typescript">
+			if (window.mochaPhantomJS) {
+				mochaPhantomJS.run();
+			} else {
+				mocha.run();
+			}
+		</script>
+
+		<script src="../node_modules/typescript/lib/typescriptServices.js"></script>
+		<script src="scripts/transpiler.js"></script>
+	</body>
+</html>

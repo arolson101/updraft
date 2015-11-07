@@ -36,6 +36,7 @@ class WebsqlWrapper implements DbWrapper {
 					}
 				},
 				(transaction: SQLTransaction, error: SQLError) => {
+					console.error("error executing '" + sql + "': ", error);
 					reject(error);
 					return true;
 				}
@@ -60,6 +61,7 @@ class WebsqlWrapper implements DbWrapper {
 					resolve(p);
 				},
 				(transaction: SQLTransaction, error: SQLError) => {
+					console.error("error executing '" + sql + "': ", error);
 					reject(error);
 					return true;
 				}

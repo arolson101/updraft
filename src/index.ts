@@ -1,6 +1,7 @@
 "use strict";
 
 import * as Column_ from "./Column";
+import * as Database_ from "./Database";
 import * as Mutate_ from "./Mutate";
 import * as Query_ from "./Query";
 import * as Store_ from "./Store";
@@ -14,6 +15,13 @@ export namespace Updraft {
 
 	export import ColumnType = Column_.ColumnType;
 	export import Column = Column_.Column;
+
+	export import DbEachResultCallback = Database_.DbEachResultCallback;
+	export import DbResultsCallback = Database_.DbResultsCallback;
+	export import DbTransaction = Database_.DbTransaction;
+	export import DbTransactionCallback = Database_.DbTransactionCallback;
+	export import DbWrapper = Database_.DbWrapper;
+
 	export import OrderBy = Table_.OrderBy;
 	export import Table = Table_.Table;
 	export import TableSpec = Table_.TableSpec;

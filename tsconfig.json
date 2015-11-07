@@ -11,7 +11,7 @@
 				"suppressImplicitAnyIndexErrors": true,
 				"sourceMap": false,
 				"inlineSourceMap": false,
-				"noEmit": false
+				"noEmit": true
 		},
 		"filesGlob": [
 				"./src/**/*.ts",
