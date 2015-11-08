@@ -1,11 +1,10 @@
 "use strict";
 
-import { hasOwnProperty, keyOf, mutate, isMutated } from "./Mutate";
+import { hasOwnProperty, keyOf, mutate, isMutated, shallowCopy } from "./Mutate";
 import { Column, ColumnType, ColumnSet } from "./Column";
 import { DbWrapper, DbTransaction } from "./Database";
 import { TableSpec, Table, TableChange, KeyType, FindOpts, OrderBy } from "./Table";
 import { verify } from "./verify";
-import clone = require("clone");
 
 
 function startsWith(str: string, val: string) {
@@ -79,7 +78,8 @@ export class Store {
 		}
 
 		function createInternalTableSpec(spec: TableSpecAny): TableSpecAny {
-			let newSpec = clone(spec);
+			let newSpec = shallowCopy(spec);
+			newSpec.columns = shallowCopy(spec.columns);
 			for (let col in internalColumn) {
 				verify(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
 				newSpec.columns[col] = internalColumn[col];
@@ -493,7 +493,7 @@ export class Store {
 					};
 					if (change.change) {
 						// store changes
-						let mutator = clone(change.change);
+						let mutator = shallowCopy(change.change);
 						changeRow.key = table.keyValue(mutator);
 						delete mutator[table.key];
 						changeRow.change = JSON.stringify(mutator);
@@ -700,7 +700,7 @@ export class Store {
 						let row = rows[i];
 						for (let col in row) {
 							if (table.spec.columns[col].type == ColumnType.bool) {
-								row[col] = (row[col] && row[col] != 'false') ? true : false;
+								row[col] = (row[col] && row[col] != "false") ? true : false;
 							}
 						}
 						// TODO: add constructable objects

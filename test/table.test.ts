@@ -40,8 +40,8 @@ function createDb(inMemory: boolean, trace: boolean): Db {
 				return transaction.executeSql("select name from sqlite_master where type='table'", [], (tx2: Updraft.DbTransaction, rows: any[]) => {
 					let p = Promise.resolve();
 					rows.forEach((row: any) => {
-						var name = row.name;
-						if(name[0] != "_") {
+						let name = row.name;
+						if (name[0] != "_") {
 							p = p.then(() => tx2.executeSql("drop table " + name));
 						}
 					});
@@ -238,7 +238,7 @@ describe("table", function() {
 				.then((data: any[]) => expect(data).to.deep.equal(newData))
 				.then(close, close)
 				.catch((err: Error) => {
-					console.log(err)
+					console.log(err);
 				});
 		}
 

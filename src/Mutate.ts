@@ -67,7 +67,7 @@ type set<T> =
 export type strSet = set<string>;
 
 
-function shallowCopy<T>(x: T): T {
+export function shallowCopy<T>(x: T): T {
   if (Array.isArray(x)) {
     return (<any>x).concat();
   }
