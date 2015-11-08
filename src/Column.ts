@@ -1,6 +1,6 @@
 "use strict";
 
-import invariant = require("invariant");
+import { verify } from "./verify"; 
 
 
 export enum ColumnType {
@@ -175,7 +175,7 @@ export class Column {
 					return "'" + (<string>x).replace(/'/g, "''") + "'";
 				}
 				else {
-					invariant(false, "default value (%s) must be number or string", x);
+					verify(false, "default value (%s) must be number or string", x);
 				}
 			}
 			stmt += " DEFAULT " + escape(val.defaultValue);

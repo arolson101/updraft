@@ -26,9 +26,7 @@
   "license": "MIT",
   "readmeFilename": "README.md",
   "dependencies": {
-    "clone": "^1.0.2",
-    "invariant": "^2.1.2",
-    "object-assign": "^4.0.1"
+    "clone": "^1.0.2"
   },
   "devDependencies": {
     "chai": "^1.10.0",

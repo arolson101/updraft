@@ -47,12 +47,12 @@ var updraft =
 
 	"use strict";
 	var Column_ = __webpack_require__(1);
-	var Mutate_ = __webpack_require__(4);
-	var Query_ = __webpack_require__(9);
-	var Store_ = __webpack_require__(10);
-	var Table_ = __webpack_require__(11);
-	var SQLiteWrapper_ = __webpack_require__(17);
-	var WebsqlWrapper_ = __webpack_require__(18);
+	var Mutate_ = __webpack_require__(3);
+	var Query_ = __webpack_require__(5);
+	var Store_ = __webpack_require__(6);
+	var Table_ = __webpack_require__(7);
+	var SQLiteWrapper_ = __webpack_require__(13);
+	var WebsqlWrapper_ = __webpack_require__(14);
 	var Updraft;
 	(function (Updraft) {
 	    Updraft.Query = Query_;
@@ -76,7 +76,7 @@ var updraft =
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
-	var invariant = __webpack_require__(2);
+	var verify_1 = __webpack_require__(2);
 	(function (ColumnType) {
 	    ColumnType[ColumnType["int"] = 0] = "int";
 	    ColumnType[ColumnType["real"] = 1] = "real";
@@ -224,7 +224,7 @@ var updraft =
 	                    return "'" + x.replace(/'/g, "''") + "'";
 	                }
 	                else {
-	                    invariant(false, "default value (%s) must be number or string", x);
+	                    verify_1.verify(false, "default value (%s) must be number or string", x);
 	                }
 	            }
 	            stmt += " DEFAULT " + escape(val.defaultValue);
@@ -299,172 +299,49 @@ var updraft =
 
 /***/ },
 /* 2 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ function(module, exports) {
 
-	/* WEBPACK VAR INJECTION */(function(process) {/**
-	 * Copyright 2013-2015, Facebook, Inc.
-	 * All rights reserved.
-	 *
-	 * This source code is licensed under the BSD-style license found in the
-	 * LICENSE file in the root directory of this source tree. An additional grant
-	 * of patent rights can be found in the PATENTS file in the same directory.
-	 *
-	 * @providesModule invariant
-	 */
-	
-	'use strict';
-	
+	"use strict";
 	/**
-	 * Use invariant() to assert state which your program assumes to be true.
+	 * Use verify() to assert state which your program assumes to be true.
 	 *
 	 * Provide sprintf-style format (only %s is supported) and arguments
 	 * to provide information about what broke and what you were
 	 * expecting.
-	 *
-	 * The invariant message will be stripped in production, but the invariant
-	 * will remain to ensure logic does not differ in production.
 	 */
-	
-	var invariant = function(condition, format, a, b, c, d, e, f) {
-	  if (process.env.NODE_ENV !== 'production') {
-	    if (format === undefined) {
-	      throw new Error('invariant requires an error message argument');
+	function makePrintable(x) {
+	    if (Array.isArray(x) || (x && typeof x === "object")) {
+	        return JSON.stringify(x);
 	    }
-	  }
-	
-	  if (!condition) {
-	    var error;
-	    if (format === undefined) {
-	      error = new Error(
-	        'Minified exception occurred; use the non-minified dev environment ' +
-	        'for the full error message and additional helpful warnings.'
-	      );
-	    } else {
-	      var args = [a, b, c, d, e, f];
-	      var argIndex = 0;
-	      error = new Error(
-	        'Invariant Violation: ' +
-	        format.replace(/%s/g, function() { return args[argIndex++]; })
-	      );
+	    else {
+	        return x;
 	    }
-	
-	    error.framesToPop = 1; // we don't care about invariant's own frame
-	    throw error;
-	  }
-	};
-	
-	module.exports = invariant;
-	
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)))
+	}
+	function verify(condition, format) {
+	    var args = [];
+	    for (var _i = 2; _i < arguments.length; _i++) {
+	        args[_i - 2] = arguments[_i];
+	    }
+	    if (!condition) {
+	        var argIndex = 0;
+	        var error = new Error(format.replace(/%s/g, function () { return makePrintable(args[argIndex++]); }));
+	        error.framesToPop = 1; // we don't care about verify's own frame
+	        throw error;
+	    }
+	}
+	exports.verify = verify;
+
 
 /***/ },
 /* 3 */
-/***/ function(module, exports) {
-
-	// shim for using process in browser
-	
-	var process = module.exports = {};
-	var queue = [];
-	var draining = false;
-	var currentQueue;
-	var queueIndex = -1;
-	
-	function cleanUpNextTick() {
-	    draining = false;
-	    if (currentQueue.length) {
-	        queue = currentQueue.concat(queue);
-	    } else {
-	        queueIndex = -1;
-	    }
-	    if (queue.length) {
-	        drainQueue();
-	    }
-	}
-	
-	function drainQueue() {
-	    if (draining) {
-	        return;
-	    }
-	    var timeout = setTimeout(cleanUpNextTick);
-	    draining = true;
-	
-	    var len = queue.length;
-	    while(len) {
-	        currentQueue = queue;
-	        queue = [];
-	        while (++queueIndex < len) {
-	            if (currentQueue) {
-	                currentQueue[queueIndex].run();
-	            }
-	        }
-	        queueIndex = -1;
-	        len = queue.length;
-	    }
-	    currentQueue = null;
-	    draining = false;
-	    clearTimeout(timeout);
-	}
-	
-	process.nextTick = function (fun) {
-	    var args = new Array(arguments.length - 1);
-	    if (arguments.length > 1) {
-	        for (var i = 1; i < arguments.length; i++) {
-	            args[i - 1] = arguments[i];
-	        }
-	    }
-	    queue.push(new Item(fun, args));
-	    if (queue.length === 1 && !draining) {
-	        setTimeout(drainQueue, 0);
-	    }
-	};
-	
-	// v8 likes predictible objects
-	function Item(fun, array) {
-	    this.fun = fun;
-	    this.array = array;
-	}
-	Item.prototype.run = function () {
-	    this.fun.apply(null, this.array);
-	};
-	process.title = 'browser';
-	process.browser = true;
-	process.env = {};
-	process.argv = [];
-	process.version = ''; // empty string to avoid regexp issues
-	process.versions = {};
-	
-	function noop() {}
-	
-	process.on = noop;
-	process.addListener = noop;
-	process.once = noop;
-	process.off = noop;
-	process.removeListener = noop;
-	process.removeAllListeners = noop;
-	process.emit = noop;
-	
-	process.binding = function (name) {
-	    throw new Error('process.binding is not supported');
-	};
-	
-	process.cwd = function () { return '/' };
-	process.chdir = function (dir) {
-	    throw new Error('process.chdir is not supported');
-	};
-	process.umask = function() { return 0; };
-
-
-/***/ },
-/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// written to React"s immutability helpers spec
 	// see https://facebook.github.io/react/docs/update.html
 	///<reference path="../typings/tsd.d.ts"/>
 	"use strict";
-	var assign = __webpack_require__(5);
-	var invariant = __webpack_require__(2);
-	var equal = __webpack_require__(6);
+	var assign_1 = __webpack_require__(4);
+	var verify_1 = __webpack_require__(2);
 	function shallowCopy(x) {
 	    if (Array.isArray(x)) {
 	        return x.concat();
@@ -473,11 +350,54 @@ var updraft =
 	        return new Set(x);
 	    }
 	    else if (x && typeof x === "object") {
-	        return assign(new x.constructor(), x);
+	        return assign_1.assign(new x.constructor(), x);
 	    }
 	    else {
 	        return x;
 	    }
+	}
+	function shallowEqual(a, b) {
+	    if (Array.isArray(a) && Array.isArray(b)) {
+	        var aa = a;
+	        var bb = b;
+	        if (aa.length == bb.length) {
+	            for (var i = 0; i < aa.length; i++) {
+	                if (aa[i] != bb[i]) {
+	                    return false;
+	                }
+	            }
+	            return true;
+	        }
+	        return false;
+	    }
+	    else if (a instanceof Set && b instanceof Set) {
+	        var aa = a;
+	        var bb = b;
+	        if (aa.size == bb.size) {
+	            for (var elt in aa) {
+	                if (!bb.has(elt)) {
+	                    return false;
+	                }
+	            }
+	            return true;
+	        }
+	        return false;
+	    }
+	    else if (typeof a == "object" && typeof b == "object") {
+	        var akeys = Object.keys(a);
+	        var bkeys = Object.keys(b);
+	        if (akeys.length == bkeys.length) {
+	            for (var _i = 0; _i < akeys.length; _i++) {
+	                var key = akeys[_i];
+	                if (!(key in b) || a[key] != b[key]) {
+	                    return false;
+	                }
+	            }
+	            return true;
+	        }
+	        return false;
+	    }
+	    return a == b;
 	}
 	exports.hasOwnProperty = {}.hasOwnProperty;
 	function keyOf(obj) { return Object.keys(obj)[0]; }
@@ -492,22 +412,22 @@ var updraft =
 	    add: keyOf({ $add: null }),
 	    deleter: keyOf({ $delete: null }),
 	};
-	function invariantArrayCase(value, spec, c) {
-	    invariant(Array.isArray(value), "mutate(): expected target of %s to be an array; got %s.", c, value);
+	function verifyArrayCase(value, spec, c) {
+	    verify_1.verify(Array.isArray(value), "mutate(): expected target of %s to be an array; got %s.", c, value);
 	    var specValue = spec[c];
-	    invariant(Array.isArray(specValue), "mutate(): expected spec of %s to be an array; got %s. " +
+	    verify_1.verify(Array.isArray(specValue), "mutate(): expected spec of %s to be an array; got %s. " +
 	        "Did you forget to wrap your parameter in an array?", c, specValue);
 	}
-	function invariantSetCase(value, spec, c) {
-	    invariant(value instanceof Set, "mutate(): expected target of %s to be a set; got %s.", c, value);
+	function verifySetCase(value, spec, c) {
+	    verify_1.verify(value instanceof Set, "mutate(): expected target of %s to be a set; got %s.", c, value);
 	    var specValue = spec[c];
-	    invariant(Array.isArray(specValue), "mutate(): expected spec of %s to be an array; got %s. " +
+	    verify_1.verify(Array.isArray(specValue), "mutate(): expected spec of %s to be an array; got %s. " +
 	        "Did you forget to wrap your parameter in an array?", c, specValue);
 	}
 	function mutate(value, spec) {
-	    invariant(typeof spec === "object", "mutate(): You provided a key path to mutate() that did not contain one " +
+	    verify_1.verify(typeof spec === "object", "mutate(): You provided a key path to mutate() that did not contain one " +
 	        "of %s. Did you forget to include {%s: ...}?", Object.keys(command).join(", "), command.set);
-	    // invariant(
+	    // verify(
 	    // 	Object.keys(spec).reduce( function(previousValue: boolean, currentValue: string): boolean {
 	    // 		return previousValue && (keyOf(spec[currentValue]) in command);
 	    // 	}, true),
@@ -516,85 +436,98 @@ var updraft =
 	    // 	spec
 	    // );
 	    if (exports.hasOwnProperty.call(spec, command.set)) {
-	        invariant(Object.keys(spec).length === 1, "Cannot have more than one key in an object with %s", command.set);
-	        return equal(value, spec[command.set]) ? value : spec[command.set];
+	        verify_1.verify(Object.keys(spec).length === 1, "Cannot have more than one key in an object with %s", command.set);
+	        return shallowEqual(value, spec[command.set]) ? value : spec[command.set];
 	    }
 	    if (exports.hasOwnProperty.call(spec, command.increment)) {
-	        invariant(typeof (value) === "number" && typeof (spec[command.increment]) === "number", "Source (%s) and argument (%s) to %s must be numbers", value, spec[command.increment], command.increment);
+	        verify_1.verify(typeof (value) === "number" && typeof (spec[command.increment]) === "number", "Source (%s) and argument (%s) to %s must be numbers", value, spec[command.increment], command.increment);
 	        return value + spec[command.increment];
 	    }
-	    var nextValue = shallowCopy(value);
 	    var changed = false;
 	    if (exports.hasOwnProperty.call(spec, command.merge)) {
 	        var mergeObj = spec[command.merge];
-	        invariant(mergeObj && typeof mergeObj === "object", "mutate(): %s expects a spec of type 'object'; got %s", command.merge, mergeObj);
-	        invariant(nextValue && typeof nextValue === "object", "mutate(): %s expects a target of type 'object'; got %s", command.merge, nextValue);
-	        assign(nextValue, spec[command.merge]);
-	        return equal(value, nextValue) ? value : nextValue;
+	        var nextValue_1 = shallowCopy(value);
+	        verify_1.verify(mergeObj && typeof mergeObj === "object", "mutate(): %s expects a spec of type 'object'; got %s", command.merge, mergeObj);
+	        verify_1.verify(nextValue_1 && typeof nextValue_1 === "object", "mutate(): %s expects a target of type 'object'; got %s", command.merge, nextValue_1);
+	        assign_1.assign(nextValue_1, spec[command.merge]);
+	        return shallowEqual(value, nextValue_1) ? value : nextValue_1;
 	    }
 	    if (exports.hasOwnProperty.call(spec, command.deleter) && (typeof value === "object") && !(value instanceof Set)) {
 	        var key = spec[command.merge];
-	        invariant(key && typeof key === "string", "mutate(): %s expects a spec of type 'string'; got %s", command.deleter, key);
-	        if (key in nextValue) {
-	            delete nextValue[key];
-	            return nextValue;
+	        verify_1.verify(key && typeof key === "string", "mutate(): %s expects a spec of type 'string'; got %s", command.deleter, key);
+	        if (key in value) {
+	            var nextValue_2 = shallowCopy(value);
+	            delete nextValue_2[key];
+	            return nextValue_2;
 	        }
 	        else {
 	            return value;
 	        }
 	    }
 	    if (exports.hasOwnProperty.call(spec, command.push)) {
-	        invariantArrayCase(value, spec, command.push);
-	        spec[command.push].forEach(function (item) {
-	            nextValue.push(item);
-	        });
-	        return equal(value, nextValue) ? value : nextValue;
+	        verifyArrayCase(value, spec, command.push);
+	        if (spec[command.push].length) {
+	            var nextValue_3 = shallowCopy(value);
+	            nextValue_3.push.apply(nextValue_3, spec[command.push]);
+	            return nextValue_3;
+	        }
+	        else {
+	            return value;
+	        }
 	    }
 	    if (exports.hasOwnProperty.call(spec, command.unshift)) {
-	        invariantArrayCase(value, spec, command.unshift);
+	        verifyArrayCase(value, spec, command.unshift);
 	        if (spec[command.unshift].length) {
-	            nextValue.unshift.apply(nextValue, spec[command.unshift]);
-	            return nextValue;
+	            var nextValue_4 = shallowCopy(value);
+	            nextValue_4.unshift.apply(nextValue_4, spec[command.unshift]);
+	            return nextValue_4;
 	        }
 	        else {
 	            return value;
 	        }
 	    }
 	    if (exports.hasOwnProperty.call(spec, command.splice)) {
-	        invariant(Array.isArray(value), "Expected %s target to be an array; got %s", command.splice, value);
-	        invariant(Array.isArray(spec[command.splice]), "mutate(): expected spec of %s to be an array of arrays; got %s. " +
+	        var nextValue_5 = shallowCopy(value);
+	        verify_1.verify(Array.isArray(value), "Expected %s target to be an array; got %s", command.splice, value);
+	        verify_1.verify(Array.isArray(spec[command.splice]), "mutate(): expected spec of %s to be an array of arrays; got %s. " +
 	            "Did you forget to wrap your parameters in an array?", command.splice, spec[command.splice]);
 	        spec[command.splice].forEach(function (args) {
-	            invariant(Array.isArray(args), "mutate(): expected spec of %s to be an array of arrays; got %s. " +
+	            verify_1.verify(Array.isArray(args), "mutate(): expected spec of %s to be an array of arrays; got %s. " +
 	                "Did you forget to wrap your parameters in an array?", command.splice, spec[command.splice]);
-	            nextValue.splice.apply(nextValue, args);
+	            nextValue_5.splice.apply(nextValue_5, args);
 	        });
-	        return equal(value, nextValue) ? value : nextValue;
+	        return shallowEqual(nextValue_5, value) ? value : nextValue_5;
 	    }
 	    if (exports.hasOwnProperty.call(spec, command.add)) {
-	        invariantSetCase(value, spec, command.add);
+	        var nextValue_6 = shallowCopy(value);
+	        verifySetCase(value, spec, command.add);
 	        spec[command.add].forEach(function (item) {
-	            if (!nextValue.has(item)) {
-	                nextValue.add(item);
+	            if (!nextValue_6.has(item)) {
+	                nextValue_6.add(item);
 	                changed = true;
 	            }
 	        });
-	        return changed ? nextValue : value;
+	        return changed ? nextValue_6 : value;
 	    }
 	    if (exports.hasOwnProperty.call(spec, command.deleter) && (value instanceof Set)) {
-	        invariantSetCase(value, spec, command.deleter);
+	        var nextValue_7 = shallowCopy(value);
+	        verifySetCase(value, spec, command.deleter);
 	        spec[command.deleter].forEach(function (item) {
-	            if (nextValue.delete(item)) {
+	            if (nextValue_7.delete(item)) {
 	                changed = true;
 	            }
 	        });
-	        return changed ? nextValue : value;
+	        return changed ? nextValue_7 : value;
 	    }
+	    var nextValue;
 	    for (var k in spec) {
 	        if (!(command.hasOwnProperty(k) && command[k])) {
 	            var oldValue = value[k];
 	            var newValue = mutate(oldValue, spec[k]);
 	            if (oldValue !== newValue) {
+	                if (!nextValue) {
+	                    nextValue = shallowCopy(value);
+	                }
 	                nextValue[k] = newValue;
 	                changed = true;
 	            }
@@ -611,208 +544,60 @@ var updraft =
 
 
 /***/ },
+/* 4 */
+/***/ function(module, exports) {
+
+	"use strict";
+	function toObject(val) {
+	    if (val === null || val === undefined) {
+	        throw new TypeError("Object.assign cannot be called with null or undefined");
+	    }
+	    return Object(val);
+	}
+	var ObjectAssign = Object.assign || function (target, source) {
+	    var hasOwnProperty = Object.prototype.hasOwnProperty;
+	    var propIsEnumerable = Object.prototype.propertyIsEnumerable;
+	    var from;
+	    var to = toObject(target);
+	    var symbols;
+	    for (var s = 1; s < arguments.length; s++) {
+	        from = Object(arguments[s]);
+	        for (var key in from) {
+	            if (hasOwnProperty.call(from, key)) {
+	                to[key] = from[key];
+	            }
+	        }
+	        if (Object.getOwnPropertySymbols) {
+	            symbols = Object.getOwnPropertySymbols(from);
+	            for (var i = 0; i < symbols.length; i++) {
+	                if (propIsEnumerable.call(from, symbols[i])) {
+	                    to[symbols[i]] = from[symbols[i]];
+	                }
+	            }
+	        }
+	    }
+	    return to;
+	};
+	exports.assign = ObjectAssign;
+
+
+/***/ },
 /* 5 */
 /***/ function(module, exports) {
 
-	/* eslint-disable no-unused-vars */
-	'use strict';
-	var hasOwnProperty = Object.prototype.hasOwnProperty;
-	var propIsEnumerable = Object.prototype.propertyIsEnumerable;
-	
-	function toObject(val) {
-		if (val === null || val === undefined) {
-			throw new TypeError('Object.assign cannot be called with null or undefined');
-		}
-	
-		return Object(val);
-	}
-	
-	module.exports = Object.assign || function (target, source) {
-		var from;
-		var to = toObject(target);
-		var symbols;
-	
-		for (var s = 1; s < arguments.length; s++) {
-			from = Object(arguments[s]);
-	
-			for (var key in from) {
-				if (hasOwnProperty.call(from, key)) {
-					to[key] = from[key];
-				}
-			}
-	
-			if (Object.getOwnPropertySymbols) {
-				symbols = Object.getOwnPropertySymbols(from);
-				for (var i = 0; i < symbols.length; i++) {
-					if (propIsEnumerable.call(from, symbols[i])) {
-						to[symbols[i]] = from[symbols[i]];
-					}
-				}
-			}
-		}
-	
-		return to;
-	};
+	"use strict";
 
 
 /***/ },
 /* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var pSlice = Array.prototype.slice;
-	var objectKeys = __webpack_require__(7);
-	var isArguments = __webpack_require__(8);
-	
-	var deepEqual = module.exports = function (actual, expected, opts) {
-	  if (!opts) opts = {};
-	  // 7.1. All identical values are equivalent, as determined by ===.
-	  if (actual === expected) {
-	    return true;
-	
-	  } else if (actual instanceof Date && expected instanceof Date) {
-	    return actual.getTime() === expected.getTime();
-	
-	  // 7.3. Other pairs that do not both pass typeof value == 'object',
-	  // equivalence is determined by ==.
-	  } else if (!actual || !expected || typeof actual != 'object' && typeof expected != 'object') {
-	    return opts.strict ? actual === expected : actual == expected;
-	
-	  // 7.4. For all other Object pairs, including Array objects, equivalence is
-	  // determined by having the same number of owned properties (as verified
-	  // with Object.prototype.hasOwnProperty.call), the same set of keys
-	  // (although not necessarily the same order), equivalent values for every
-	  // corresponding key, and an identical 'prototype' property. Note: this
-	  // accounts for both named and indexed properties on Arrays.
-	  } else {
-	    return objEquiv(actual, expected, opts);
-	  }
-	}
-	
-	function isUndefinedOrNull(value) {
-	  return value === null || value === undefined;
-	}
-	
-	function isBuffer (x) {
-	  if (!x || typeof x !== 'object' || typeof x.length !== 'number') return false;
-	  if (typeof x.copy !== 'function' || typeof x.slice !== 'function') {
-	    return false;
-	  }
-	  if (x.length > 0 && typeof x[0] !== 'number') return false;
-	  return true;
-	}
-	
-	function objEquiv(a, b, opts) {
-	  var i, key;
-	  if (isUndefinedOrNull(a) || isUndefinedOrNull(b))
-	    return false;
-	  // an identical 'prototype' property.
-	  if (a.prototype !== b.prototype) return false;
-	  //~~~I've managed to break Object.keys through screwy arguments passing.
-	  //   Converting to array solves the problem.
-	  if (isArguments(a)) {
-	    if (!isArguments(b)) {
-	      return false;
-	    }
-	    a = pSlice.call(a);
-	    b = pSlice.call(b);
-	    return deepEqual(a, b, opts);
-	  }
-	  if (isBuffer(a)) {
-	    if (!isBuffer(b)) {
-	      return false;
-	    }
-	    if (a.length !== b.length) return false;
-	    for (i = 0; i < a.length; i++) {
-	      if (a[i] !== b[i]) return false;
-	    }
-	    return true;
-	  }
-	  try {
-	    var ka = objectKeys(a),
-	        kb = objectKeys(b);
-	  } catch (e) {//happens when one is a string literal and the other isn't
-	    return false;
-	  }
-	  // having the same number of owned properties (keys incorporates
-	  // hasOwnProperty)
-	  if (ka.length != kb.length)
-	    return false;
-	  //the same set of keys (although not necessarily the same order),
-	  ka.sort();
-	  kb.sort();
-	  //~~~cheap key test
-	  for (i = ka.length - 1; i >= 0; i--) {
-	    if (ka[i] != kb[i])
-	      return false;
-	  }
-	  //equivalent values for every corresponding key, and
-	  //~~~possibly expensive deep test
-	  for (i = ka.length - 1; i >= 0; i--) {
-	    key = ka[i];
-	    if (!deepEqual(a[key], b[key], opts)) return false;
-	  }
-	  return typeof a === typeof b;
-	}
-
-
-/***/ },
-/* 7 */
-/***/ function(module, exports) {
-
-	exports = module.exports = typeof Object.keys === 'function'
-	  ? Object.keys : shim;
-	
-	exports.shim = shim;
-	function shim (obj) {
-	  var keys = [];
-	  for (var key in obj) keys.push(key);
-	  return keys;
-	}
-
-
-/***/ },
-/* 8 */
-/***/ function(module, exports) {
-
-	var supportsArgumentsClass = (function(){
-	  return Object.prototype.toString.call(arguments)
-	})() == '[object Arguments]';
-	
-	exports = module.exports = supportsArgumentsClass ? supported : unsupported;
-	
-	exports.supported = supported;
-	function supported(object) {
-	  return Object.prototype.toString.call(object) == '[object Arguments]';
-	};
-	
-	exports.unsupported = unsupported;
-	function unsupported(object){
-	  return object &&
-	    typeof object == 'object' &&
-	    typeof object.length == 'number' &&
-	    Object.prototype.hasOwnProperty.call(object, 'callee') &&
-	    !Object.prototype.propertyIsEnumerable.call(object, 'callee') ||
-	    false;
-	};
-
-
-/***/ },
-/* 9 */
-/***/ function(module, exports) {
-
 	"use strict";
-
-
-/***/ },
-/* 10 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-	var Mutate_1 = __webpack_require__(4);
+	var Mutate_1 = __webpack_require__(3);
 	var Column_1 = __webpack_require__(1);
-	var Table_1 = __webpack_require__(11);
-	var invariant = __webpack_require__(2);
-	var clone = __webpack_require__(12);
+	var Table_1 = __webpack_require__(7);
+	var verify_1 = __webpack_require__(2);
+	var clone = __webpack_require__(8);
 	function startsWith(str, val) {
 	    return str.lastIndexOf(val, 0) === 0;
 	}
@@ -843,7 +628,7 @@ var updraft =
 	        this.params = params;
 	        this.tables = [];
 	        this.db = null;
-	        invariant(this.params.db, "must pass a DbWrapper");
+	        verify_1.verify(this.params.db, "must pass a DbWrapper");
 	    }
 	    Store.prototype.createTable = function (tableSpec) {
 	        var _this = this;
@@ -858,7 +643,7 @@ var updraft =
 	        function createInternalTableSpec(spec) {
 	            var newSpec = clone(spec);
 	            for (var col in internalColumn) {
-	                invariant(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
+	                verify_1.verify(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
 	                newSpec.columns[col] = internalColumn[col];
 	            }
 	            buildIndices(newSpec);
@@ -876,10 +661,10 @@ var updraft =
 	            buildIndices(newSpec);
 	            return newSpec;
 	        }
-	        invariant(!this.db, "createTable() can only be added before open()");
-	        invariant(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
+	        verify_1.verify(!this.db, "createTable() can only be added before open()");
+	        verify_1.verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
 	        for (var col in tableSpec.columns) {
-	            invariant(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
+	            verify_1.verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
 	        }
 	        var table = new Table_1.Table(tableSpec);
 	        table.add = function () {
@@ -896,8 +681,8 @@ var updraft =
 	    };
 	    Store.prototype.open = function () {
 	        var _this = this;
-	        invariant(!this.db, "open() called more than once!");
-	        invariant(this.tables.length, "open() called before any tables were added");
+	        verify_1.verify(!this.db, "open() called more than once!");
+	        verify_1.verify(this.tables.length, "open() called before any tables were added");
 	        this.db = this.params.db;
 	        return Promise.resolve()
 	            .then(function () { return _this.readSchema(); })
@@ -905,7 +690,7 @@ var updraft =
 	        //.then(() => this.loadKeyValues());
 	    };
 	    Store.prototype.readSchema = function () {
-	        invariant(this.db, "readSchema(): not opened");
+	        verify_1.verify(this.db, "readSchema(): not opened");
 	        function tableFromSql(name, sql) {
 	            var table = { name: name, columns: {}, indices: [], triggers: {} };
 	            var matches = sql.match(/\((.*)\)/);
@@ -943,7 +728,7 @@ var updraft =
 	        function indexFromSql(sql) {
 	            var regex = /\((.*)\)/;
 	            var matches = regex.exec(sql);
-	            invariant(matches, "bad format on index- couldn't determine column names from sql: %s", sql);
+	            verify_1.verify(matches, "bad format on index- couldn't determine column names from sql: %s", sql);
 	            return matches[1].split(",").map(function (x) { return x.trim(); });
 	        }
 	        return this.db.readTransaction(function (transaction) {
@@ -960,8 +745,8 @@ var updraft =
 	                                var index = indexFromSql(row.sql);
 	                                if (index.length == 1) {
 	                                    var col = index[0];
-	                                    invariant(row.tbl_name in schema, "table %s used by index %s should have been returned first", row.tbl_name, row.name);
-	                                    invariant(col in schema[row.tbl_name].columns, "table %s does not have column %s used by index %s", row.tbl_name, col, row.name);
+	                                    verify_1.verify(row.tbl_name in schema, "table %s used by index %s should have been returned first", row.tbl_name, row.name);
+	                                    verify_1.verify(col in schema[row.tbl_name].columns, "table %s does not have column %s used by index %s", row.tbl_name, col, row.name);
 	                                    schema[row.tbl_name].columns[col].isIndex = true;
 	                                }
 	                                else {
@@ -980,7 +765,7 @@ var updraft =
 	    };
 	    Store.prototype.syncTables = function (schema) {
 	        var _this = this;
-	        invariant(this.db, "syncTables(): not opened");
+	        verify_1.verify(this.db, "syncTables(): not opened");
 	        return this.db.transaction(function (transaction) {
 	            var p = Promise.resolve();
 	            _this.tables.forEach(function (table) {
@@ -1017,7 +802,7 @@ var updraft =
 	                        break;
 	                }
 	            }
-	            invariant(pk.length, "table %s has no keys", name);
+	            verify_1.verify(pk.length, "table %s has no keys", name);
 	            cols.push("PRIMARY KEY(" + pk.join(", ") + ")");
 	            return transaction.executeSql("CREATE " + (spec.temp ? "TEMP " : "") + "TABLE " + name + " (" + cols.join(", ") + ")");
 	        }
@@ -1201,14 +986,14 @@ var updraft =
 	            var questionMarks = values.map(function (v) { return "?"; });
 	            return transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values);
 	        }
-	        invariant(this.db, "apply(): not opened");
+	        verify_1.verify(this.db, "apply(): not opened");
 	        var changeTable = getChangeTableName(table.spec.name);
 	        return this.db.transaction(function (transaction) {
 	            var p1 = Promise.resolve();
 	            var toResolve = new Set();
 	            changes.forEach(function (change) {
 	                var time = change.time || Date.now();
-	                invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", JSON.stringify(change));
+	                verify_1.verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
 	                if (change.save) {
 	                    var element = change.save;
 	                    var keyValue = table.keyValue(element);
@@ -1262,7 +1047,7 @@ var updraft =
 	                    if (baselineResults.length) {
 	                        baseline = baselineResults[0];
 	                        baseTime = baseline[internal_column_time];
-	                        invariant(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(", "));
+	                        verify_1.verify(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(", "));
 	                        baseRowId = baseline[ROWID];
 	                    }
 	                    else {
@@ -1327,7 +1112,7 @@ var updraft =
 	                if (Mutate_1.hasOwnProperty.call(spec, condition)) {
 	                    conditions.push("(" + col + numericConditions[condition] + "?)");
 	                    var value = spec[condition];
-	                    invariant(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
+	                    verify_1.verify(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
 	                    values.push(value);
 	                    found = true;
 	                    break;
@@ -1335,7 +1120,7 @@ var updraft =
 	            }
 	            if (!found) {
 	                if (Mutate_1.hasOwnProperty.call(spec, inCondition)) {
-	                    invariant(spec[inCondition] instanceof Array, "must be an array: %s", JSON.stringify(spec[inCondition]));
+	                    verify_1.verify(spec[inCondition] instanceof Array, "must be an array: %s", spec[inCondition]);
 	                    conditions.push(col + " IN (" + spec[inCondition].map(function (x) { return "?"; }).join(", ") + ")");
 	                    values.push.apply(values, spec[inCondition]);
 	                    found = true;
@@ -1366,12 +1151,12 @@ var updraft =
 	                    else {
 	                        arg = arg + "%";
 	                    }
-	                    invariant(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
+	                    verify_1.verify(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
 	                    conditions.push("(" + col + " LIKE ?)");
 	                    values.push(arg);
 	                    found = true;
 	                }
-	                invariant(found, "unknown query condition for %s: %s", col, JSON.stringify(spec));
+	                verify_1.verify(found, "unknown query condition for %s: %s", col, spec);
 	            }
 	        }
 	        var columns = Object.keys(opts.fields || table.spec.columns);
@@ -1422,11 +1207,11 @@ var updraft =
 
 
 /***/ },
-/* 11 */
+/* 7 */
 /***/ function(module, exports, __webpack_require__) {
 
-	///<reference path="./Store"/>
-	var invariant = __webpack_require__(2);
+	"use strict";
+	var verify_1 = __webpack_require__(2);
 	(function (OrderBy) {
 	    OrderBy[OrderBy["ASC"] = 0] = "ASC";
 	    OrderBy[OrderBy["DESC"] = 1] = "DESC";
@@ -1438,7 +1223,7 @@ var updraft =
 	        this.key = tableKey(spec);
 	    }
 	    Table.prototype.keyValue = function (element) {
-	        invariant(this.key in element, "object does not have key field '%s' set: %s", this.key, element);
+	        verify_1.verify(this.key in element, "object does not have key field '%s' set: %s", this.key, element);
 	        return element[this.key];
 	    };
 	    return Table;
@@ -1448,20 +1233,20 @@ var updraft =
 	    var key = null;
 	    for (var name_1 in spec.columns) {
 	        var column = spec.columns[name_1];
-	        invariant(column, "column '%s' is not in %s", name_1, JSON.stringify(spec));
+	        verify_1.verify(column, "column '%s' is not in %s", name_1, spec);
 	        if (column.isKey) {
-	            invariant(!key, "Table %s has more than one key- %s and %s", spec.name, key, name_1);
+	            verify_1.verify(!key, "Table %s has more than one key- %s and %s", spec.name, key, name_1);
 	            key = name_1;
 	        }
 	    }
-	    invariant(key, "Table %s does not have a key", spec.name);
+	    verify_1.verify(key, "Table %s does not have a key", spec.name);
 	    return key;
 	}
 	exports.tableKey = tableKey;
 
 
 /***/ },
-/* 12 */
+/* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer) {var clone = (function() {
@@ -1625,10 +1410,10 @@ var updraft =
 	  module.exports = clone;
 	}
 	
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(13).Buffer))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(9).Buffer))
 
 /***/ },
-/* 13 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(Buffer, global) {/*!
@@ -1639,9 +1424,9 @@ var updraft =
 	 */
 	/* eslint-disable no-proto */
 	
-	var base64 = __webpack_require__(14)
-	var ieee754 = __webpack_require__(15)
-	var isArray = __webpack_require__(16)
+	var base64 = __webpack_require__(10)
+	var ieee754 = __webpack_require__(11)
+	var isArray = __webpack_require__(12)
 	
 	exports.Buffer = Buffer
 	exports.SlowBuffer = SlowBuffer
@@ -3176,10 +2961,10 @@ var updraft =
 	  return i
 	}
 	
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(13).Buffer, (function() { return this; }())))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(9).Buffer, (function() { return this; }())))
 
 /***/ },
-/* 14 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -3309,7 +3094,7 @@ var updraft =
 
 
 /***/ },
-/* 15 */
+/* 11 */
 /***/ function(module, exports) {
 
 	exports.read = function (buffer, offset, isLE, mLen, nBytes) {
@@ -3399,7 +3184,7 @@ var updraft =
 
 
 /***/ },
-/* 16 */
+/* 12 */
 /***/ function(module, exports) {
 
 	
@@ -3438,7 +3223,7 @@ var updraft =
 
 
 /***/ },
-/* 17 */
+/* 13 */
 /***/ function(module, exports) {
 
 	///<reference path="../typings/tsd.d.ts"/>
@@ -3541,7 +3326,7 @@ var updraft =
 
 
 /***/ },
-/* 18 */
+/* 14 */
 /***/ function(module, exports) {
 
 	///<reference path="./websql.d.ts"/>

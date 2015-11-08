@@ -17,9 +17,6 @@ interface InCondition<T> {
 	$in: T[];
 }
 
-export interface FieldSpec {
-	[fieldName: string]: boolean;
-}
 
 export type bool = boolean;
 export type num = number | NumericConditions | InCondition<number>;

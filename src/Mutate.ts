@@ -4,8 +4,8 @@
 ///<reference path="../typings/tsd.d.ts"/>
 "use strict";
 
-import assign = require("object-assign");
-import invariant = require("invariant");
+import { assign } from "./assign";
+import { verify } from "./verify";
 
 interface setter<T> {
 	$set: T;
@@ -141,15 +141,15 @@ let command = {
 };
 
 
-function invariantArrayCase(value: any, spec: any, c: string) {
-  invariant(
+function verifyArrayCase(value: any, spec: any, c: string) {
+  verify(
     Array.isArray(value),
     "mutate(): expected target of %s to be an array; got %s.",
     c,
     value
   );
   let specValue = spec[c];
-  invariant(
+  verify(
     Array.isArray(specValue),
     "mutate(): expected spec of %s to be an array; got %s. " +
     "Did you forget to wrap your parameter in an array?",
@@ -158,15 +158,15 @@ function invariantArrayCase(value: any, spec: any, c: string) {
   );
 }
 
-function invariantSetCase(value: any, spec: any, c: string) {
-  invariant(
+function verifySetCase(value: any, spec: any, c: string) {
+  verify(
     value instanceof Set,
     "mutate(): expected target of %s to be a set; got %s.",
     c,
     value
   );
   let specValue = spec[c];
-  invariant(
+  verify(
     Array.isArray(specValue),
     "mutate(): expected spec of %s to be an array; got %s. " +
     "Did you forget to wrap your parameter in an array?",
@@ -176,7 +176,7 @@ function invariantSetCase(value: any, spec: any, c: string) {
 }
 
 export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element {
-  invariant(
+  verify(
     typeof spec === "object",
     "mutate(): You provided a key path to mutate() that did not contain one " +
     "of %s. Did you forget to include {%s: ...}?",
@@ -184,7 +184,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
     command.set
   );
 
-	// invariant(
+	// verify(
 	// 	Object.keys(spec).reduce( function(previousValue: boolean, currentValue: string): boolean {
 	// 		return previousValue && (keyOf(spec[currentValue]) in command);
 	// 	}, true),
@@ -194,7 +194,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 	// );
 
   if (hasOwnProperty.call(spec, command.set)) {
-    invariant(
+    verify(
       Object.keys(spec).length === 1,
       "Cannot have more than one key in an object with %s",
       command.set
@@ -204,7 +204,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   }
 
 	if (hasOwnProperty.call(spec, command.increment)) {
-		invariant(
+		verify(
 			typeof(value) === "number" && typeof(spec[command.increment]) === "number",
 			"Source (%s) and argument (%s) to %s must be numbers",
 			value,
@@ -220,13 +220,13 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   if (hasOwnProperty.call(spec, command.merge)) {
     let mergeObj = spec[command.merge];
     let nextValue = <any>shallowCopy(value);
-    invariant(
+    verify(
       mergeObj && typeof mergeObj === "object",
       "mutate(): %s expects a spec of type 'object'; got %s",
       command.merge,
       mergeObj
     );
-    invariant(
+    verify(
       nextValue && typeof nextValue === "object",
       "mutate(): %s expects a target of type 'object'; got %s",
       command.merge,
@@ -238,7 +238,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 
   if (hasOwnProperty.call(spec, command.deleter) && (typeof value === "object") && !(value instanceof Set)) {
 		let key = spec[command.merge];
-    invariant(
+    verify(
       key && typeof key === "string",
       "mutate(): %s expects a spec of type 'string'; got %s",
       command.deleter,
@@ -255,7 +255,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 	}
 
   if (hasOwnProperty.call(spec, command.push)) {
-    invariantArrayCase(value, spec, command.push);
+    verifyArrayCase(value, spec, command.push);
     if (spec[command.push].length) {
       let nextValue: any[] = <any>shallowCopy(value);
       nextValue.push.apply(nextValue, spec[command.push]);
@@ -267,7 +267,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   }
 
   if (hasOwnProperty.call(spec, command.unshift)) {
-    invariantArrayCase(value, spec, command.unshift);
+    verifyArrayCase(value, spec, command.unshift);
     if (spec[command.unshift].length) {
       let nextValue: any[] = <any>shallowCopy(value);
       nextValue.unshift.apply(nextValue, spec[command.unshift]);
@@ -280,13 +280,13 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 
   if (hasOwnProperty.call(spec, command.splice)) {
     let nextValue: any = <any>shallowCopy(value);
-    invariant(
+    verify(
       Array.isArray(value),
       "Expected %s target to be an array; got %s",
       command.splice,
       value
     );
-    invariant(
+    verify(
       Array.isArray(spec[command.splice]),
       "mutate(): expected spec of %s to be an array of arrays; got %s. " +
       "Did you forget to wrap your parameters in an array?",
@@ -294,7 +294,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
       spec[command.splice]
     );
     spec[command.splice].forEach(function(args: any) {
-      invariant(
+      verify(
         Array.isArray(args),
         "mutate(): expected spec of %s to be an array of arrays; got %s. " +
         "Did you forget to wrap your parameters in an array?",
@@ -308,7 +308,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 
   if (hasOwnProperty.call(spec, command.add)) {
     let nextValue: Set<any> = <any>shallowCopy(value);
-    invariantSetCase(value, spec, command.add);
+    verifySetCase(value, spec, command.add);
     spec[command.add].forEach(function(item: any) {
       if (!nextValue.has(item)) {
         nextValue.add(item);
@@ -320,7 +320,7 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 
   if (hasOwnProperty.call(spec, command.deleter) && (value instanceof Set)) {
     let nextValue: Set<any> = <any>shallowCopy(value);
-    invariantSetCase(value, spec, command.deleter);
+    verifySetCase(value, spec, command.deleter);
     spec[command.deleter].forEach(function(item: any) {
       if (nextValue.delete(item)) {
         changed = true;

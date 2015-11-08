@@ -19,6 +19,7 @@
 				"!./node_modules/**/*.ts"
 		],
 		"files": [
+				"./src/assign.ts",
 				"./src/Column.ts",
 				"./src/Database.ts",
 				"./src/Mutate.ts",
@@ -28,6 +29,7 @@
 				"./src/Table.ts",
 				"./src/WebsqlWrapper.ts",
 				"./src/index.ts",
+				"./src/verify.ts",
 				"./src/websql.d.ts",
 				"./test/mutate.test.ts",
 				"./test/table.test.ts"

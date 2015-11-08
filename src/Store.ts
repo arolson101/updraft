@@ -4,7 +4,7 @@ import { hasOwnProperty, keyOf, mutate, isMutated } from "./Mutate";
 import { Column, ColumnType, ColumnSet } from "./Column";
 import { DbWrapper, DbTransaction } from "./Database";
 import { TableSpec, Table, TableChange, KeyType, FindOpts, OrderBy } from "./Table";
-import invariant = require("invariant");
+import { verify } from "./verify";
 import clone = require("clone");
 
 
@@ -65,7 +65,7 @@ export class Store {
 		this.params = params;
 		this.tables = [];
 		this.db = null;
-		invariant(this.params.db, "must pass a DbWrapper");
+		verify(this.params.db, "must pass a DbWrapper");
 	}
 
 	createTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query> {
@@ -81,7 +81,7 @@ export class Store {
 		function createInternalTableSpec(spec: TableSpecAny): TableSpecAny {
 			let newSpec = clone(spec);
 			for (let col in internalColumn) {
-				invariant(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
+				verify(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
 				newSpec.columns[col] = internalColumn[col];
 			}
 			buildIndices(newSpec);
@@ -101,10 +101,10 @@ export class Store {
 			return newSpec;
 		}
 
-		invariant(!this.db, "createTable() can only be added before open()");
-		invariant(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
+		verify(!this.db, "createTable() can only be added before open()");
+		verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
 		for (let col in tableSpec.columns) {
-			invariant(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
+			verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
 		}
 		let table = new Table<Element, Mutator, Query>(tableSpec);
 		table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.add(table, ...changes);
@@ -115,8 +115,8 @@ export class Store {
 	}
 
 	open(): Promise<any> {
-		invariant(!this.db, "open() called more than once!");
-		invariant(this.tables.length, "open() called before any tables were added");
+		verify(!this.db, "open() called more than once!");
+		verify(this.tables.length, "open() called before any tables were added");
 
 		this.db = this.params.db;
 
@@ -127,7 +127,7 @@ export class Store {
 	}
 
 	readSchema(): Promise<Schema> {
-		invariant(this.db, "readSchema(): not opened");
+		verify(this.db, "readSchema(): not opened");
 
 		function tableFromSql(name: string, sql: string): TableSpecAny {
 			let table = <TableSpecAny>{ name: name, columns: {}, indices: [], triggers: {} };
@@ -168,7 +168,7 @@ export class Store {
 		function indexFromSql(sql: string): string[] {
 			let regex = /\((.*)\)/;
 			let matches = regex.exec(sql);
-			invariant(matches, "bad format on index- couldn't determine column names from sql: %s", sql);
+			verify(matches, "bad format on index- couldn't determine column names from sql: %s", sql);
 			return matches[1].split(",").map((x: string) => x.trim());
 		}
 
@@ -186,8 +186,8 @@ export class Store {
 								let index = indexFromSql(row.sql);
 								if (index.length == 1) {
 									let col = index[0];
-									invariant(row.tbl_name in schema, "table %s used by index %s should have been returned first", row.tbl_name, row.name);
-									invariant(col in schema[row.tbl_name].columns, "table %s does not have column %s used by index %s", row.tbl_name, col, row.name);
+									verify(row.tbl_name in schema, "table %s used by index %s should have been returned first", row.tbl_name, row.name);
+									verify(col in schema[row.tbl_name].columns, "table %s does not have column %s used by index %s", row.tbl_name, col, row.name);
 									schema[row.tbl_name].columns[col].isIndex = true;
 								}
 								else {
@@ -208,7 +208,7 @@ export class Store {
 
 
 	private syncTables(schema: Schema): Promise<any> {
-		invariant(this.db, "syncTables(): not opened");
+		verify(this.db, "syncTables(): not opened");
 
 		return this.db.transaction((transaction: DbTransaction) => {
 			let p = Promise.resolve();
@@ -250,7 +250,7 @@ export class Store {
 					break;
 				}
 			}
-			invariant(pk.length, "table %s has no keys", name);
+			verify(pk.length, "table %s has no keys", name);
 			cols.push("PRIMARY KEY(" + pk.join(", ")  + ")");
 			return transaction.executeSql("CREATE " + (spec.temp ? "TEMP " : "") + "TABLE " + name + " (" + cols.join(", ") + ")");
 		}
@@ -462,7 +462,7 @@ export class Store {
 			return transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values);
 		}
 
-		invariant(this.db, "apply(): not opened");
+		verify(this.db, "apply(): not opened");
 		let changeTable = getChangeTableName(table.spec.name);
 
 		return this.db.transaction((transaction: DbTransaction): Promise<any> => {
@@ -470,7 +470,7 @@ export class Store {
 			let toResolve = new Set<KeyType>();
 			changes.forEach((change: TableChange<Element, Mutator>) => {
 				let time = change.time || Date.now();
-				invariant((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", JSON.stringify(change));
+				verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
 				if (change.save) {
 					let element = change.save;
 					let keyValue = table.keyValue(element);
@@ -531,7 +531,7 @@ export class Store {
 						if (baselineResults.length) {
 							baseline = <Element>baselineResults[0];
 							baseTime = baseline[internal_column_time];
-							invariant(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(", "));
+							verify(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(", "));
 							baseRowId = baseline[ROWID];
 						}
 						else {
@@ -618,7 +618,7 @@ export class Store {
 				if (hasOwnProperty.call(spec, condition)) {
 					conditions.push("(" + col + numericConditions[condition] + "?)");
 					let value = spec[condition];
-					invariant(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
+					verify(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
 					values.push(value);
 					found = true;
 					break;
@@ -627,7 +627,7 @@ export class Store {
 
 			if (!found) {
 				if (hasOwnProperty.call(spec, inCondition)) {
-					invariant(spec[inCondition] instanceof Array, "must be an array: %s", JSON.stringify(spec[inCondition]));
+					verify(spec[inCondition] instanceof Array, "must be an array: %s", spec[inCondition]);
 					conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
 					values.push(...spec[inCondition]);
 					found = true;
@@ -659,13 +659,13 @@ export class Store {
 					else {
 						arg = arg + "%";
 					}
-					invariant(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
+					verify(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
 					conditions.push("(" + col + " LIKE ?)");
 					values.push(arg);
 					found = true;
 				}
 
-				invariant(found, "unknown query condition for %s: %s", col, JSON.stringify(spec));
+				verify(found, "unknown query condition for %s: %s", col, spec);
 			}
 		}
 

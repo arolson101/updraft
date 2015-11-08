@@ -14,6 +14,10 @@ import OrderBy = Updraft.OrderBy;
 import mutate = Updraft.mutate;
 
 // TODO: object constructors
+// TODO: enums
+// TODO: refs
+// TODO: sets
+// TODO: lists
 // TODO: test indexes
 // TODO: code coverage
 // TODO: compile to dist folder

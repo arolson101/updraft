@@ -1,8 +1,6 @@
-///<reference path="./Store"/>
-
+"use strict";
 import { ColumnSet } from "./Column";
-import { FieldSpec } from "./Query";
-import invariant = require("invariant");
+import { verify } from "./verify";
 
 export type KeyType = string | number;
 
@@ -16,13 +14,13 @@ export interface TableChange<Element, Mutator> {
 export interface TableSpec<Element, Mutator, Query> {
 	name: string;
 	columns: ColumnSet;
-  renamedColumns?: RenamedColumnSet;
-  indices?: string[][];
-  temp?: boolean;
+	renamedColumns?: RenamedColumnSet;
+	indices?: string[][];
+	temp?: boolean;
 }
 
 export interface RenamedColumnSet {
-    [oldColumnName: string]: string;
+		[oldColumnName: string]: string;
 }
 
 export enum OrderBy {
@@ -32,6 +30,10 @@ export enum OrderBy {
 
 export interface OrderBySpec {
 	[name: string]: OrderBy;
+}
+
+export interface FieldSpec {
+	[fieldName: string]: boolean;
 }
 
 export interface FindOpts {
@@ -44,7 +46,7 @@ export interface FindOpts {
 
 export class Table<Element, Mutator, Query> {
 	spec: TableSpec<Element, Mutator, Query>;
-  key: KeyType;
+	key: KeyType;
 
 	constructor(spec: TableSpec<Element, Mutator, Query>) {
 		this.spec = spec;
@@ -52,7 +54,7 @@ export class Table<Element, Mutator, Query> {
 	}
 
 	keyValue(element: Element | Mutator): KeyType {
-		invariant(this.key in element, "object does not have key field '%s' set: %s", this.key, element);
+		verify(this.key in element, "object does not have key field '%s' set: %s", this.key, element);
 		return element[this.key];
 	}
 
@@ -65,13 +67,13 @@ export function tableKey(spec: TableSpec<any, any, any>): KeyType {
 	let key: KeyType = null;
 	for (let name in spec.columns) {
 		let column = spec.columns[name];
-		invariant(column, "column '%s' is not in %s", name, JSON.stringify(spec));
+		verify(column, "column '%s' is not in %s", name, spec);
 		if (column.isKey) {
-			invariant(!key, "Table %s has more than one key- %s and %s", spec.name, key, name);
+			verify(!key, "Table %s has more than one key- %s and %s", spec.name, key, name);
 			key = name;
 		}
 	}
 
-	invariant(key, "Table %s does not have a key", spec.name);
+	verify(key, "Table %s does not have a key", spec.name);
 	return key;
 }

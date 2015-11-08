@@ -39,14 +39,12 @@
 				switch (script) {
 					case "clone": return clone;
 					case "chai": return chai;
-					case "invariant": return invariant;
 					case "../src/index": return updraft;
 					default: console.error("unknown module: " + script);
 				}
 			}
 		</script>
 		<script src="../node_modules/clone/clone.js"></script>
-		<script src="../node_modules/invariant/browser.js"></script>
 		<script src="../dist/updraft.js"></script>
 
 
