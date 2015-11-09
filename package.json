@@ -31,6 +31,7 @@
     "chai-as-promised": "^4.1.1",
     "clone": "^1.0.2",
     "enum": "^2.0.2",
+    "es6-shim": "^0.33.10",
     "gulp": "^3.8.10",
     "gulp-concat": "^2.6.0",
     "gulp-config-sync": "0.0.1",

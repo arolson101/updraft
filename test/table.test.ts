@@ -33,7 +33,7 @@ interface Db {
 
 function createDb(inMemory: boolean, trace: boolean): Db {
 	if (typeof window != "undefined") {
-		let db = Updraft.wrapWebSql("testdb1", "1.0", "updraft test database", 5 * 1024 * 1024);
+		let db = Updraft.wrapWebSql("testdb", "1.0", "updraft test database", 5 * 1024 * 1024);
 		return {
 			db: db,
 			close: () => db.transaction((transaction: Updraft.DbTransaction) => {

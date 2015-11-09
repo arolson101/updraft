@@ -167,7 +167,7 @@ export class Column {
 		}
 
 		if ("defaultValue" in val) {
-			function escape(x: string | number | boolean): string {
+			let escape = function(x: string | number | boolean): string {
 				if (typeof x === "number") {
 					return <any>x;
 				}

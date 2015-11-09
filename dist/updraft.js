@@ -92,8 +92,8 @@ var updraft =
 	})(exports.ColumnType || (exports.ColumnType = {}));
 	var ColumnType = exports.ColumnType;
 	/**
-	 * Column in db.  Use static methods to create columns.
-	 */
+	* Column in db.  Use static methods to create columns.
+	*/
 	var Column = (function () {
 	    //public enum: EnumClass | TypeScriptEnum;
 	    function Column(type) {
@@ -226,7 +226,7 @@ var updraft =
 	                else {
 	                    verify_1.verify(false, "default value (%s) must be number or string", x);
 	                }
-	            }
+	            };
 	            stmt += " DEFAULT " + escape(val.defaultValue);
 	        }
 	        return stmt;
@@ -295,7 +295,7 @@ var updraft =
 	    return Column;
 	})();
 	exports.Column = Column;
-
+	//# sourceMappingURL=Column.js.map
 
 /***/ },
 /* 2 */
@@ -330,7 +330,7 @@ var updraft =
 	    }
 	}
 	exports.verify = verify;
-
+	//# sourceMappingURL=verify.js.map
 
 /***/ },
 /* 3 */
@@ -388,8 +388,8 @@ var updraft =
 	        var akeys = Object.keys(a);
 	        var bkeys = Object.keys(b);
 	        if (akeys.length == bkeys.length) {
-	            for (var _i = 0; _i < akeys.length; _i++) {
-	                var key = akeys[_i];
+	            for (var _i = 0, akeys_1 = akeys; _i < akeys_1.length; _i++) {
+	                var key = akeys_1[_i];
 	                if (!(key in b) || a[key] != b[key]) {
 	                    return false;
 	                }
@@ -542,7 +542,7 @@ var updraft =
 	    return a !== b;
 	}
 	exports.isMutated = isMutated;
-
+	//# sourceMappingURL=Mutate.js.map
 
 /***/ },
 /* 4 */
@@ -580,14 +580,14 @@ var updraft =
 	    return to;
 	};
 	exports.assign = ObjectAssign;
-
+	//# sourceMappingURL=assign.js.map
 
 /***/ },
 /* 5 */
 /***/ function(module, exports) {
 
 	"use strict";
-
+	//# sourceMappingURL=Query.js.map
 
 /***/ },
 /* 6 */
@@ -812,7 +812,7 @@ var updraft =
 	        }
 	        function createIndices(force) {
 	            if (force === void 0) { force = false; }
-	            function indicesEqual(a, b) {
+	            var indicesEqual = function (a, b) {
 	                if (a.length != b.length) {
 	                    return false;
 	                }
@@ -822,13 +822,13 @@ var updraft =
 	                    }
 	                }
 	                return true;
-	            }
+	            };
 	            var p = Promise.resolve();
 	            var oldIndices = (spec.name in schema) ? schema[spec.name].indices : [];
 	            var newIndices = spec.indices;
-	            function getIndexName(indices) {
+	            var getIndexName = function (indices) {
 	                return "index_" + spec.name + "__" + indices.join("_");
-	            }
+	            };
 	            oldIndices.forEach(function (value, i) {
 	                var drop = true;
 	                for (var j = 0; j < newIndices.length; j++) {
@@ -890,7 +890,7 @@ var updraft =
 	            }
 	            if (recreateTable) {
 	                // recreate and migrate data
-	                function copyData(oldName, newName) {
+	                var copyData = function (oldName, newName) {
 	                    var oldTableColumns = Object.keys(oldColumns).filter(function (col) { return (col in spec.columns) || (col in renamedColumns); });
 	                    var newTableColumns = oldTableColumns.map(function (col) { return (col in renamedColumns) ? renamedColumns[col] : col; });
 	                    var p2 = Promise.resolve();
@@ -900,8 +900,8 @@ var updraft =
 	                        p2 = transaction.executeSql(stmt);
 	                    }
 	                    return p2;
-	                }
-	                function migrateChangeTable(changeTableName) {
+	                };
+	                var migrateChangeTable = function (changeTableName) {
 	                    var deletedColumns = Object.keys(oldColumns).filter(function (col) { return !(col in spec.columns) && !(col in renamedColumns); });
 	                    var p2 = Promise.resolve();
 	                    if (spec.renamedColumns || deletedColumns) {
@@ -918,8 +918,8 @@ var updraft =
 	                                        changed = true;
 	                                    }
 	                                }
-	                                for (var _i = 0; _i < deletedColumns.length; _i++) {
-	                                    var oldCol = deletedColumns[_i];
+	                                for (var _i = 0, deletedColumns_1 = deletedColumns; _i < deletedColumns_1.length; _i++) {
+	                                    var oldCol = deletedColumns_1[_i];
 	                                    if (oldCol in change) {
 	                                        delete change[oldCol];
 	                                        changed = true;
@@ -940,10 +940,10 @@ var updraft =
 	                        });
 	                    }
 	                    return p2;
-	                }
-	                function renameTable(oldName, newName) {
+	                };
+	                var renameTable = function (oldName, newName) {
 	                    return transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName);
-	                }
+	                };
 	                var tempTableName = "temp_" + spec.name;
 	                var changeTableName = getChangeTableName(spec.name);
 	                if (tempTableName in schema) {
@@ -1187,7 +1187,7 @@ var updraft =
 	                        var row = rows[i];
 	                        for (var col in row) {
 	                            if (table.spec.columns[col].type == Column_1.ColumnType.bool) {
-	                                row[col] = (row[col] && row[col] != 'false') ? true : false;
+	                                row[col] = (row[col] && row[col] != "false") ? true : false;
 	                            }
 	                        }
 	                        // TODO: add constructable objects
@@ -1205,7 +1205,7 @@ var updraft =
 	    return new Store(params);
 	}
 	exports.createStore = createStore;
-
+	//# sourceMappingURL=Store.js.map
 
 /***/ },
 /* 7 */
@@ -1244,7 +1244,7 @@ var updraft =
 	    return key;
 	}
 	exports.tableKey = tableKey;
-
+	//# sourceMappingURL=Table.js.map
 
 /***/ },
 /* 8 */
@@ -1347,7 +1347,7 @@ var updraft =
 	    return new SQLiteWrapper(db);
 	}
 	exports.wrapSql = wrapSql;
-
+	//# sourceMappingURL=SqliteWrapper.js.map
 
 /***/ },
 /* 9 */
@@ -1441,7 +1441,7 @@ var updraft =
 	    return new WebsqlWrapper(name, version, displayName, estimatedSize);
 	}
 	exports.wrapWebsql = wrapWebsql;
-
+	//# sourceMappingURL=WebsqlWrapper.js.map
 
 /***/ }
 /******/ ]);

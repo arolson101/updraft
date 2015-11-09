@@ -3,14 +3,13 @@
 		"compilerOptions": {
 				"target": "es5",
 				"module": "commonjs",
-				"declaration": false,
 				"noImplicitAny": true,
 				"removeComments": false,
 				"noLib": false,
 				"preserveConstEnums": true,
 				"suppressImplicitAnyIndexErrors": true,
 				"sourceMap": false,
-				"inlineSourceMap": false,
+				"declaration": false,
 				"noEmit": true
 		},
 		"filesGlob": [
@@ -30,8 +29,6 @@
 				"./src/WebsqlWrapper.ts",
 				"./src/index.ts",
 				"./src/verify.ts",
-				"./src/websql.d.ts",
-				"./test/mutate.test.ts",
-				"./test/table.test.ts"
+				"./src/websql.d.ts"
 		]
 }

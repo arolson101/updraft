@@ -12,7 +12,7 @@ function startsWith(str: string, val: string) {
 }
 
 type TableSpecAny = TableSpec<any, any, any>;
-
+	
 export interface CreateStoreParams {
 	db: DbWrapper;
 }
@@ -260,7 +260,7 @@ export class Store {
 		}
 
 		function createIndices(force: boolean = false): Promise<any> {
-			function indicesEqual(a: string[], b: string[]) {
+			let indicesEqual = function(a: string[], b: string[]) {
 				if (a.length != b.length) {
 					return false;
 				}
@@ -275,7 +275,7 @@ export class Store {
 			let p = Promise.resolve();
 			let oldIndices = (spec.name in schema) ? schema[spec.name].indices : [];
 			let newIndices = spec.indices;
-			function getIndexName(indices: string[]): string {
+			let getIndexName = function(indices: string[]): string {
 					return "index_" + spec.name + "__" + indices.join("_");
 			}
 
@@ -352,7 +352,7 @@ export class Store {
 
 			if (recreateTable) {
 				// recreate and migrate data
-				function copyData(oldName: string, newName: string): Promise<any> {
+				let copyData = function(oldName: string, newName: string): Promise<any> {
 					let oldTableColumns = Object.keys(oldColumns).filter(col => (col in spec.columns) || (col in renamedColumns));
 					let newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
 					let p2 = Promise.resolve();
@@ -364,7 +364,7 @@ export class Store {
 					return p2;
 				}
 
-				function migrateChangeTable(changeTableName: string) {
+				let migrateChangeTable = function(changeTableName: string) {
 					let deletedColumns = Object.keys(oldColumns).filter(col => !(col in spec.columns) && !(col in renamedColumns));
 					let p2 = Promise.resolve();
 					if (spec.renamedColumns || deletedColumns) {
@@ -414,7 +414,7 @@ export class Store {
 					return p2;
 				}
 
-				function renameTable(oldName: string, newName: string): Promise<any> {
+				let renameTable = function(oldName: string, newName: string): Promise<any> {
 					return transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName);
 				}
 
