@@ -9,8 +9,9 @@
 				"preserveConstEnums": true,
 				"suppressImplicitAnyIndexErrors": true,
 				"sourceMap": false,
+				"inlineSourceMap": true,
 				"declaration": false,
-				"noEmit": true
+				"outDir": "generated"
 		},
 		"filesGlob": [
 				"./src/**/*.ts",
@@ -29,6 +30,8 @@
 				"./src/WebsqlWrapper.ts",
 				"./src/index.ts",
 				"./src/verify.ts",
-				"./src/websql.d.ts"
+				"./src/websql.d.ts",
+				"./test/mutate.test.ts",
+				"./test/table.test.ts"
 		]
 }

@@ -1,5 +1,6 @@
 "use strict";
 
+/* istanbul ignore next */
 function toObject(val: any) {
 	if (val === null || val === undefined) {
 		throw new TypeError("Object.assign cannot be called with null or undefined");
@@ -8,7 +9,7 @@ function toObject(val: any) {
 	return Object(val);
 }
 
-
+/* istanbul ignore next */
 let ObjectAssign = (<any>Object).assign || function (target: Object, source: Object) {
 	const hasOwnProperty = Object.prototype.hasOwnProperty;
 	const propIsEnumerable = Object.prototype.propertyIsEnumerable;

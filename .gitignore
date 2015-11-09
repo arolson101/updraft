@@ -1,4 +1,6 @@
 bower_components/
+coverage/
+generated/
 node_modules/
 temp/
 tmp/
