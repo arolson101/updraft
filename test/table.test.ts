@@ -13,14 +13,12 @@ import M = Updraft.Mutate;
 import OrderBy = Updraft.OrderBy;
 import mutate = Updraft.mutate;
 
-// TODO: object constructors
 // TODO: enums
 // TODO: refs
 // TODO: sets
 // TODO: lists
 // TODO: test indexes
 // TODO: code coverage
-// TODO: compile to dist folder
 // TODO: compile .d.ts
 // TODO: documentation
 
@@ -99,6 +97,7 @@ const todoTableExpectedSchema = {
 			text: Column.String(),
 
 			updraft_deleted: Column.Bool(),
+			updraft_composed: Column.Bool(),
 			updraft_time: Column.DateTime().Key(),
 			updraft_latest: Column.Bool()
 		}
@@ -172,7 +171,7 @@ function populateData(db: Updraft.DbWrapper, count: number) {
 
 describe("table", function() {
 	this.timeout(0);
-
+	
 	describe("schema migrations", function() {
 		function runMigration(newFields: {[name: string]: Column}, deletedFields: string[], rename: {[old: string]: string}, debug?: boolean) {
 			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clone(todoTableSpec);
@@ -227,8 +226,6 @@ describe("table", function() {
 			let store = Updraft.createStore({ db: w.db });
 			let todoTable: TodoTable = store.createTable(newSpec);
 
-			let close = () => w.close();
-
 			return Promise.resolve()
 				.then(() => populateData(w.db, dataCount))
 				.then(() => store.open())
@@ -236,10 +233,7 @@ describe("table", function() {
 				.then((schema) => expect(schema).to.deep.equal(newSchema))
 				.then(() => todoTable.find({}, {orderBy: {id: Updraft.OrderBy.ASC}}))
 				.then((data: any[]) => expect(data).to.deep.equal(newData))
-				.then(close, close)
-				.catch((err: Error) => {
-					console.log(err);
-				});
+				.then(() => w.close());
 		}
 
 		it("no change", function() {
@@ -249,7 +243,7 @@ describe("table", function() {
 		it("add columns (simple migration)", function() {
 			let newFields = {
 				newIntField: Column.Int().Default(10),
-				newTextField: Column.Text().Default("test single (') and double (\") and single double ('') quote marks")
+				newTextField: Column.Text().Default("test single (') and double (\") and double single ('') quote marks")
 			};
 			return runMigration(<any>newFields, null, null);
 		});
@@ -287,7 +281,6 @@ describe("table", function() {
 
 			let store = Updraft.createStore({ db: w.db });
 			todoTable = store.createTable(todoTableSpec);
-			let close = () => w.close();
 
 			return Promise.resolve()
 				.then(() => store.open())
@@ -300,7 +293,7 @@ describe("table", function() {
 				})
 				.then(() => todoTable.find({}))
 				.then((results) => expect(results).to.deep.equal([expectedResult]))
-				.then(close, close);
+				.then(() => w.close());
 		}
 
 		it("simple change progression", function() {
@@ -398,6 +391,47 @@ describe("table", function() {
 			];
 
 			return runChanges(changes, {id: 1, text: "modified at time 3", completed: true});
+		});
+		
+		it("constructors", function() {
+			class TodoClass implements Todo {
+				id: number;
+				completed: boolean;
+				text: string;
+				constructorCalled: boolean;
+				
+				constructor(props: Todo) {
+					this.id = props.id || 1;
+					this.completed = props.completed || false;
+					this.text = props.text || "";
+					this.constructorCalled = true;
+				}
+				
+				testFunction(): string {
+					return "success";
+				}
+			}
+			
+			let toSave = new TodoClass({});
+			expect(toSave.constructorCalled).to.be.true;
+
+			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clone(todoTableSpec);
+			newSpec.clazz = TodoClass;
+
+			let w = createDb(true, false);
+			let store = Updraft.createStore({ db: w.db });
+			let todoTable: TodoTable = store.createTable(newSpec);
+
+			return Promise.resolve()
+				.then(() => store.open())
+				.then(() => todoTable.add({save: toSave}))
+				.then(() => todoTable.find({}))
+				.then((data: TodoClass[]) => {
+					console.log(data[0].constructorCalled);
+					expect(data[0]).to.haveOwnProperty("constructorCalled");
+					expect(data[0]).to.deep.equal(toSave);
+				})
+				.then(() => w.close());
 		});
 	});
 

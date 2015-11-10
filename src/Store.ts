@@ -703,8 +703,8 @@ export class Store {
 								row[col] = (row[col] && row[col] != "false") ? true : false;
 							}
 						}
-						// TODO: add constructable objects
-						results.push(row);
+						let obj = (table.spec.clazz ? new table.spec.clazz(row) : row);
+						results.push(obj);
 					}
 					return Promise.resolve(results);
 				}

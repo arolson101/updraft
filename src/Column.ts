@@ -222,7 +222,7 @@ export class Column {
 			col.Default(val);
 		}
 		else {
-			match = text.match(/DEFAULT\s+(\w+)/i);
+			match = text.match(/DEFAULT\s+(\S+)/i);
 			if (match) {
 				let val: any = match[1];
 				let valnum = parseInt(val, 10);
