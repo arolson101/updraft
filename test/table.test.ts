@@ -1,11 +1,9 @@
 ///<reference path="../typings/tsd.d.ts"/>
 "use strict";
 
-import chai = require("chai");
+import { expect } from "chai";
 import clone = require("clone");
 import { Updraft } from "../src/index";
-
-let expect = chai.expect;
 
 import Column = Updraft.Column;
 import Q = Updraft.Query;
@@ -62,16 +60,17 @@ function createDb(inMemory: boolean, trace: boolean): Db {
 }
 
 
-interface _Todo<key, bool, str, strset> {
+interface _Todo<key, date, bool, str, strset> {
 	id?: key;
+	created?: date;
 	completed?: bool;
 	text?: str;
 }
 
-interface Todo extends _Todo<number, boolean, string, Set<string>> {}
-interface TodoMutator extends _Todo<number, M.bool, M.str, M.strSet> {}
-interface TodoQuery extends _Todo<Q.num, Q.bool, Q.str, Q.strSet> {}
-interface TodoFields extends _Todo<boolean, boolean, boolean, boolean> {}
+interface Todo extends _Todo<number, Date, boolean, string, Set<string>> {}
+interface TodoMutator extends _Todo<number, M.date, M.bool, M.str, M.strSet> {}
+interface TodoQuery extends _Todo<Q.num, Q.date, Q.bool, Q.str, Q.strSet> {}
+interface TodoFields extends _Todo<boolean, boolean, boolean, boolean, boolean> {}
 
 type TodoTable = Updraft.Table<Todo, TodoMutator, TodoQuery>;
 type TodoChange = Updraft.TableChange<Todo, TodoMutator>;
@@ -81,6 +80,7 @@ const todoTableSpec: TodoTableSpec = {
 	name: "todos",
 	columns: {
 		id: Column.Int().Key(),
+		created: Column.DateTime(),
 		completed: Column.Bool(),
 		text: Column.String(),
 	}
@@ -93,6 +93,7 @@ const todoTableExpectedSchema = {
 		triggers: {},
 		columns: {
 			id: Column.Int().Key(),
+			created: Column.DateTime(),
 			completed: Column.Bool(),
 			text: Column.String(),
 
@@ -121,6 +122,7 @@ function sampleTodos(count: number) {
 	for (let i = 0; i < count; i++) {
 		let todo = {
 			id: i,
+			created: new Date(2001, 2, 14, 12, 30),
 			completed: false,
 			text: "todo " + i
 		};
@@ -149,6 +151,7 @@ function sampleMutators(count: number) {
 
 		case 2:
 			m.completed = { $set: true };
+			m.created = { $set: new Date(2002, 1, 15, 15, 45) }
 			m.text = { $set: "modified " + i };
 			break;
 		}
@@ -302,6 +305,7 @@ describe("table", function() {
 					save: {
 						id: 1,
 						text: "base text",
+						created: undefined,
 						completed: false
 					},
 				},
@@ -314,6 +318,7 @@ describe("table", function() {
 				{ time: 3,
 					change: {
 						id: 1,
+						created: { $set: new Date(2005) },
 						text: { $set: "modified at time 3" }
 					}
 				},
@@ -325,7 +330,7 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {id: 1, text: "modified at time 3", completed: true});
+			return runChanges(changes, {id: 1, text: "modified at time 3", created: new Date(2005), completed: true});
 		});
 
 		it("multiple baselines", function() {
@@ -334,6 +339,7 @@ describe("table", function() {
 					save: {
 						id: 1,
 						text: "base text 1",
+						created: undefined,
 						completed: false
 					},
 				},
@@ -347,6 +353,7 @@ describe("table", function() {
 					save: {
 						id: 1,
 						text: "base text 2",
+						created: new Date(2005),
 						completed: false
 					},
 				},
@@ -358,7 +365,7 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {id: 1, text: "base text 2", completed: true});
+			return runChanges(changes, {id: 1, text: "base text 2", created: new Date(2005), completed: true});
 		});
 
 		it("out-of-order changes", function() {
@@ -367,18 +374,21 @@ describe("table", function() {
 					save: {
 						id: 1,
 						text: "base text",
-						completed: false
+						completed: false,
+						created: undefined
 					},
 				},
 				{ time: 4,
 					change: {
 						id: 1,
+						created: { $set: new Date(2005) },
 						completed: { $set: true }
 					}
 				},
 				{ time: 3,
 					change: {
 						id: 1,
+						created: { $set: new Date(2003) },
 						text: { $set: "modified at time 3" }
 					}
 				},
@@ -390,7 +400,7 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {id: 1, text: "modified at time 3", completed: true});
+			return runChanges(changes, {id: 1, text: "modified at time 3", created: new Date(2005), completed: true});
 		});
 		
 		it("constructors", function() {

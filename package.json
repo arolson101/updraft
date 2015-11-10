@@ -29,6 +29,7 @@
   "devDependencies": {
     "chai": "^1.10.0",
     "chai-as-promised": "^4.1.1",
+    "chai-datetime": "^1.4.0",
     "clone": "^1.0.2",
     "enum": "^2.0.2",
     "es6-shim": "^0.33.10",

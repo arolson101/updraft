@@ -1,9 +1,10 @@
 "use strict";
 
 import { hasOwnProperty, keyOf, mutate, isMutated, shallowCopy } from "./Mutate";
-import { Column, ColumnType, ColumnSet } from "./Column";
+import { Column, ColumnType, ColumnSet, Serializable } from "./Column";
 import { DbWrapper, DbTransaction } from "./Database";
 import { TableSpec, Table, TableChange, KeyType, FindOpts, OrderBy } from "./Table";
+import { toText, fromText } from "./Text";
 import { verify } from "./verify";
 
 
@@ -374,7 +375,7 @@ export class Store {
 								+ " FROM " + changeTableName,
 								[],
 								(selectChangeTransaction: DbTransaction, row: any) => {
-									let change = JSON.parse(row.change);
+									let change = fromText(row.change);
 									let changed = false;
 									for (let oldCol in spec.renamedColumns) {
 										let newCol = spec.renamedColumns[oldCol];
@@ -396,7 +397,7 @@ export class Store {
 												"UPDATE " + changeTableName
 												+ " SET change=?"
 												+ " WHERE " + ROWID + "=?",
-												[JSON.stringify(change), row[ROWID]]
+												[toText(change), row[ROWID]]
 											);
 										}
 										else {
@@ -475,7 +476,7 @@ export class Store {
 					let element = change.save;
 					let keyValue = table.keyValue(element);
 					let columns = Object.keys(element).filter(k => k in table.spec.columns);
-					let values: any[] = columns.map(k => element[k]);
+					let values: any[] = columns.map(col => serializeValue(table.spec, col, element[col]));
 
 					// append internal column values
 					columns = [internal_column_time, ...columns];
@@ -496,12 +497,12 @@ export class Store {
 						let mutator = shallowCopy(change.change);
 						changeRow.key = table.keyValue(mutator);
 						delete mutator[table.key];
-						changeRow.change = JSON.stringify(mutator);
+						changeRow.change = toText(mutator);
 					}
 					else {
 						// mark deleted
 						changeRow.key = change.delete;
-						changeRow.change = JSON.stringify(deleteRow_action);
+						changeRow.change = toText(deleteRow_action);
 					}
 
 					let columns = Object.keys(changeRow);
@@ -529,7 +530,7 @@ export class Store {
 						let baseTime = 0;
 						let baseRowId = -1;
 						if (baselineResults.length) {
-							baseline = <Element>baselineResults[0];
+							baseline = deserializeRow<Element>(table.spec, baselineResults[0]);
 							baseTime = baseline[internal_column_time];
 							verify(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(", "));
 							baseRowId = baseline[ROWID];
@@ -550,7 +551,7 @@ export class Store {
 								let p2 = Promise.resolve();
 								for (let i = 0; i < changeResults.length; i++) {
 									let row = <ChangeRow>changeResults[i];
-									let mutator = <Mutator>JSON.parse(row.change);
+									let mutator = <Mutator>fromText(row.change);
 									mutation = mutate(mutation, mutator);
 									mutationTime = Math.max(mutationTime, row.time);
 								}
@@ -578,7 +579,7 @@ export class Store {
 									mutation[internal_column_time] = mutationTime;
 									mutation[internal_column_composed] = true;
 									let columns = Object.keys(mutation).filter(key => (key in table.spec.columns) || (key in internalColumn));
-									let values = columns.map(col => mutation[col]);
+									let values = columns.map(col => serializeValue(table.spec, col, mutation[col]));
 									p2 = p2.then(() => insert(tx2, table.spec.name, columns, values));
 								}
 
@@ -697,12 +698,7 @@ export class Store {
 				else {
 					let results: Element[] = [];
 					for (let i = 0; i < rows.length; i++) {
-						let row = rows[i];
-						for (let col in row) {
-							if (table.spec.columns[col].type == ColumnType.bool) {
-								row[col] = (row[col] && row[col] != "false") ? true : false;
-							}
-						}
+						let row = deserializeRow<Element>(table.spec, rows[i]);
 						let obj = (table.spec.clazz ? new table.spec.clazz(row) : row);
 						results.push(obj);
 					}
@@ -711,7 +707,28 @@ export class Store {
 			});
 		});
 	}
+}
 
+
+function serializeValue(spec: TableSpecAny, col: string, value: any): Serializable {
+	if (col in spec.columns) {
+		return spec.columns[col].serialize(value);
+	}
+	return value;
+}
+
+
+function deserializeRow<T>(spec: TableSpecAny, row: any[]): T {
+	let ret: T = <any>{};
+	for (let col in row) {
+		if (col in spec.columns) {
+			ret[col] = spec.columns[col].deserialize(row[col]);
+		}
+		else {
+			ret[col] = row[col];
+		}
+	}
+	return ret;
 }
 
 

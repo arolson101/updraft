@@ -8,3 +8,4 @@
 /// <reference path="gulp-mocha/gulp-mocha.d.ts" />
 /// <reference path="es6-collections/es6-collections.d.ts" />
 /// <reference path="es6-promise/es6-promise.d.ts" />
+/// <reference path="chai-datetime/chai-datetime.d.ts" />

@@ -37,6 +37,9 @@
     },
     "gulp-mocha/gulp-mocha.d.ts": {
       "commit": "0dd29bf8253536ae24e61c109524e924ea510046"
+    },
+    "chai-datetime/chai-datetime.d.ts": {
+      "commit": "8c4ec896ab619e7cb6572f82423e6e1eece70f5a"
     }
   }
 }

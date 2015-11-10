@@ -2,15 +2,19 @@
 ///<reference path="../src/index"/>
 
 import clone = require("clone");
-import { expect } from "chai";
+import chai = require("chai");
 import { Updraft } from "../src/index";
+
+let expect = chai.expect;
+chai.use(require('chai-datetime'));
 
 import M = Updraft.Mutate;
 
-interface _Test<bool, str, num, obj, strArray, numArray, objArray, strSet> {
+interface _Test<bool, str, num, date, obj, strArray, numArray, objArray, strSet> {
 	myBool?: bool;
 	myString?: str;
 	myNumber?: num;
+	myDate?: date;
 	myObject?: obj;
 	myStrArray?: strArray;
 	myNumArray?: numArray;
@@ -18,8 +22,8 @@ interface _Test<bool, str, num, obj, strArray, numArray, objArray, strSet> {
 	myStrSet?: strSet;
 }
 
-interface Test extends _Test<boolean, string, number, Object, Array<string>, Array<number>, Array<Object>, Set<string>> {};
-interface TestMutator extends _Test<M.bool, M.str, M.num, M.obj, M.strArray, M.numArray, M.objArray, M.strSet> {};
+interface Test extends _Test<boolean, string, number, Date, Object, Array<string>, Array<number>, Array<Object>, Set<string>> {};
+interface TestMutator extends _Test<M.bool, M.str, M.num, M.date, M.obj, M.strArray, M.numArray, M.objArray, M.strSet> {};
 function mutate(value: Test, spec: TestMutator): Test { return Updraft.mutate<Test, TestMutator>(value, spec); }
 
 describe("mutate()", function() {
@@ -28,6 +32,7 @@ describe("mutate()", function() {
 			myBool: true,
 			myString: "my string",
 			myNumber: 123,
+			myDate: new Date(1995, 11, 17, 3, 24, 0),
 			myObject: { foo: "bar" },
 			myStrArray: ["a", "b", "c"],
 			myNumArray: [1, 2, 3],
@@ -43,6 +48,7 @@ describe("mutate()", function() {
 				myBool: {$set: false},
 				myString: {$set: "new string"},
 				myNumber: {$set: 234},
+				myDate: {$set: new Date(2001, 11, 1, 13, 30, 1)},
 				myObject: <any>{foo: {$set: "baz"}}, // TODO: revisit <any> cast
 				myStrArray: {$set: ["d"]},
 				myNumArray: {$set: [0]},
@@ -52,6 +58,8 @@ describe("mutate()", function() {
 			expect(mutated.myBool).to.equal(false);
 			expect(mutated.myString).to.equal("new string");
 			expect(mutated.myNumber).to.equal(234);
+			expect(mutated.myDate).to.equalTime(new Date(2001, 11, 1, 13, 30, 1));
+			expect(mutated.myDate).to.not.equalTime(new Date(2000, 1, 1));
 			expect(mutated.myObject).to.deep.equal({foo: "baz"});
 			expect(mutated.myStrArray).to.deep.equal(["d"]);
 			expect(mutated.myNumArray).to.deep.equal([0]);

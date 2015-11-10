@@ -1,5 +1,6 @@
 "use strict";
 
+import { toText, fromText } from "./Text";
 import { verify } from "./verify"; 
 
 
@@ -16,6 +17,8 @@ export enum ColumnType {
 	ptr,
 	set
 }
+
+export type Serializable = string | number;
 
 /**
  * Column in db.  Use static methods to create columns.
@@ -62,6 +65,50 @@ export class Column {
 		}
 		this.defaultValue = value;
 		return this;
+	}
+	
+	deserialize(value: Serializable): any {
+		switch (this.type) {
+			case ColumnType.int:
+			case ColumnType.real:
+			case ColumnType.text:
+				return value;
+
+			case ColumnType.bool:
+				return value ? true : false;
+
+			case ColumnType.json:
+				return fromText(<string>value);
+
+			case ColumnType.date:
+			case ColumnType.datetime:
+				return value ? new Date(parseFloat(<string>value) * 1000) : undefined;
+
+			default:
+				throw new Error("unsupported column type " + this.type);
+		}
+	}
+	
+	serialize(value: any): Serializable {
+		switch (this.type) {
+			case ColumnType.int:
+			case ColumnType.real:
+			case ColumnType.text:
+				return value;
+
+			case ColumnType.bool:
+				return value ? 1 : 0;
+
+			case ColumnType.json:
+				return toText(value);
+
+			case ColumnType.date:
+			case ColumnType.datetime:
+				return (value instanceof Date ? ((<Date>value).getTime() / 1000) : undefined);
+
+			default:
+				throw new Error("unsupported column type " + this.type);
+		}
 	}
 
 	/** create a column with "INTEGER" affinity */

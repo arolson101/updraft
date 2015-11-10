@@ -46,6 +46,7 @@ type primitive<T> =
 export type bool = primitive<boolean>;
 export type num = primitive<number> | increment;
 export type str = primitive<string>;
+export type date = setter<Date>;
 export type obj = primitive<Object> | merge<Object> | deleter<string>;
 
 type array<T> =
@@ -108,6 +109,9 @@ function shallowEqual<T>(a: T, b: T): boolean {
       return true;
     }
     return false;
+  }
+  else if (a instanceof Date && b instanceof Date) {
+    return (<Date><any>a).getTime() == (<Date><any>b).getTime();
   }
   else if (typeof a == "object" && typeof b == "object") {
     let akeys = Object.keys(a);
@@ -349,6 +353,5 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 
 
 export function isMutated<Element>(a: Element, b: Element): boolean {
-  // TODO: this isn"t right because mutate will always return a new object
   return a !== b;
 }
