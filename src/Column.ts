@@ -10,12 +10,26 @@ export enum ColumnType {
 	bool,
 	text,
 	blob,
-	// enum,
+	enum,
 	date,
 	datetime,
 	json,
 	ptr,
 	set
+}
+
+/** A typescript enum class will have string keys resolving to the enum values */
+export interface TypeScriptEnum {
+	[enumValue: number]: string;
+}
+
+export interface EnumValue {
+	toString(): string;
+}
+
+/** An enum class (e.g. (this one)[https://github.com/adrai/enum]) should provide a static method 'get' to resolve strings into enum values */
+export interface EnumClass {
+	get(value: string | number): EnumValue;
 }
 
 export type Serializable = string | number;
@@ -30,7 +44,7 @@ export class Column {
 	//public ref: ClassTemplate<any> /*| ColumnType*/; // TODO: add set(string|number|etc)
 	//public setTable: ClassTemplate<any>;
 	public defaultValue: number | boolean | string;
-	//public enum: EnumClass | TypeScriptEnum;
+	public enum: EnumClass | TypeScriptEnum;
 
 	constructor(type: ColumnType) {
 		this.type = type;
@@ -60,9 +74,6 @@ export class Column {
 		*/
 	// TODO
 	Default(value: number | boolean | string): Column {
-		if (this.type == ColumnType.bool) {
-			value = (value != false) ? 1 : 0;
-		}
 		this.defaultValue = value;
 		return this;
 	}
@@ -79,6 +90,13 @@ export class Column {
 
 			case ColumnType.json:
 				return fromText(<string>value);
+
+			case ColumnType.enum:
+				if (typeof (<EnumClass>this.enum).get === "function") {
+					return (<EnumClass>this.enum).get(value);
+				}
+				verify(value in this.enum, "enum value %s not in %s", value, this.enum);
+				return this.enum[value];
 
 			case ColumnType.date:
 			case ColumnType.datetime:
@@ -101,6 +119,17 @@ export class Column {
 
 			case ColumnType.json:
 				return toText(value);
+
+			case ColumnType.enum:
+				if (typeof value === "string" || typeof value === undefined || value === null) {
+					return value;
+				}
+				else if (typeof value === "number") {
+					verify(value in this.enum, "enum doesn't contain %s", value);
+					return (<TypeScriptEnum>this.enum)[value];
+				}
+				verify(typeof value.toString === "function", "expected an enum value supporting toString(); got %s", value);
+				return value.toString();
 
 			case ColumnType.date:
 			case ColumnType.datetime:
@@ -142,12 +171,12 @@ export class Column {
 		return c;
 	}
 
-	// /** a javascript object with instance method "toString" and class method "get" (e.g. {@link https://github.com/adrai/enum}). */
-	// static Enum(enum_: EnumClass | TypeScriptEnum): Column {
-	//   let c = new Column(ColumnType.enum);
-	//   c.enum = enum_;
-	//   return c;
-	// }
+	/** a typescript enum or javascript object with instance method "toString" and class method "get" (e.g. {@link https://github.com/adrai/enum}). */
+	static Enum(enum_: EnumClass | TypeScriptEnum): Column {
+	  let c = new Column(ColumnType.enum);
+	  c.enum = enum_;
+	  return c;
+	}
 
 	/** a javascript Date objct, stored in db as seconds since Unix epoch (time_t) [note: precision is seconds] */
 	static Date(): Column {
@@ -197,9 +226,9 @@ export class Column {
 			case ColumnType.json:
 				stmt = "CLOB";
 				break;
-			// case ColumnType.enum:
-			// 	stmt = "CHARACTER(20)";
-			// 	break;
+			case ColumnType.enum:
+				stmt = "CHARACTER(20)";
+				break;
 			case ColumnType.blob:
 				stmt = "BLOB";
 				break;
@@ -210,7 +239,7 @@ export class Column {
 				stmt = "DATETIME";
 				break;
 			default:
-				throw new Error("unsupported type");
+				throw new Error("unsupported type " + val.type);
 		}
 
 		if ("defaultValue" in val) {
@@ -224,8 +253,8 @@ export class Column {
 				else {
 					verify(false, "default value (%s) must be number or string", x);
 				}
-			}
-			stmt += " DEFAULT " + escape(val.defaultValue);
+			};
+			stmt += " DEFAULT " + escape(val.serialize(val.defaultValue));
 		}
 
 		return stmt;
@@ -250,9 +279,9 @@ export class Column {
 			case "CLOB":
 				col = Column.JSON();
 				break;
-			// case "CHARACTER(20)";
-			// 	col = Column.Enum()
-			// 	break;
+			case "CHARACTER(20)":
+				col = new Column(ColumnType.enum);
+				break;
 			case "DATE":
 				col = Column.Date();
 				break;

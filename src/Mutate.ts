@@ -40,7 +40,7 @@ interface deleter<T> {
 	$delete: T | Array<T>;
 }
 
-type primitive<T> =
+export type primitive<T> =
 	setter<T>;
 
 export type bool = primitive<boolean>;

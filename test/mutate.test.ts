@@ -4,9 +4,10 @@
 import clone = require("clone");
 import chai = require("chai");
 import { Updraft } from "../src/index";
+import chaiDateTime = require("chai-datetime");
 
 let expect = chai.expect;
-chai.use(require('chai-datetime'));
+chai.use(chaiDateTime);
 
 import M = Updraft.Mutate;
 

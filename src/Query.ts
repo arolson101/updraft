@@ -22,10 +22,10 @@ interface InCondition<T> {
 	$in: T[];
 }
 
-
+export type primitive<T> = T | InCondition<T>;
 export type bool = boolean;
-export type num = number | NumericConditions | InCondition<number>;
-export type str = string | RegExp | InCondition<string>;
-export type date = Date | DateConditions;
+export type num = primitive<number> | NumericConditions;
+export type str = primitive<string> | RegExp;
+export type date = primitive<Date> | DateConditions;
 export type set<T> = SetConditions<T>;
 export type strSet = set<string>;

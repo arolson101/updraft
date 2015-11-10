@@ -271,14 +271,14 @@ export class Store {
 					}
 				}
 				return true;
-			}
+			};
 
 			let p = Promise.resolve();
 			let oldIndices = (spec.name in schema) ? schema[spec.name].indices : [];
 			let newIndices = spec.indices;
 			let getIndexName = function(indices: string[]): string {
 					return "index_" + spec.name + "__" + indices.join("_");
-			}
+			};
 
 			oldIndices.forEach((value: string[], i: number) => {
 				let drop = true;
@@ -363,7 +363,7 @@ export class Store {
 						p2 = transaction.executeSql(stmt);
 					}
 					return p2;
-				}
+				};
 
 				let migrateChangeTable = function(changeTableName: string) {
 					let deletedColumns = Object.keys(oldColumns).filter(col => !(col in spec.columns) && !(col in renamedColumns));
@@ -413,11 +413,11 @@ export class Store {
 						});
 					}
 					return p2;
-				}
+				};
 
 				let renameTable = function(oldName: string, newName: string): Promise<any> {
 					return transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName);
-				}
+				};
 
 				let tempTableName = "temp_" + spec.name;
 				let changeTableName = getChangeTableName(spec.name);
@@ -612,6 +612,7 @@ export class Store {
 		conditions.push(internal_column_latest);
 
 		for (let col in query) {
+			verify(col in table.spec.columns, "attempting to query based on column '%s' not in schema (%s)", col, table.spec.columns);
 			let spec = query[col];
 			let found = false;
 
@@ -630,7 +631,9 @@ export class Store {
 				if (hasOwnProperty.call(spec, inCondition)) {
 					verify(spec[inCondition] instanceof Array, "must be an array: %s", spec[inCondition]);
 					conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
-					values.push(...spec[inCondition]);
+					let inValues: any[] = spec[inCondition];
+					inValues = inValues.map(val => table.spec.columns[col].serialize(val));
+					values.push(...inValues);
 					found = true;
 				}
 			}
@@ -721,7 +724,10 @@ function serializeValue(spec: TableSpecAny, col: string, value: any): Serializab
 function deserializeRow<T>(spec: TableSpecAny, row: any[]): T {
 	let ret: T = <any>{};
 	for (let col in row) {
-		if (col in spec.columns) {
+		if (row[col] == null) {
+			// don't add null/undefined entries
+		}
+		else if (col in spec.columns) {
 			ret[col] = spec.columns[col].deserialize(row[col]);
 		}
 		else {

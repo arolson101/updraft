@@ -11,7 +11,6 @@ import M = Updraft.Mutate;
 import OrderBy = Updraft.OrderBy;
 import mutate = Updraft.mutate;
 
-// TODO: enums
 // TODO: refs
 // TODO: sets
 // TODO: lists
@@ -59,18 +58,24 @@ function createDb(inMemory: boolean, trace: boolean): Db {
 	}
 }
 
+enum TodoStatus {
+	NotStarted,
+	InProgress,
+	Paused
+}
 
-interface _Todo<key, date, bool, str, strset> {
+interface _Todo<key, date, estatus, bool, str, strset> {
 	id?: key;
 	created?: date;
+	status?: estatus;
 	completed?: bool;
 	text?: str;
 }
 
-interface Todo extends _Todo<number, Date, boolean, string, Set<string>> {}
-interface TodoMutator extends _Todo<number, M.date, M.bool, M.str, M.strSet> {}
-interface TodoQuery extends _Todo<Q.num, Q.date, Q.bool, Q.str, Q.strSet> {}
-interface TodoFields extends _Todo<boolean, boolean, boolean, boolean, boolean> {}
+interface Todo extends _Todo<number, Date, TodoStatus, boolean, string, Set<string>> {}
+interface TodoMutator extends _Todo<number, M.date, M.primitive<TodoStatus>, M.bool, M.str, M.strSet> {}
+interface TodoQuery extends _Todo<Q.num, Q.date, Q.primitive<TodoStatus>, Q.bool, Q.str, Q.strSet> {}
+interface TodoFields extends _Todo<boolean, boolean, boolean, boolean, boolean, boolean> {}
 
 type TodoTable = Updraft.Table<Todo, TodoMutator, TodoQuery>;
 type TodoChange = Updraft.TableChange<Todo, TodoMutator>;
@@ -81,6 +86,7 @@ const todoTableSpec: TodoTableSpec = {
 	columns: {
 		id: Column.Int().Key(),
 		created: Column.DateTime(),
+		status: Column.Enum(TodoStatus),
 		completed: Column.Bool(),
 		text: Column.String(),
 	}
@@ -94,6 +100,7 @@ const todoTableExpectedSchema = {
 		columns: {
 			id: Column.Int().Key(),
 			created: Column.DateTime(),
+			status: new Column(Updraft.ColumnType.enum),
 			completed: Column.Bool(),
 			text: Column.String(),
 
@@ -123,6 +130,7 @@ function sampleTodos(count: number) {
 		let todo = {
 			id: i,
 			created: new Date(2001, 2, 14, 12, 30),
+			status: TodoStatus.NotStarted,
 			completed: false,
 			text: "todo " + i
 		};
@@ -140,7 +148,7 @@ function sampleMutators(count: number) {
 			id: i,
 		};
 
-		switch (i % 3) {
+		switch (i % 4) {
 		case 0:
 			m.completed = { $set: true };
 			break;
@@ -150,8 +158,13 @@ function sampleMutators(count: number) {
 			break;
 
 		case 2:
+			m.status = { $set: TodoStatus.InProgress };
+			break;
+
+		case 3:
 			m.completed = { $set: true };
-			m.created = { $set: new Date(2002, 1, 15, 15, 45) }
+			m.status = { $set: TodoStatus.Paused };
+			m.created = { $set: new Date(2002, 1, 15, 15, 45) };
 			m.text = { $set: "modified " + i };
 			break;
 		}
@@ -191,7 +204,14 @@ describe("table", function() {
 				for (let col in newFields) {
 					let colSpec: Column = newFields[col];
 					newSpec.columns[col] = colSpec;
-					newSchema.todos.columns[col] = colSpec;
+					newSchema.todos.columns[col] = clone(colSpec);
+					// enum info isn't stored in db, so make the comparison equivelant to what can be restored
+					if (colSpec.type == Updraft.ColumnType.enum) {
+						delete newSchema.todos.columns[col].enum;
+						if (colSpec.defaultValue) {
+							newSchema.todos.columns[col].defaultValue = colSpec.enum[<number>colSpec.defaultValue];
+						}
+					}
 					for (let i = 0; i < newData.length; i++) {
 						newData[i][col] = colSpec.defaultValue;
 					}
@@ -244,9 +264,15 @@ describe("table", function() {
 		});
 
 		it("add columns (simple migration)", function() {
+			enum NewEnum {
+				Value1,
+				Value2,
+				DefaultValue
+			}
 			let newFields = {
 				newIntField: Column.Int().Default(10),
-				newTextField: Column.Text().Default("test single (') and double (\") and double single ('') quote marks")
+				newTextField: Column.Text().Default("test single (') and double (\") and double single ('') quote marks"),
+				newEnumField: Column.Enum(NewEnum).Default(NewEnum.DefaultValue)
 			};
 			return runMigration(<any>newFields, null, null);
 		});
@@ -312,6 +338,7 @@ describe("table", function() {
 				{ time: 2,
 					change: {
 						id: 1,
+						status: { $set: TodoStatus.InProgress },
 						text: { $set: "modified at time 2" }
 					}
 				},
@@ -330,7 +357,13 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {id: 1, text: "modified at time 3", created: new Date(2005), completed: true});
+			return runChanges(changes, {
+				id: 1,
+				text: "modified at time 3",
+				created: new Date(2005),
+				status: TodoStatus.InProgress,
+				completed: true
+			});
 		});
 
 		it("multiple baselines", function() {
@@ -479,6 +512,7 @@ describe("table", function() {
 					.then(() => todoTable.find({completed: false}).then((results) => expect(results).to.deep.equal(todos)))
 					.then(() => todoTable.find({completed: true}).then((results) => expect(results).to.deep.equal([])))
 					.then(() => todoTable.find({id: 1}).then((results) => expect(results).to.deep.equal([todos[1]])))
+					.then(() => todoTable.find({status: {$in: [TodoStatus.NotStarted, TodoStatus.Paused]}}).then((results) => expect(results).to.deep.equal(todos)))
 					;
 			});
 
