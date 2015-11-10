@@ -427,7 +427,6 @@ describe("table", function() {
 				.then(() => todoTable.add({save: toSave}))
 				.then(() => todoTable.find({}))
 				.then((data: TodoClass[]) => {
-					console.log(data[0].constructorCalled);
 					expect(data[0]).to.haveOwnProperty("constructorCalled");
 					expect(data[0]).to.deep.equal(toSave);
 				})
@@ -466,10 +465,10 @@ describe("table", function() {
 
 			it("equality", function() {
 				return Promise.resolve()
-					//.then(() => todoTable.find({text: "todo 1"}).then((results) => expect(results).to.deep.equal([todos[1]])))
+					.then(() => todoTable.find({text: "todo 1"}).then((results) => expect(results).to.deep.equal([todos[1]])))
 					.then(() => todoTable.find({completed: false}).then((results) => expect(results).to.deep.equal(todos)))
-					// .then(() => todoTable.find({completed: true}).then((results) => expect(results).to.deep.equal([])))
-					// .then(() => todoTable.find({id: 1}).then((results) => expect(results).to.deep.equal([todos[1]])))
+					.then(() => todoTable.find({completed: true}).then((results) => expect(results).to.deep.equal([])))
+					.then(() => todoTable.find({id: 1}).then((results) => expect(results).to.deep.equal([todos[1]])))
 					;
 			});
 
