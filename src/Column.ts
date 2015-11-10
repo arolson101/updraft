@@ -14,7 +14,6 @@ export enum ColumnType {
 	date,
 	datetime,
 	json,
-	ptr,
 	set
 }
 
@@ -41,10 +40,10 @@ export class Column {
 	public isKey: boolean;
 	public isIndex: boolean;
 	public type: ColumnType;
-	//public ref: ClassTemplate<any> /*| ColumnType*/; // TODO: add set(string|number|etc)
 	//public setTable: ClassTemplate<any>;
 	public defaultValue: number | boolean | string;
 	public enum: EnumClass | TypeScriptEnum;
+	public elementType: ColumnType;
 
 	constructor(type: ColumnType) {
 		this.type = type;
@@ -103,7 +102,7 @@ export class Column {
 				return value ? new Date(parseFloat(<string>value) * 1000) : undefined;
 
 			default:
-				throw new Error("unsupported column type " + this.type);
+				throw new Error("unsupported column type " + ColumnType[this.type]);
 		}
 	}
 	
@@ -136,7 +135,7 @@ export class Column {
 				return (value instanceof Date ? ((<Date>value).getTime() / 1000) : undefined);
 
 			default:
-				throw new Error("unsupported column type " + this.type);
+				throw new Error("unsupported column type " + ColumnType[this.type]);
 		}
 	}
 
@@ -193,19 +192,12 @@ export class Column {
 		return new Column(ColumnType.json);
 	}
 
-	// /** points to an object in another table.  Its affinity will automatically be that table's key's affinity */
-	// static Ptr(ref: ClassTemplate<any>): Column {
-	//   let c = new Column(ColumnType.ptr);
-	//   c.ref = ref;
-	//   return c;
-	// }
-
-	// /** unordered collection */
-	// static Set(ref: ClassTemplate<any> /*| ColumnType*/): Column {
-	//   let c = new Column(ColumnType.set);
-	//   c.ref = ref;
-	//   return c;
-	// }
+	/** unordered collection */
+	static Set(type: ColumnType): Column {
+	  let c = new Column(ColumnType.set);
+	  c.elementType = type;
+	  return c;
+	}
 
 
 	static sql(val: Column): string {
@@ -239,7 +231,7 @@ export class Column {
 				stmt = "DATETIME";
 				break;
 			default:
-				throw new Error("unsupported type " + val.type);
+				throw new Error("unsupported type " + ColumnType[val.type]);
 		}
 
 		if ("defaultValue" in val) {
@@ -289,7 +281,7 @@ export class Column {
 				col = Column.DateTime();
 				break;
 			default:
-				throw new Error("unsupported type: " + parts[0]);
+				throw new Error("unsupported type: " + ColumnType[parts[0]]);
 		}
 
 		let match = text.match(/DEFAULT\s+'((?:[^']|'')*)'/i);

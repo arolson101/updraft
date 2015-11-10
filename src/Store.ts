@@ -55,6 +55,10 @@ function getChangeTableName(name: string): string {
 	return internal_prefix + "changes_" + name;
 }
 
+function getSetTableName(tableName: string, col: string): string {
+	return internal_prefix + "set_" + tableName + "_" + col;
+}
+
 
 export class Store {
 	private params: CreateStoreParams;
@@ -78,7 +82,7 @@ export class Store {
 			}
 		}
 
-		function createInternalTableSpec(spec: TableSpecAny): TableSpecAny {
+		function createInternalTableSpecs(spec: TableSpecAny): TableSpecAny[] {
 			let newSpec = shallowCopy(spec);
 			newSpec.columns = shallowCopy(spec.columns);
 			for (let col in internalColumn) {
@@ -86,7 +90,7 @@ export class Store {
 				newSpec.columns[col] = internalColumn[col];
 			}
 			buildIndices(newSpec);
-			return newSpec;
+			return [newSpec, ...createSetTableSpecs(newSpec)];
 		}
 
 		function createChangeTableSpec(spec: TableSpecAny): TableSpecAny {
@@ -101,6 +105,32 @@ export class Store {
 			buildIndices(newSpec);
 			return newSpec;
 		}
+		
+		function createSetTableSpecs(spec: TableSpecAny): TableSpecAny[] {
+			let newSpecs: TableSpecAny[] = [];
+			for (let col in spec.columns) {
+				let column = spec.columns[col];
+				if (column.type == ColumnType.set) {
+					let newSpec = <TableSpecAny>{
+						name: getSetTableName(spec.name, col),
+						columns: {
+							value: new Column(column.elementType).Key(),
+						}
+					};
+					
+					// reuse keys from table
+					for (let key in spec.columns) {
+						if (spec.columns[key].isKey) {
+							newSpec.columns[key] = shallowCopy(spec.columns[key]);
+						}
+					}
+					
+					buildIndices(newSpec);
+					newSpecs.push(newSpec);
+				}
+			}
+			return newSpecs;
+		}
 
 		verify(!this.db, "createTable() can only be added before open()");
 		verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
@@ -110,7 +140,7 @@ export class Store {
 		let table = new Table<Element, Mutator, Query>(tableSpec);
 		table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.add(table, ...changes);
 		table.find = (query: Query, opts?: FindOpts): Promise<Element[]> => this.find(table, query, opts);
-		this.tables.push(createInternalTableSpec(tableSpec));
+		this.tables.push(...createInternalTableSpecs(tableSpec));
 		this.tables.push(createChangeTableSpec(tableSpec));
 		return table;
 	}
@@ -230,25 +260,18 @@ export class Store {
 				let attrs: Column = spec.columns[col];
 				let decl: string;
 				switch (attrs.type) {
-					// case ColumnType.ptr:
-					//   console.assert(attrs.ref != null);
-					//   console.assert(attrs.ref.columns != null);
-					//   console.assert(attrs.ret.table.name != null);
-					//   console.assert(attrs.ref.key != null);
-					//   let foreignCol: Column = attrs.ref.columns[attrs.ref.key];
-					//   decl = col + " " + Column.sql(foreignCol);
-					//   cols.push(decl);
-					//   break;
-				// case ColumnType.set:
-				// 	break;
-
-				default:
-					decl = col + " " + Column.sql(attrs);
-					cols.push(decl);
-					if (attrs.isKey) {
-						pk.push(col);
-					}
-					break;
+					case ColumnType.set:
+						// ignore this column; values go into a separate table
+						verify(!attrs.isKey, "table %s cannot have a key on set column %s", spec.name, col);
+						break;
+	
+					default:
+						decl = col + " " + Column.sql(attrs);
+						cols.push(decl);
+						if (attrs.isKey) {
+							pk.push(col);
+						}
+						break;
 				}
 			}
 			verify(pk.length, "table %s has no keys", name);
@@ -342,9 +365,9 @@ export class Store {
 				}
 			}
 
-			let addedColumns: {[name: string]: Column} = {};
+			let addedColumns: ColumnSet = {};
 			if (!recreateTable) {
-				for (let colName in newColumns) {
+				for (let colName of selectableColumns(spec, newColumns)) {
 					if (!(colName in oldColumns)) {
 						addedColumns[colName] = newColumns[colName];
 					}
@@ -433,7 +456,7 @@ export class Store {
 				p = p.then(() => migrateChangeTable(changeTableName));
 				p = p.then(() => createIndices(true));
 			}
-			else if (addedColumns != {}) {
+			else if (Object.keys(addedColumns).length > 0) {
 				// alter table, add columns
 				Object.keys(addedColumns).forEach((colName) => {
 					let col: Column = spec.columns[colName];
@@ -475,7 +498,7 @@ export class Store {
 				if (change.save) {
 					let element = change.save;
 					let keyValue = table.keyValue(element);
-					let columns = Object.keys(element).filter(k => k in table.spec.columns);
+					let columns = selectableColumns(table.spec, element);
 					let values: any[] = columns.map(col => serializeValue(table.spec, col, element[col]));
 
 					// append internal column values
@@ -517,7 +540,7 @@ export class Store {
 
 			// these could be done in parallel
 			toResolve.forEach((keyValue: KeyType) => {
-				let baselineCols = [ROWID, internal_column_time, internal_column_deleted, ...Object.keys(table.spec.columns)];
+				let baselineCols = [ROWID, internal_column_time, internal_column_deleted, ...selectableColumns(table.spec, table.spec.columns)];
 				p1 = p1.then(() => transaction.executeSql(
 					"SELECT " + baselineCols.join(", ")
 					+ " FROM " + table.spec.name
@@ -611,7 +634,7 @@ export class Store {
 		conditions.push("NOT " + internal_column_deleted);
 		conditions.push(internal_column_latest);
 
-		for (let col in query) {
+		Object.keys(query).forEach((col: string) => {
 			verify(col in table.spec.columns, "attempting to query based on column '%s' not in schema (%s)", col, table.spec.columns);
 			let spec = query[col];
 			let found = false;
@@ -671,9 +694,9 @@ export class Store {
 
 				verify(found, "unknown query condition for %s: %s", col, spec);
 			}
-		}
+		});
 
-		let columns: string[] = Object.keys(opts.fields || table.spec.columns);
+		let columns: string[] = selectableColumns(table.spec, opts.fields || table.spec.columns);
 		let stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
 		stmt += " FROM " + table.spec.name;
 		stmt += " WHERE " + conditions.join(" AND ");
@@ -710,6 +733,11 @@ export class Store {
 			});
 		});
 	}
+}
+
+
+function selectableColumns(spec: TableSpecAny, cols: { [key: string]: any }): string[] {
+	return Object.keys(cols).filter(col => (col in spec.columns) && (spec.columns[col].type != ColumnType.set));
 }
 
 

@@ -6,12 +6,12 @@ import clone = require("clone");
 import { Updraft } from "../src/index";
 
 import Column = Updraft.Column;
+import ColumnType = Updraft.ColumnType;
 import Q = Updraft.Query;
 import M = Updraft.Mutate;
 import OrderBy = Updraft.OrderBy;
 import mutate = Updraft.mutate;
 
-// TODO: refs
 // TODO: sets
 // TODO: lists
 // TODO: test indexes
@@ -70,6 +70,7 @@ interface _Todo<key, date, estatus, bool, str, strset> {
 	status?: estatus;
 	completed?: bool;
 	text?: str;
+	tags?: strset;
 }
 
 interface Todo extends _Todo<number, Date, TodoStatus, boolean, string, Set<string>> {}
@@ -89,6 +90,7 @@ const todoTableSpec: TodoTableSpec = {
 		status: Column.Enum(TodoStatus),
 		completed: Column.Bool(),
 		text: Column.String(),
+		tags: Column.Set(ColumnType.text)
 	}
 };
 
@@ -100,7 +102,7 @@ const todoTableExpectedSchema = {
 		columns: {
 			id: Column.Int().Key(),
 			created: Column.DateTime(),
-			status: new Column(Updraft.ColumnType.enum),
+			status: new Column(ColumnType.enum),
 			completed: Column.Bool(),
 			text: Column.String(),
 
@@ -108,6 +110,18 @@ const todoTableExpectedSchema = {
 			updraft_composed: Column.Bool(),
 			updraft_time: Column.DateTime().Key(),
 			updraft_latest: Column.Bool()
+		}
+	},
+
+	updraft_set_todos_tags: {
+		name: "updraft_set_todos_tags",
+		indices: <string[]>[],
+		triggers: {},
+		columns: {
+			value: Column.Text().Key(),
+
+			id: Column.Int().Key(),
+			updraft_time: Column.DateTime().Key(),
 		}
 	},
 
@@ -206,11 +220,14 @@ describe("table", function() {
 					newSpec.columns[col] = colSpec;
 					newSchema.todos.columns[col] = clone(colSpec);
 					// enum info isn't stored in db, so make the comparison equivelant to what can be restored
-					if (colSpec.type == Updraft.ColumnType.enum) {
+					if (colSpec.type == ColumnType.enum) {
 						delete newSchema.todos.columns[col].enum;
 						if (colSpec.defaultValue) {
 							newSchema.todos.columns[col].defaultValue = colSpec.enum[<number>colSpec.defaultValue];
 						}
+					}
+					if (colSpec.type == ColumnType.set) {
+						delete newSchema.todos.columns[col].elementType;
 					}
 					for (let i = 0; i < newData.length; i++) {
 						newData[i][col] = colSpec.defaultValue;
@@ -471,6 +488,27 @@ describe("table", function() {
 				.then(() => todoTable.find({}))
 				.then((data: TodoClass[]) => {
 					expect(data[0]).to.haveOwnProperty("constructorCalled");
+					expect(data[0]).to.deep.equal(toSave);
+				})
+				.then(() => w.close());
+		});
+		
+		xit("sets", function() {
+			let toSave = <Todo>{
+				id: 1,
+				text: "todo 1",
+				tags: new Set<string>(['a', 'b', 'c'])
+			};
+			
+			let w = createDb(true, true);
+			let store = Updraft.createStore({ db: w.db });
+			let todoTable: TodoTable = store.createTable(todoTableSpec);
+
+			return Promise.resolve()
+				.then(() => store.open())
+				.then(() => todoTable.add({save: toSave}))
+				.then(() => todoTable.find({}))
+				.then((data: Todo[]) => {
 					expect(data[0]).to.deep.equal(toSave);
 				})
 				.then(() => w.close());
