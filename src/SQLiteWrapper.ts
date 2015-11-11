@@ -52,7 +52,7 @@ class SQLiteWrapper implements DbWrapper {
 	}
 
 	each(tx: DbTransaction, sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
-		let p = Promise.resolve();
+		let p: any = undefined;
 		return new Promise((resolve, reject) => {
 			this.db.each(sql, params, (err: Error, row: any) => {
 				if (err) {
@@ -61,7 +61,7 @@ class SQLiteWrapper implements DbWrapper {
 				}
 				else {
 					if (callback) {
-						p = p.then(() => callback(tx, row));
+						p = callback(tx, row);
 					}
 				}
 			},

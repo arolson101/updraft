@@ -5,6 +5,7 @@ import { Column, ColumnType, ColumnSet, Serializable } from "./Column";
 import { DbWrapper, DbTransaction } from "./Database";
 import { TableSpec, Table, TableChange, KeyType, FindOpts, OrderBy } from "./Table";
 import { toText, fromText } from "./Text";
+import { assign } from "./assign";
 import { verify } from "./verify";
 
 
@@ -481,11 +482,6 @@ export class Store {
 
 
 	add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
-		function insert(transaction: DbTransaction, tableName: string, columns: string[], values: any[]): Promise<any> {
-			let questionMarks = values.map(v => "?");
-			return transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values);
-		}
-
 		verify(this.db, "apply(): not opened");
 		let changeTable = getChangeTableName(table.spec.name);
 
@@ -496,17 +492,10 @@ export class Store {
 				let time = change.time || Date.now();
 				verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
 				if (change.save) {
-					let element = change.save;
-					let keyValue = table.keyValue(element);
-					let columns = selectableColumns(table.spec, element);
-					let values: any[] = columns.map(col => serializeValue(table.spec, col, element[col]));
-
 					// append internal column values
-					columns = [internal_column_time, ...columns];
-					values = [time, ...values];
-
-					p1 = p1.then(() => insert(transaction, table.spec.name, columns, values));
-					toResolve.add(keyValue);
+					let element = mutate(assign({}, change.save), {[internal_column_time]: {$set: time}});
+					p1 = p1.then(() => insertElement(transaction, table, element));
+					toResolve.add(table.keyValue(element));
 				}
 				else if (change.change || change.delete) {
 					// insert into change table
@@ -537,81 +526,11 @@ export class Store {
 					throw new Error("no operation specified for change- should be one of save, change, or delete");
 				}
 			});
-
-			// these could be done in parallel
+			
 			toResolve.forEach((keyValue: KeyType) => {
-				let baselineCols = [ROWID, internal_column_time, internal_column_deleted, ...selectableColumns(table.spec, table.spec.columns)];
-				p1 = p1.then(() => transaction.executeSql(
-					"SELECT " + baselineCols.join(", ")
-					+ " FROM " + table.spec.name
-					+ " WHERE " + table.key + "=?" + " AND " + internal_column_composed + "=0"
-					+ " ORDER BY " + internal_column_time + " DESC"
-					+ " LIMIT 1",
-					[keyValue],
-					(tx1: DbTransaction, baselineResults: any[]): Promise<any> => {
-						let baseline = <Element>{};
-						let baseTime = 0;
-						let baseRowId = -1;
-						if (baselineResults.length) {
-							baseline = deserializeRow<Element>(table.spec, baselineResults[0]);
-							baseTime = baseline[internal_column_time];
-							verify(ROWID in baseline, "object has no ROWID (%s) - it has [%s]", ROWID, Object.keys(baseline).join(", "));
-							baseRowId = baseline[ROWID];
-						}
-						else {
-							baseline[table.key] = keyValue;
-						}
-						let mutation = baseline;
-						let mutationTime = baseTime;
-
-						return tx1.executeSql(
-							"SELECT key, time, change"
-							+ " FROM " + changeTable
-							+ " WHERE key=? AND time>=?"
-							+ " ORDER BY time ASC",
-							[keyValue, baseTime],
-							(tx2: DbTransaction, changeResults: any[]): Promise<any> => {
-								let p2 = Promise.resolve();
-								for (let i = 0; i < changeResults.length; i++) {
-									let row = <ChangeRow>changeResults[i];
-									let mutator = <Mutator>fromText(row.change);
-									mutation = mutate(mutation, mutator);
-									mutationTime = Math.max(mutationTime, row.time);
-								}
-
-								if (baseRowId != -1 && !isMutated(mutation, baseline)) {
-									// mark it as latest (and others as not)
-									p2 = p2.then(() => tx2.executeSql(
-										"UPDATE " + table.spec.name
-										+ " SET " + internal_column_latest + "=(" + ROWID + "=" + baseRowId + ")"
-										+ " WHERE " + table.key + "=?",
-										[keyValue])
-									);
-								}
-								else {
-									// invalidate old latest rows
-									p2 = p2.then(() => tx2.executeSql(
-										"UPDATE " + table.spec.name
-										+ " SET " + internal_column_latest + "=0"
-										+ " WHERE " + table.key + "=?",
-										[keyValue])
-									);
-
-									// insert new latest row
-									mutation[internal_column_latest] = true;
-									mutation[internal_column_time] = mutationTime;
-									mutation[internal_column_composed] = true;
-									let columns = Object.keys(mutation).filter(key => (key in table.spec.columns) || (key in internalColumn));
-									let values = columns.map(col => serializeValue(table.spec, col, mutation[col]));
-									p2 = p2.then(() => insert(tx2, table.spec.name, columns, values));
-								}
-
-								return p2;
-							}
-						);
-					}
-				));
+				p1 = p1.then(() => resolve(transaction, table, keyValue));
 			});
+			
 			return p1;
 		});
 	}
@@ -735,9 +654,195 @@ export class Store {
 	}
 }
 
+function verifyGetValue(element: any, field: string | number): any {
+	verify(field in element, "element does not contain field %s: %s", field, element);
+	return element[field];
+}
+
+function insert(transaction: DbTransaction, tableName: string, columns: string[], values: any[]): Promise<any> {
+	let questionMarks = values.map(v => "?");
+	return transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values);
+}
+
+function insertElement<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: Element): Promise<any> {
+	let keyValue = table.keyValue(element);
+	let columns = selectableColumns(table.spec, element);
+	let values: any[] = columns.map(col => serializeValue(table.spec, col, element[col]));
+	let time = verifyGetValue(element, internal_column_time);
+	
+	let promises: Promise<any>[] = [];
+	promises.push(insert(transaction, table.spec.name, columns, values));
+	
+	// insert set values
+	Object.keys(table.spec.columns).forEach(function insertElementEachColumn(col: string) {
+		let column = table.spec.columns[col];
+		if (column.type == ColumnType.set && (col in element)) {
+			let set: Set<any> = element[col];
+			if (set.size) {
+				let serializer = new Column(column.elementType);
+				let keys = [internal_column_time, table.key, "value"];
+				var values: any[] = [];
+				var placeholders: string[] = [];
+				set.forEach((value: any) => {
+					placeholders.push("(?, ?, ?)");
+					values.push(time, table.keyValue(element), serializer.serialize(value));
+				});
+				let p = transaction.executeSql(
+					"INSERT INTO " + getSetTableName(table.spec.name, col)
+					+ " (" + keys.join(", ") + ")"
+					+ " VALUES " + placeholders.join(", ")
+					, values);
+				promises.push(p);
+			}
+		}
+	});
+	
+	return Promise.all(promises);
+}
+
+function resolve<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<any> {
+	return selectBaseline(transaction, table, keyValue).then(function resolveSelectBaselineCallback(baseline: BaselineInfo<Element>) {
+		return getChanges(transaction, table, baseline).then(function resolveGetChangesCallback(changes: ChangeRow[]) {
+			let mutation = applyChanges(baseline, changes);
+			let promises: Promise<any>[] = [];
+			if (!mutation.isChanged) {
+				// mark it as latest (and others as not)
+				return setLatest(transaction, table, keyValue, baseline.rowid);
+			}
+			else {
+				// invalidate old latest rows
+				// insert new latest row
+				let element = mutate(mutation.element, {
+					[internal_column_latest]: {$set: true},
+					[internal_column_time]: {$set: mutation.time},
+					[internal_column_composed]: {$set: true}
+				});
+				
+				return Promise.resolve()
+					.then(() => invalidateLatest(transaction, table, keyValue))
+					.then(() => insertElement(transaction, table, element));
+			}
+		});
+	});
+}
+
+interface BaselineInfo<Element> {
+	element: Element;
+	time: number;
+	rowid: number;
+}
+
+function selectBaseline<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<BaselineInfo<Element>> {
+	let baselineCols = [
+		ROWID,
+		internal_column_time,
+		internal_column_deleted,
+		...selectableColumns(table.spec, table.spec.columns)
+	];
+
+	return transaction.executeSql(
+		"SELECT " + baselineCols.join(", ")
+		+ " FROM " + table.spec.name
+		+ " WHERE " + table.key + "=?" + " AND " + internal_column_composed + "=0"
+		+ " ORDER BY " + internal_column_time + " DESC"
+		+ " LIMIT 1",
+		[keyValue],
+		function selectBaselineCallback(tx1: DbTransaction, baselineResults: any[]): Promise<BaselineInfo<Element>> {
+			let baseline: BaselineInfo<Element> = {
+				element: <Element>{},
+				time: 0,
+				rowid: -1
+			};
+			let p = Promise.resolve();
+			if (baselineResults.length) {
+				let element = deserializeRow<Element>(table.spec, baselineResults[0]);
+				baseline.element = element;
+				baseline.time = verifyGetValue(baselineResults[0], internal_column_time);
+				baseline.rowid = verifyGetValue(baselineResults[0], ROWID);
+				p = p.then(() => loadExternals(transaction, table, element));
+			}
+			else {
+				baseline.element[table.key] = keyValue;
+			}
+			
+			return p.then(() => baseline);
+		}
+	);
+}
+
+function loadExternals<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: any): Promise<any> {
+	let promises: Promise<any>[] = [];
+	Object.keys(table.spec.columns).forEach(function loadExternalsForEach(col: string) {
+		let column = table.spec.columns[col];
+		if (column.type == ColumnType.set) {
+			let columnDeserializer = new Column(column.elementType);
+			let set: Set<any> = element[col] = element[col] || new Set<any>();
+			let keyValue = verifyGetValue(element, table.key);
+			let time = verifyGetValue(element, internal_column_time);
+			let p = transaction.executeSql(
+				"SELECT value "
+				+ "FROM " + getSetTableName(table.spec.name, col)
+				+ " WHERE " + table.key + "=?"
+				+ " AND " + internal_column_time + "=?",
+				[keyValue, time],
+				function loadExternalsSqlCallback(transaction: DbTransaction, results: any[]) {
+					for (let row of results) {
+						set.add(columnDeserializer.deserialize(row.value));
+					}
+				});
+			promises.push(p);
+		}
+	});
+	return Promise.all(promises);
+}
+
+function getChanges<Element>(transaction: DbTransaction, table: Table<Element, any, any>, baseline: BaselineInfo<Element>): Promise<ChangeRow[]> {
+	let keyValue = verifyGetValue(baseline.element, table.key);
+	return transaction.executeSql(
+		"SELECT key, time, change"
+		+ " FROM " + getChangeTableName(table.spec.name)
+		+ " WHERE key=? AND time>=?"
+		+ " ORDER BY time ASC",
+		[keyValue, baseline.time]);
+}
+
+interface MutationResult<Element> {
+	element: Element;
+	time: number;
+	isChanged: boolean;
+}
+
+function applyChanges<Element, Mutator>(baseline: BaselineInfo<Element>, changes: ChangeRow[]): MutationResult<Element> {
+	let element: Element = baseline.element;
+	let time = baseline.time;
+	for (let i = 0; i < changes.length; i++) {
+		let row = changes[i];
+		let mutator = <Mutator>fromText(row.change);
+		element = mutate(element, mutator);
+		time = Math.max(time, row.time);
+	}
+	let isChanged = isMutated(baseline.element, element) || baseline.rowid == -1;
+	return { element, time, isChanged };
+}
+
+function setLatest<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, rowid: number): Promise<any> {
+	return transaction.executeSql(
+	"UPDATE " + table.spec.name
+	+ " SET " + internal_column_latest + "=(" + ROWID + "=" + rowid + ")"
+	+ " WHERE " + table.key + "=?",
+	[keyValue]);
+}
+
+function invalidateLatest<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<any> {
+	return transaction.executeSql(
+		"UPDATE " + table.spec.name
+		+ " SET " + internal_column_latest + "=0"
+		+ " WHERE " + table.key + "=?",
+	[keyValue]);
+}
 
 function selectableColumns(spec: TableSpecAny, cols: { [key: string]: any }): string[] {
-	return Object.keys(cols).filter(col => (col in spec.columns) && (spec.columns[col].type != ColumnType.set));
+	return Object.keys(cols).filter(col => (col in internalColumn) || ((col in spec.columns) && (spec.columns[col].type != ColumnType.set)));
 }
 
 

@@ -12,8 +12,8 @@ import M = Updraft.Mutate;
 import OrderBy = Updraft.OrderBy;
 import mutate = Updraft.mutate;
 
-// TODO: sets
 // TODO: lists
+// TODO: test deletes
 // TODO: test indexes
 // TODO: code coverage
 // TODO: compile .d.ts
@@ -497,6 +497,7 @@ describe("table", function() {
 			let toSave = <Todo>{
 				id: 1,
 				text: "todo 1",
+				completed: false,
 				tags: new Set<string>(['a', 'b', 'c'])
 			};
 			
@@ -506,7 +507,7 @@ describe("table", function() {
 
 			return Promise.resolve()
 				.then(() => store.open())
-				.then(() => todoTable.add({save: toSave}))
+				.then(() => todoTable.add({time: 1, save: toSave}))
 				.then(() => todoTable.find({}))
 				.then((data: Todo[]) => {
 					expect(data[0]).to.deep.equal(toSave);
