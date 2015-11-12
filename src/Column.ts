@@ -99,7 +99,7 @@ export class Column {
 
 			case ColumnType.date:
 			case ColumnType.datetime:
-				verify(parseFloat(<string>value) == value, "expected date to be stored as a number: %s", value);
+				verify(!value || parseFloat(<string>value) == value, "expected date to be stored as a number: %s", value);
 				return value ? new Date(parseFloat(<string>value) * 1000) : undefined;
 
 			default:
@@ -134,7 +134,7 @@ export class Column {
 			case ColumnType.date:
 			case ColumnType.datetime:
 				verify(value == undefined || value instanceof Date, "expected a date, got %s", value);
-				let date = (value == undefined) ? undefined : ((<Date>value).getTime() / 1000);
+				let date = (value == undefined) ? null : ((<Date>value).getTime() / 1000);
 				return date;
 
 			default:
@@ -210,7 +210,7 @@ export class Column {
 				stmt = "INTEGER";
 				break;
 			case ColumnType.bool:
-				stmt = "BOOLEAN";
+				stmt = "BOOLEAN NOT NULL";
 				break;
 			case ColumnType.real:
 				stmt = "REAL";

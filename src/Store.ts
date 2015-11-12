@@ -674,7 +674,7 @@ function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Eleme
 
 		if (!found) {
 			if (column.type == ColumnType.bool) {
-				conditions.push((spec ? "" : "NOT ") + col);
+				conditions.push(col + (spec ? "!=0" : "=0"));
 				found = true;
 			}
 			else if (typeof spec === "number" || typeof spec === "string") {
