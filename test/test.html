@@ -25,6 +25,7 @@
 		<script src="../node_modules/lie/dist/lie.js"></script>
 		<script src="../node_modules/mocha/mocha.js"></script>
 		<script src="../node_modules/chai/chai.js"></script>
+		<script src="../node_modules/chai-datetime/chai-datetime.js"></script>
 		<script src="../node_modules/chai-as-promised/lib/chai-as-promised.js"></script>
 		<script>
 			mocha.setup('bdd');
@@ -40,6 +41,7 @@
 				switch (script) {
 					case "clone": return clone;
 					case "chai": return chai;
+					case "chai-datetime": return function() {};
 					case "../src/index": return updraft;
 					default: console.error("unknown module: " + script);
 				}

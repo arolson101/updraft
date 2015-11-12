@@ -7,19 +7,38 @@ interface WebsqlTransaction extends DbTransaction {
 	realTransaction: SQLTransaction;
 }
 
+
 class WebsqlWrapper implements DbWrapper {
 	db: Database;
+	traceCallback: (trace: string) => any;
 
-	constructor(name: string, version?: string, displayName?: string, estimatedSize?: number) {
+	constructor(name: string, version?: string, displayName?: string, estimatedSize?: number, traceCallback?: (trace: string) => any) {
 		version = version || "1.0";
 		displayName = displayName || name;
 		estimatedSize = estimatedSize || 5 * 1024 * 1024;
 
 		this.db = window.openDatabase(name, version, displayName, estimatedSize);
+		this.traceCallback = traceCallback;
+	}
+	
+	trace(sql: string, params?: (string | number)[]) {
+		if (this.traceCallback) {
+			let idx: number = 0;
+			let escapedString = sql.replace(/\?/g, () => {
+				let x = params[idx++];
+				if (typeof x == "number") {
+					return <string>x;
+				} else {
+					return "'" + x + "'";
+				}
+			});
+			this.traceCallback(escapedString);
+		}
 	}
 
 	all(tx: WebsqlTransaction, sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
+			this.trace(sql, params);
 			tx.realTransaction.executeSql(sql, params,
 				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
 					let results: any[] = [];
@@ -46,6 +65,7 @@ class WebsqlWrapper implements DbWrapper {
 
 	each(tx: WebsqlTransaction, sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
 		return new Promise((resolve, reject) => {
+			this.trace(sql, params);
 			tx.realTransaction.executeSql(sql, params,
 				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
 					let p = Promise.resolve();
@@ -102,6 +122,6 @@ class WebsqlWrapper implements DbWrapper {
 }
 
 
-export function wrapWebsql(name: string, version?: string, displayName?: string, estimatedSize?: number): DbWrapper {
-		return new WebsqlWrapper(name, version, displayName, estimatedSize);
+export function wrapWebsql(name: string, version?: string, displayName?: string, estimatedSize?: number, traceCallback?: (trace: string) => any): DbWrapper {
+		return new WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback);
 }
