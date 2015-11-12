@@ -663,7 +663,7 @@ function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Eleme
 
 		if (!found) {
 			if (hasOwnProperty.call(spec, inCondition)) {
-				verify(spec[inCondition] instanceof Array, "must be an array: %s", spec[inCondition]);
+				verify(Array.isArray(spec[inCondition]), "must be an array: %s", spec[inCondition]);
 				conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
 				let inValues: any[] = spec[inCondition];
 				inValues = inValues.map(val => column.serialize(val));
@@ -759,7 +759,7 @@ function selectBaseline<Element, Query>(transaction: DbTransaction, table: Table
 		[internal_column_time]: true,
 		[internal_column_deleted]: true,
 	};
-	selectableColumns(table.spec, table.spec.columns).forEach(col => fieldSpec[col] = true);
+	Object.keys(table.spec.columns).forEach(col => fieldSpec[col] = true);
 
 	let query = <Query>{
 		[table.key]: keyValue,
@@ -813,7 +813,8 @@ function loadExternals<Element>(transaction: DbTransaction, table: Table<Element
 						for (let row of results) {
 							set.add(columnDeserializer.deserialize(row.value));
 						}
-					});
+					}
+				);
 				promises.push(p);
 			}
 		}

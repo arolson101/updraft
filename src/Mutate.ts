@@ -33,11 +33,11 @@ interface merge<T> {
 }
 
 interface add<T> {
-	$add: T | Array<T>;
+	$add: Array<T>;
 }
 
 interface deleter<T> {
-	$delete: T | Array<T>;
+	$delete: Array<T>;
 }
 
 export type primitive<T> =
@@ -311,8 +311,8 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
   }
 
   if (hasOwnProperty.call(spec, command.add)) {
-    let nextValue: Set<any> = <any>shallowCopy(value);
-    verifySetCase(value, spec, command.add);
+    let nextValue: Set<any> = <any>shallowCopy(value) || new Set<any>();
+    verifySetCase(nextValue, spec, command.add);
     spec[command.add].forEach(function(item: any) {
       if (!nextValue.has(item)) {
         nextValue.add(item);

@@ -360,14 +360,16 @@ describe("table", function() {
 						id: 1,
 						text: "base text",
 						created: undefined,
-						completed: false
+						completed: false,
+						tags: new Set<string>()
 					},
 				},
 				{ time: 2,
 					change: {
 						id: 1,
 						status: { $set: TodoStatus.InProgress },
-						text: { $set: "modified at time 2" }
+						text: { $set: "modified at time 2" },
+						tags: { $add: ["asdf"] }
 					}
 				},
 				{ time: 3,
@@ -391,7 +393,7 @@ describe("table", function() {
 				created: new Date(2005),
 				status: TodoStatus.InProgress,
 				completed: true,
-				tags: new Set<string>()
+				tags: new Set<string>(["asdf"])
 			});
 		});
 
