@@ -89,7 +89,7 @@ const todoTableSpec: TodoTableSpec = {
 		id: Column.Int().Key(),
 		created: Column.DateTime(),
 		status: Column.Enum(TodoStatus),
-		completed: Column.Bool(),
+		completed: Column.Bool().Index(),
 		text: Column.String(),
 		tags: Column.Set(ColumnType.text)
 	}
@@ -104,7 +104,7 @@ const todoTableExpectedSchema = {
 			id: Column.Int().Key(),
 			created: Column.DateTime(),
 			status: new Column(ColumnType.enum),
-			completed: Column.Bool(),
+			completed: Column.Bool().Index(),
 			text: Column.String(),
 
 			updraft_deleted: Column.Bool(),
@@ -146,6 +146,7 @@ function sampleTodos(count: number) {
 			created: new Date(2001, 2, 14, 12, 30),
 			status: TodoStatus.NotStarted,
 			completed: false,
+			tags: new Set<string>(),
 			text: "todo " + i
 		};
 		todos.push(todo);
@@ -217,6 +218,7 @@ describe("table", function() {
 			if (newFields) {
 				for (let col in newFields) {
 					let colSpec: Column = newFields[col];
+					let existed = col in newSpec.columns; 
 					newSpec.columns[col] = colSpec;
 					newSchema.todos.columns[col] = clone(colSpec);
 					// enum info isn't stored in db, so make the comparison equivelant to what can be restored
@@ -229,8 +231,10 @@ describe("table", function() {
 					if (colSpec.type == ColumnType.set) {
 						delete newSchema.todos.columns[col].elementType;
 					}
-					for (let i = 0; i < newData.length; i++) {
-						newData[i][col] = colSpec.defaultValue;
+					if (!existed) {
+						for (let i = 0; i < newData.length; i++) {
+							newData[i][col] = colSpec.defaultValue;
+						}
 					}
 				}
 			}
@@ -290,6 +294,13 @@ describe("table", function() {
 				newIntField: Column.Int().Default(10),
 				newTextField: Column.Text().Default("test single (') and double (\") and double single ('') quote marks"),
 				newEnumField: Column.Enum(NewEnum).Default(NewEnum.DefaultValue)
+			};
+			return runMigration(<any>newFields, null, null);
+		});
+
+		it("change column default", function() {
+			let newFields = {
+				completed: Column.Bool().Default(true),
 			};
 			return runMigration(<any>newFields, null, null);
 		});
@@ -379,7 +390,8 @@ describe("table", function() {
 				text: "modified at time 3",
 				created: new Date(2005),
 				status: TodoStatus.InProgress,
-				completed: true
+				completed: true,
+				tags: new Set<string>()
 			});
 		});
 
@@ -415,7 +427,13 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {id: 1, text: "base text 2", created: new Date(2005), completed: true});
+			return runChanges(changes, {
+				id: 1,
+				text: "base text 2",
+				created: new Date(2005),
+				completed: true,
+				tags: new Set<string>()
+			});
 		});
 
 		it("out-of-order changes", function() {
@@ -450,7 +468,13 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {id: 1, text: "modified at time 3", created: new Date(2005), completed: true});
+			return runChanges(changes, {
+				id: 1,
+				text: "modified at time 3",
+				created: new Date(2005),
+				completed: true,
+				tags: new Set<string>()
+			});
 		});
 		
 		it("constructors", function() {
@@ -458,12 +482,14 @@ describe("table", function() {
 				id: number;
 				completed: boolean;
 				text: string;
+				tags: Set<string>;
 				constructorCalled: boolean;
 				
 				constructor(props: Todo) {
 					this.id = props.id || 1;
 					this.completed = props.completed || false;
 					this.text = props.text || "";
+					this.tags = props.tags || new Set<string>();
 					this.constructorCalled = true;
 				}
 				
@@ -493,7 +519,7 @@ describe("table", function() {
 				.then(() => w.close());
 		});
 		
-		xit("sets", function() {
+		it("sets", function() {
 			let toSave = <Todo>{
 				id: 1,
 				text: "todo 1",
@@ -501,7 +527,7 @@ describe("table", function() {
 				tags: new Set<string>(["a", "b", "c"])
 			};
 			
-			let w = createDb(true, true);
+			let w = createDb(true, false);
 			let store = Updraft.createStore({ db: w.db });
 			let todoTable: TodoTable = store.createTable(todoTableSpec);
 
@@ -525,7 +551,6 @@ describe("table", function() {
 			todos = sampleTodos(12);
 
 			w = createDb(true, false);
-			//db.on("trace", (sql: string) => console.log(sql));
 
 			let store = Updraft.createStore({ db: w.db });
 			todoTable = store.createTable(todoTableSpec);

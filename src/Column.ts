@@ -48,7 +48,7 @@ export class Column {
 	constructor(type: ColumnType) {
 		this.type = type;
 		if (type == ColumnType.bool) {
-			this.defaultValue = 0;
+			this.defaultValue = false;
 		}
 	}
 
@@ -73,6 +73,9 @@ export class Column {
 		*/
 	// TODO
 	Default(value: number | boolean | string): Column {
+		if (this.type == ColumnType.bool) {
+			value = value ? true : false;
+		}
 		this.defaultValue = value;
 		return this;
 	}
@@ -101,6 +104,10 @@ export class Column {
 			case ColumnType.datetime:
 				verify(!value || parseFloat(<string>value) == value, "expected date to be stored as a number: %s", value);
 				return value ? new Date(parseFloat(<string>value) * 1000) : undefined;
+				
+			case ColumnType.set:
+				verify(<any>value instanceof Set, "value should already be a set");
+				return value;
 
 			default:
 				throw new Error("unsupported column type " + ColumnType[this.type]);

@@ -278,7 +278,7 @@ export class Store {
 			}
 			verify(pk.length, "table %s has no keys", name);
 			cols.push("PRIMARY KEY(" + pk.join(", ")  + ")");
-			return transaction.executeSql("CREATE " + (spec.temp ? "TEMP " : "") + "TABLE " + name + " (" + cols.join(", ") + ")");
+			return transaction.executeSql("CREATE TABLE " + name + " (" + cols.join(", ") + ")");
 		}
 
 		function dropTable(name: string): Promise<any> {
@@ -332,7 +332,7 @@ export class Store {
 
 				if (create || force) {
 					let index = newIndices[j];
-					let sql = "CREATE INDEX " + getIndexName(index) + " ON " + spec.name + " (" + index.join(", ") + ")";
+					let sql = "CREATE INDEX IF NOT EXISTS " + getIndexName(index) + " ON " + spec.name + " (" + index.join(", ") + ")";
 					p = p.then(() => transaction.executeSql(sql));
 				}
 			});
@@ -544,7 +544,7 @@ export class Store {
 		return this.db.readTransaction((transaction: DbTransaction): Promise<any> => {
 			let q = assign({}, query, {
 				[internal_column_deleted]: false,
-				[internal_column_latest]: true
+				[internal_column_latest]: true,
 			});
 			return runQuery(transaction, table, q, opts, table.spec.clazz);
 		});
@@ -707,7 +707,8 @@ function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Eleme
 		}
 	});
 
-	let columns: string[] = selectableColumns(table.spec, opts.fields || table.spec.columns);
+	let fields: FieldSpec = assign({}, opts.fields || table.spec.columns, {[internal_column_time]: true});
+	let columns: string[] = selectableColumns(table.spec, fields);
 	let stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
 	stmt += " FROM " + table.spec.name;
 	stmt += " WHERE " + conditions.join(" AND ");
@@ -732,13 +733,22 @@ function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Eleme
 			return count;
 		}
 		else {
-			let results: Element[] = [];
-			for (let i = 0; i < rows.length; i++) {
-				let row = deserializeRow<Element>(table.spec, rows[i]);
-				let obj = clazz ? new clazz(row) : row;
-				results.push(obj);
-			}
-			return results;
+			var promises = rows.map((element: Element) => loadExternals(transaction, table, element, opts.fields));
+			return Promise.all(promises)
+				.then(() => {
+					let results: Element[] = [];
+					for (let i = 0; i < rows.length; i++) {
+						let row = deserializeRow<Element>(table.spec, rows[i]);
+						for (let col in internalColumn) {
+							if (!opts.fields || !(col in opts.fields)) {
+								delete row[col];
+							}
+						}
+						let obj = clazz ? new clazz(row) : row;
+						results.push(obj);
+					}
+					return results;
+				});
 		}
 	});
 }
@@ -769,43 +779,43 @@ function selectBaseline<Element, Query>(transaction: DbTransaction, table: Table
 				time: 0,
 				rowid: -1
 			};
-			let p = Promise.resolve();
 			if (baselineResults.length) {
 				let element = <Element>baselineResults[0];
 				baseline.element = element;
 				baseline.time = verifyGetValue(baselineResults[0], internal_column_time);
 				baseline.rowid = verifyGetValue(baselineResults[0], ROWID);
-				p = p.then(() => loadExternals(transaction, table, element));
 			}
 			else {
 				baseline.element[table.key] = keyValue;
 			}
 			
-			return p.then(() => baseline);
+			return baseline;
 		});
 }
 
-function loadExternals<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: any): Promise<any> {
+function loadExternals<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: any, fields: FieldSpec): Promise<any> {
 	let promises: Promise<any>[] = [];
 	Object.keys(table.spec.columns).forEach(function loadExternalsForEach(col: string) {
-		let column = table.spec.columns[col];
-		if (column.type == ColumnType.set) {
-			let columnDeserializer = new Column(column.elementType);
-			let set: Set<any> = element[col] = element[col] || new Set<any>();
-			let keyValue = verifyGetValue(element, table.key);
-			let time = verifyGetValue(element, internal_column_time);
-			let p = transaction.executeSql(
-				"SELECT value "
-				+ "FROM " + getSetTableName(table.spec.name, col)
-				+ " WHERE key=?"
-				+ " AND time=?",
-				[keyValue, time],
-				function loadExternalsSqlCallback(tx: DbTransaction, results: SetTableRow[]) {
-					for (let row of results) {
-						set.add(columnDeserializer.deserialize(row.value));
-					}
-				});
-			promises.push(p);
+		if (!fields || (col in fields && fields[col])) {
+			let column = table.spec.columns[col];
+			if (column.type == ColumnType.set) {
+				let columnDeserializer = new Column(column.elementType);
+				let set: Set<any> = element[col] = element[col] || new Set<any>();
+				let keyValue = verifyGetValue(element, table.key);
+				let time = verifyGetValue(element, internal_column_time);
+				let p = transaction.executeSql(
+					"SELECT value "
+					+ "FROM " + getSetTableName(table.spec.name, col)
+					+ " WHERE key=?"
+					+ " AND time=?",
+					[keyValue, time],
+					function loadExternalsSqlCallback(tx: DbTransaction, results: SetTableRow[]) {
+						for (let row of results) {
+							set.add(columnDeserializer.deserialize(row.value));
+						}
+					});
+				promises.push(p);
+			}
 		}
 	});
 	return Promise.all(promises);

@@ -16,7 +16,6 @@ export interface TableSpec<Element, Mutator, Query> {
 	columns: ColumnSet;
 	renamedColumns?: RenamedColumnSet;
 	indices?: string[][];
-	temp?: boolean;
 	clazz?: new (props: Element) => Element; 
 }
 
