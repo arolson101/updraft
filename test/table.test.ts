@@ -108,7 +108,7 @@ const todoTableExpectedSchema = {
 
 			updraft_deleted: Column.Bool(),
 			updraft_composed: Column.Bool(),
-			updraft_time: Column.DateTime().Key(),
+			updraft_time: Column.Int().Key(),
 			updraft_latest: Column.Bool()
 		}
 	},
@@ -118,10 +118,9 @@ const todoTableExpectedSchema = {
 		indices: <string[]>[],
 		triggers: {},
 		columns: {
+			key: Column.Int().Key(),
+			time: Column.Int().Key(),
 			value: Column.Text().Key(),
-
-			id: Column.Int().Key(),
-			updraft_time: Column.DateTime().Key(),
 		}
 	},
 
@@ -498,7 +497,7 @@ describe("table", function() {
 				id: 1,
 				text: "todo 1",
 				completed: false,
-				tags: new Set<string>(['a', 'b', 'c'])
+				tags: new Set<string>(["a", "b", "c"])
 			};
 			
 			let w = createDb(true, true);

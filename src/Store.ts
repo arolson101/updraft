@@ -3,7 +3,7 @@
 import { hasOwnProperty, keyOf, mutate, isMutated, shallowCopy } from "./Mutate";
 import { Column, ColumnType, ColumnSet, Serializable } from "./Column";
 import { DbWrapper, DbTransaction } from "./Database";
-import { TableSpec, Table, TableChange, KeyType, FindOpts, OrderBy } from "./Table";
+import { TableSpec, Table, TableChange, KeyType, FindOpts, FieldSpec, OrderBy } from "./Table";
 import { toText, fromText } from "./Text";
 import { assign } from "./assign";
 import { verify } from "./verify";
@@ -30,10 +30,16 @@ interface SqliteMasterRow {
 	sql: string;
 }
 
-interface ChangeRow {
+interface ChangeTableRow {
 	key?: KeyType;
 	time?: number;
 	change?: string;
+}
+
+interface SetTableRow {
+	key?: KeyType;
+	time?: number;
+	value?: string;
 }
 
 
@@ -46,7 +52,7 @@ const internal_column_latest = internal_prefix + "latest";
 const internal_column_composed = internal_prefix + "composed";
 const internalColumn: ColumnSet = {};
 internalColumn[internal_column_deleted] = Column.Bool();
-internalColumn[internal_column_time] = Column.DateTime().Key();
+internalColumn[internal_column_time] = Column.Int().Key();
 internalColumn[internal_column_latest] = Column.Bool();
 internalColumn[internal_column_composed] = Column.Bool();
 
@@ -83,20 +89,20 @@ export class Store {
 			}
 		}
 
-		function createInternalTableSpecs(spec: TableSpecAny): TableSpecAny[] {
-			let newSpec = shallowCopy(spec);
-			newSpec.columns = shallowCopy(spec.columns);
+		function createInternalTableSpecs(table: Table<Element, Mutator, Query>): TableSpecAny[] {
+			let newSpec = shallowCopy(table.spec);
+			newSpec.columns = shallowCopy(table.spec.columns);
 			for (let col in internalColumn) {
-				verify(!spec.columns[col], "table %s cannot have reserved column name %s", spec.name, col);
+				verify(!table.spec.columns[col], "table %s cannot have reserved column name %s", table.spec.name, col);
 				newSpec.columns[col] = internalColumn[col];
 			}
 			buildIndices(newSpec);
-			return [newSpec, ...createSetTableSpecs(newSpec)];
+			return [newSpec, ...createSetTableSpecs(newSpec, verifyGetValue(newSpec.columns, table.key))];
 		}
 
-		function createChangeTableSpec(spec: TableSpecAny): TableSpecAny {
+		function createChangeTableSpec(table: Table<Element, Mutator, Query>): TableSpecAny {
 			let newSpec = <TableSpecAny>{
-				name: getChangeTableName(spec.name),
+				name: getChangeTableName(table.spec.name),
 				columns: {
 					key: Column.Int().Key(),
 					time: Column.DateTime().Key(),
@@ -107,7 +113,7 @@ export class Store {
 			return newSpec;
 		}
 		
-		function createSetTableSpecs(spec: TableSpecAny): TableSpecAny[] {
+		function createSetTableSpecs(spec: TableSpec<Element, Mutator, Query>, keyColumn: Column): TableSpecAny[] {
 			let newSpecs: TableSpecAny[] = [];
 			for (let col in spec.columns) {
 				let column = spec.columns[col];
@@ -115,17 +121,12 @@ export class Store {
 					let newSpec = <TableSpecAny>{
 						name: getSetTableName(spec.name, col),
 						columns: {
+							key: keyColumn,
 							value: new Column(column.elementType).Key(),
+							time: Column.Int().Key()
 						}
 					};
-					
-					// reuse keys from table
-					for (let key in spec.columns) {
-						if (spec.columns[key].isKey) {
-							newSpec.columns[key] = shallowCopy(spec.columns[key]);
-						}
-					}
-					
+
 					buildIndices(newSpec);
 					newSpecs.push(newSpec);
 				}
@@ -141,8 +142,8 @@ export class Store {
 		let table = new Table<Element, Mutator, Query>(tableSpec);
 		table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.add(table, ...changes);
 		table.find = (query: Query, opts?: FindOpts): Promise<Element[]> => this.find(table, query, opts);
-		this.tables.push(...createInternalTableSpecs(tableSpec));
-		this.tables.push(createChangeTableSpec(tableSpec));
+		this.tables.push(...createInternalTableSpecs(table));
+		this.tables.push(createChangeTableSpec(table));
 		return table;
 	}
 
@@ -493,13 +494,16 @@ export class Store {
 				verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
 				if (change.save) {
 					// append internal column values
-					let element = mutate(assign({}, change.save), {[internal_column_time]: {$set: time}});
+					let element = assign(
+						{},
+						change.save,
+						{ [internal_column_time]: time }
+					);
 					p1 = p1.then(() => insertElement(transaction, table, element));
 					toResolve.add(table.keyValue(element));
 				}
 				else if (change.change || change.delete) {
-					// insert into change table
-					let changeRow: ChangeRow = {
+					let changeRow: ChangeTableRow = {
 						key: null,
 						time: time,
 						change: null
@@ -517,6 +521,7 @@ export class Store {
 						changeRow.change = toText(deleteRow_action);
 					}
 
+					// insert into change table
 					let columns = Object.keys(changeRow);
 					let values: any[] = columns.map(k => changeRow[k]);
 					p1 = p1.then(() => insert(transaction, changeTable, columns, values));
@@ -536,120 +541,12 @@ export class Store {
 	}
 
 	find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]> {
-		opts = opts || {};
-
-		const numericConditions = {
-			$gt: ">",
-			$gte: ">=",
-			$lt: "<",
-			$lte: "<="
-		};
-
-		const inCondition = keyOf({ $in: false });
-
-		let conditions: string[] = [];
-		let values: (string | number)[] = [];
-
-		conditions.push("NOT " + internal_column_deleted);
-		conditions.push(internal_column_latest);
-
-		Object.keys(query).forEach((col: string) => {
-			verify(col in table.spec.columns, "attempting to query based on column '%s' not in schema (%s)", col, table.spec.columns);
-			let spec = query[col];
-			let found = false;
-
-			for (let condition in numericConditions) {
-				if (hasOwnProperty.call(spec, condition)) {
-					conditions.push("(" + col + numericConditions[condition] + "?)");
-					let value = spec[condition];
-					verify(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
-					values.push(value);
-					found = true;
-					break;
-				}
-			}
-
-			if (!found) {
-				if (hasOwnProperty.call(spec, inCondition)) {
-					verify(spec[inCondition] instanceof Array, "must be an array: %s", spec[inCondition]);
-					conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
-					let inValues: any[] = spec[inCondition];
-					inValues = inValues.map(val => table.spec.columns[col].serialize(val));
-					values.push(...inValues);
-					found = true;
-				}
-			}
-
-			if (!found) {
-				if (table.spec.columns[col].type == ColumnType.bool) {
-					conditions.push((spec ? "" : "NOT ") + col);
-					found = true;
-				}
-				else if (typeof spec === "number" || typeof spec === "string") {
-					conditions.push("(" + col + "=?)");
-					values.push(spec);
-					found = true;
-				}
-				else if (spec instanceof RegExp) {
-					let rx: RegExp = spec;
-					let arg = rx.source.replace(/\.\*/g, "%").replace(/\./g, "_");
-					if (arg[0] == "^") {
-						arg = arg.substring(1);
-					}
-					else {
-						arg = "%" + arg;
-					}
-					if (arg[arg.length - 1] == "$") {
-						arg = arg.substring(0, arg.length - 1);
-					}
-					else {
-						arg = arg + "%";
-					}
-					verify(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
-					conditions.push("(" + col + " LIKE ?)");
-					values.push(arg);
-					found = true;
-				}
-
-				verify(found, "unknown query condition for %s: %s", col, spec);
-			}
-		});
-
-		let columns: string[] = selectableColumns(table.spec, opts.fields || table.spec.columns);
-		let stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
-		stmt += " FROM " + table.spec.name;
-		stmt += " WHERE " + conditions.join(" AND ");
-
-		if (opts.orderBy) {
-			let col = keyOf(opts.orderBy);
-			let order = opts.orderBy[col];
-			stmt += " ORDER BY " + col + " " + (order == OrderBy.ASC ? "ASC" : "DESC");
-		}
-
-		if (opts.limit) {
-			stmt += " LIMIT " + opts.limit;
-		}
-
-		if (opts.offset) {
-			stmt += " OFFSET " + opts.offset;
-		}
-
-		return this.db.readTransaction((tx1: DbTransaction): Promise<any> => {
-			return tx1.executeSql(stmt, values, (tx2: DbTransaction, rows: any[]) => {
-				if (opts.count) {
-					let count = parseInt(rows[0][COUNT], 10);
-					return Promise.resolve(count);
-				}
-				else {
-					let results: Element[] = [];
-					for (let i = 0; i < rows.length; i++) {
-						let row = deserializeRow<Element>(table.spec, rows[i]);
-						let obj = (table.spec.clazz ? new table.spec.clazz(row) : row);
-						results.push(obj);
-					}
-					return Promise.resolve(results);
-				}
+		return this.db.readTransaction((transaction: DbTransaction): Promise<any> => {
+			let q = assign({}, query, {
+				[internal_column_deleted]: false,
+				[internal_column_latest]: true
 			});
+			return runQuery(transaction, table, q, opts, table.spec.clazz);
 		});
 	}
 }
@@ -680,18 +577,17 @@ function insertElement<Element>(transaction: DbTransaction, table: Table<Element
 			let set: Set<any> = element[col];
 			if (set.size) {
 				let serializer = new Column(column.elementType);
-				let keys = [internal_column_time, table.key, "value"];
-				var values: any[] = [];
-				var placeholders: string[] = [];
+				let setValues: any[] = [];
+				let placeholders: string[] = [];
 				set.forEach((value: any) => {
 					placeholders.push("(?, ?, ?)");
-					values.push(time, table.keyValue(element), serializer.serialize(value));
+					setValues.push(time, table.keyValue(element), serializer.serialize(value));
 				});
 				let p = transaction.executeSql(
 					"INSERT INTO " + getSetTableName(table.spec.name, col)
-					+ " (" + keys.join(", ") + ")"
+					+ " (time, key, value)"
 					+ " VALUES " + placeholders.join(", ")
-					, values);
+					, setValues);
 				promises.push(p);
 			}
 		}
@@ -702,7 +598,7 @@ function insertElement<Element>(transaction: DbTransaction, table: Table<Element
 
 function resolve<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<any> {
 	return selectBaseline(transaction, table, keyValue).then(function resolveSelectBaselineCallback(baseline: BaselineInfo<Element>) {
-		return getChanges(transaction, table, baseline).then(function resolveGetChangesCallback(changes: ChangeRow[]) {
+		return getChanges(transaction, table, baseline).then(function resolveGetChangesCallback(changes: ChangeTableRow[]) {
 			let mutation = applyChanges(baseline, changes);
 			let promises: Promise<any>[] = [];
 			if (!mutation.isChanged) {
@@ -732,22 +628,142 @@ interface BaselineInfo<Element> {
 	rowid: number;
 }
 
-function selectBaseline<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<BaselineInfo<Element>> {
-	let baselineCols = [
-		ROWID,
-		internal_column_time,
-		internal_column_deleted,
-		...selectableColumns(table.spec, table.spec.columns)
-	];
 
-	return transaction.executeSql(
-		"SELECT " + baselineCols.join(", ")
-		+ " FROM " + table.spec.name
-		+ " WHERE " + table.key + "=?" + " AND " + internal_column_composed + "=0"
-		+ " ORDER BY " + internal_column_time + " DESC"
-		+ " LIMIT 1",
-		[keyValue],
-		function selectBaselineCallback(tx1: DbTransaction, baselineResults: any[]): Promise<BaselineInfo<Element>> {
+function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Element, any, Query>, query: Query, opts: FindOpts, clazz: new (props: Element) => Element): Promise<Element[]> {
+	opts = opts || {};
+
+	const numericConditions = {
+		$gt: ">",
+		$gte: ">=",
+		$lt: "<",
+		$lte: "<="
+	};
+
+	const inCondition = keyOf({ $in: false });
+
+	let conditions: string[] = [];
+	let values: (string | number)[] = [];
+
+	Object.keys(query).forEach((col: string) => {
+		verify((col in table.spec.columns) || (col in internalColumn), "attempting to query based on column '%s' not in schema (%s)", col, table.spec.columns);
+		let column: Column = (col in internalColumn) ? internalColumn[col] : table.spec.columns[col];
+		let spec = query[col];
+		let found = false;
+
+		for (let condition in numericConditions) {
+			if (hasOwnProperty.call(spec, condition)) {
+				conditions.push("(" + col + numericConditions[condition] + "?)");
+				let value = spec[condition];
+				verify(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
+				values.push(value);
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			if (hasOwnProperty.call(spec, inCondition)) {
+				verify(spec[inCondition] instanceof Array, "must be an array: %s", spec[inCondition]);
+				conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
+				let inValues: any[] = spec[inCondition];
+				inValues = inValues.map(val => column.serialize(val));
+				values.push(...inValues);
+				found = true;
+			}
+		}
+
+		if (!found) {
+			if (column.type == ColumnType.bool) {
+				conditions.push((spec ? "" : "NOT ") + col);
+				found = true;
+			}
+			else if (typeof spec === "number" || typeof spec === "string") {
+				conditions.push("(" + col + "=?)");
+				values.push(spec);
+				found = true;
+			}
+			else if (spec instanceof RegExp) {
+				let rx: RegExp = spec;
+				let arg = rx.source.replace(/\.\*/g, "%").replace(/\./g, "_");
+				if (arg[0] == "^") {
+					arg = arg.substring(1);
+				}
+				else {
+					arg = "%" + arg;
+				}
+				if (arg[arg.length - 1] == "$") {
+					arg = arg.substring(0, arg.length - 1);
+				}
+				else {
+					arg = arg + "%";
+				}
+				verify(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
+				conditions.push("(" + col + " LIKE ?)");
+				values.push(arg);
+				found = true;
+			}
+
+			verify(found, "unknown query condition for %s: %s", col, spec);
+		}
+	});
+
+	let columns: string[] = selectableColumns(table.spec, opts.fields || table.spec.columns);
+	let stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
+	stmt += " FROM " + table.spec.name;
+	stmt += " WHERE " + conditions.join(" AND ");
+
+	if (opts.orderBy) {
+		let col = keyOf(opts.orderBy);
+		let order = opts.orderBy[col];
+		stmt += " ORDER BY " + col + " " + (order == OrderBy.ASC ? "ASC" : "DESC");
+	}
+
+	if (opts.limit) {
+		stmt += " LIMIT " + opts.limit;
+	}
+
+	if (opts.offset) {
+		stmt += " OFFSET " + opts.offset;
+	}
+
+	return transaction.executeSql(stmt, values, (tx2: DbTransaction, rows: any[]) => {
+		if (opts.count) {
+			let count = parseInt(rows[0][COUNT], 10);
+			return count;
+		}
+		else {
+			let results: Element[] = [];
+			for (let i = 0; i < rows.length; i++) {
+				let row = deserializeRow<Element>(table.spec, rows[i]);
+				let obj = clazz ? new clazz(row) : row;
+				results.push(obj);
+			}
+			return results;
+		}
+	});
+}
+
+function selectBaseline<Element, Query>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<BaselineInfo<Element>> {
+	let fieldSpec = <FieldSpec>{
+		[ROWID]: true,
+		[internal_column_time]: true,
+		[internal_column_deleted]: true,
+	};
+	selectableColumns(table.spec, table.spec.columns).forEach(col => fieldSpec[col] = true);
+
+	let query = <Query>{
+		[table.key]: keyValue,
+		[internal_column_composed]: false
+	};
+
+	let opts = <FindOpts>{
+		fields: fieldSpec,
+		orderBy: { [internal_column_time]: OrderBy.DESC },
+		limit: 1
+	};
+
+	return runQuery(transaction, table, query, opts, null)
+		.then((baselineResults: any[]) => {
 			let baseline: BaselineInfo<Element> = {
 				element: <Element>{},
 				time: 0,
@@ -755,7 +771,7 @@ function selectBaseline<Element>(transaction: DbTransaction, table: Table<Elemen
 			};
 			let p = Promise.resolve();
 			if (baselineResults.length) {
-				let element = deserializeRow<Element>(table.spec, baselineResults[0]);
+				let element = <Element>baselineResults[0];
 				baseline.element = element;
 				baseline.time = verifyGetValue(baselineResults[0], internal_column_time);
 				baseline.rowid = verifyGetValue(baselineResults[0], ROWID);
@@ -766,8 +782,7 @@ function selectBaseline<Element>(transaction: DbTransaction, table: Table<Elemen
 			}
 			
 			return p.then(() => baseline);
-		}
-	);
+		});
 }
 
 function loadExternals<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: any): Promise<any> {
@@ -782,10 +797,10 @@ function loadExternals<Element>(transaction: DbTransaction, table: Table<Element
 			let p = transaction.executeSql(
 				"SELECT value "
 				+ "FROM " + getSetTableName(table.spec.name, col)
-				+ " WHERE " + table.key + "=?"
-				+ " AND " + internal_column_time + "=?",
+				+ " WHERE key=?"
+				+ " AND time=?",
 				[keyValue, time],
-				function loadExternalsSqlCallback(transaction: DbTransaction, results: any[]) {
+				function loadExternalsSqlCallback(tx: DbTransaction, results: SetTableRow[]) {
 					for (let row of results) {
 						set.add(columnDeserializer.deserialize(row.value));
 					}
@@ -796,7 +811,7 @@ function loadExternals<Element>(transaction: DbTransaction, table: Table<Element
 	return Promise.all(promises);
 }
 
-function getChanges<Element>(transaction: DbTransaction, table: Table<Element, any, any>, baseline: BaselineInfo<Element>): Promise<ChangeRow[]> {
+function getChanges<Element>(transaction: DbTransaction, table: Table<Element, any, any>, baseline: BaselineInfo<Element>): Promise<ChangeTableRow[]> {
 	let keyValue = verifyGetValue(baseline.element, table.key);
 	return transaction.executeSql(
 		"SELECT key, time, change"
@@ -812,7 +827,7 @@ interface MutationResult<Element> {
 	isChanged: boolean;
 }
 
-function applyChanges<Element, Mutator>(baseline: BaselineInfo<Element>, changes: ChangeRow[]): MutationResult<Element> {
+function applyChanges<Element, Mutator>(baseline: BaselineInfo<Element>, changes: ChangeTableRow[]): MutationResult<Element> {
 	let element: Element = baseline.element;
 	let time = baseline.time;
 	for (let i = 0; i < changes.length; i++) {
@@ -842,7 +857,7 @@ function invalidateLatest<Element>(transaction: DbTransaction, table: Table<Elem
 }
 
 function selectableColumns(spec: TableSpecAny, cols: { [key: string]: any }): string[] {
-	return Object.keys(cols).filter(col => (col in internalColumn) || ((col in spec.columns) && (spec.columns[col].type != ColumnType.set)));
+	return Object.keys(cols).filter(col => (col == ROWID) || (col in internalColumn) || ((col in spec.columns) && (spec.columns[col].type != ColumnType.set)));
 }
 
 

@@ -99,6 +99,7 @@ export class Column {
 
 			case ColumnType.date:
 			case ColumnType.datetime:
+				verify(parseFloat(<string>value) == value, "expected date to be stored as a number: %s", value);
 				return value ? new Date(parseFloat(<string>value) * 1000) : undefined;
 
 			default:
@@ -132,7 +133,9 @@ export class Column {
 
 			case ColumnType.date:
 			case ColumnType.datetime:
-				return (value instanceof Date ? ((<Date>value).getTime() / 1000) : undefined);
+				verify(value == undefined || value instanceof Date, "expected a date, got %s", value);
+				let date = (value == undefined) ? undefined : ((<Date>value).getTime() / 1000);
+				return date;
 
 			default:
 				throw new Error("unsupported column type " + ColumnType[this.type]);
