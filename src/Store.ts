@@ -56,7 +56,7 @@ internalColumn[internal_column_time] = Column.Int().Key();
 internalColumn[internal_column_latest] = Column.Bool();
 internalColumn[internal_column_composed] = Column.Bool();
 
-const deleteRow_action = { internal_column_deleted: { $set: true } };
+const deleteRow_action = { [internal_column_deleted]: { $set: true } };
 
 function getChangeTableName(name: string): string {
 	return internal_prefix + "changes_" + name;
@@ -734,7 +734,7 @@ function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Eleme
 			return count;
 		}
 		else {
-			var promises = rows.map((element: Element) => loadExternals(transaction, table, element, opts.fields));
+			let promises = rows.map((element: Element) => loadExternals(transaction, table, element, opts.fields));
 			return Promise.all(promises)
 				.then(() => {
 					let results: Element[] = [];

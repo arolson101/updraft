@@ -177,10 +177,15 @@ function sampleMutators(count: number) {
 			break;
 
 		case 3:
+			m.tags = { $add: ["foo", "bar"] };
+			break;
+
+		case 4:
 			m.completed = { $set: true };
 			m.status = { $set: TodoStatus.Paused };
 			m.created = { $set: new Date(2002, 1, 15, 15, 45) };
 			m.text = { $set: "modified " + i };
+			m.tags = { $delete: ["foo"] };
 			break;
 		}
 
@@ -331,7 +336,7 @@ describe("table", function() {
 	});
 
 	describe("merge changes", function() {
-		function runChanges(changes: TodoChange[], expectedResult: Todo, debug?: boolean) {
+		function runChanges(changes: TodoChange[], expectedResults: Todo[], debug?: boolean) {
 			let todoTable: TodoTable;
 
 			let w = createDb(true, debug);
@@ -349,7 +354,7 @@ describe("table", function() {
 					return p;
 				})
 				.then(() => todoTable.find({}))
-				.then((results) => expect(results).to.deep.equal([expectedResult]))
+				.then((results) => expect(results).to.deep.equal(expectedResults))
 				.then(() => w.close());
 		}
 
@@ -387,14 +392,14 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {
+			return runChanges(changes, [{
 				id: 1,
 				text: "modified at time 3",
 				created: new Date(2005),
 				status: TodoStatus.InProgress,
 				completed: true,
 				tags: new Set<string>(["asdf"])
-			});
+			}]);
 		});
 
 		it("multiple baselines", function() {
@@ -429,13 +434,13 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {
+			return runChanges(changes, [{
 				id: 1,
 				text: "base text 2",
 				created: new Date(2005),
 				completed: true,
 				tags: new Set<string>()
-			});
+			}]);
 		});
 
 		it("out-of-order changes", function() {
@@ -470,15 +475,33 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, {
+			return runChanges(changes, [{
 				id: 1,
 				text: "modified at time 3",
 				created: new Date(2005),
 				completed: true,
 				tags: new Set<string>()
-			});
+			}]);
 		});
-		
+
+		it.only("deletion", function() {
+			let changes: TodoChange[] = [
+				{ time: 1,
+					save: {
+						id: 101,
+						text: "base text 1",
+						created: undefined,
+						completed: false
+					},
+				},
+				{ time: 2,
+					delete: 101
+				},
+			];
+
+			return runChanges(changes, [], true);
+		});
+				
 		it("constructors", function() {
 			class TodoClass implements Todo {
 				id: number;
