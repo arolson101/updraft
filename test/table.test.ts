@@ -13,7 +13,6 @@ import OrderBy = Updraft.OrderBy;
 import mutate = Updraft.mutate;
 
 // TODO: lists
-// TODO: test deletes
 // TODO: test indexes
 // TODO: code coverage
 // TODO: compile .d.ts
@@ -65,19 +64,25 @@ enum TodoStatus {
 	Paused
 }
 
-interface _Todo<key, date, estatus, bool, str, strset> {
+interface HistoryItem {
+	time: Date;
+	text: string;
+}
+
+interface _Todo<key, date, estatus, bool, str, strset, history> {
 	id?: key;
 	created?: date;
 	status?: estatus;
 	completed?: bool;
 	text?: str;
 	tags?: strset;
+	history?: history;
 }
 
-interface Todo extends _Todo<number, Date, TodoStatus, boolean, string, Set<string>> {}
-interface TodoMutator extends _Todo<number, M.date, M.primitive<TodoStatus>, M.bool, M.str, M.strSet> {}
-interface TodoQuery extends _Todo<Q.num, Q.date, Q.primitive<TodoStatus>, Q.bool, Q.str, Q.strSet> {}
-interface TodoFields extends _Todo<boolean, boolean, boolean, boolean, boolean, boolean> {}
+interface Todo extends _Todo<number, Date, TodoStatus, boolean, string, Set<string>, Array<HistoryItem>> {}
+interface TodoMutator extends _Todo<number, M.date, M.primitive<TodoStatus>, M.bool, M.str, M.strSet, M.array<HistoryItem>> {}
+interface TodoQuery extends _Todo<Q.num, Q.date, Q.primitive<TodoStatus>, Q.bool, Q.str, Q.strSet, Q.none> {}
+interface TodoFields extends _Todo<boolean, boolean, boolean, boolean, boolean, boolean, boolean> {}
 
 type TodoTable = Updraft.Table<Todo, TodoMutator, TodoQuery>;
 type TodoChange = Updraft.TableChange<Todo, TodoMutator>;
@@ -91,6 +96,7 @@ const todoTableSpec: TodoTableSpec = {
 		status: Column.Enum(TodoStatus),
 		completed: Column.Bool().Index(),
 		text: Column.String(),
+		history: Column.JSON(),
 		tags: Column.Set(ColumnType.text)
 	}
 };
@@ -106,6 +112,7 @@ const todoTableExpectedSchema = {
 			status: new Column(ColumnType.enum),
 			completed: Column.Bool().Index(),
 			text: Column.String(),
+			history: Column.JSON(),
 
 			updraft_deleted: Column.Bool(),
 			updraft_composed: Column.Bool(),
@@ -166,6 +173,7 @@ function sampleMutators(count: number) {
 		switch (i % 4) {
 		case 0:
 			m.completed = { $set: true };
+			m.history = { $set: [ {time: new Date(2005, 6, 15), text: "history 1"} ] };
 			break;
 
 		case 1:
@@ -174,6 +182,7 @@ function sampleMutators(count: number) {
 
 		case 2:
 			m.status = { $set: TodoStatus.InProgress };
+			m.history = { $push: [ {time: new Date(2005, 7, 17), text: "history 2"} ] };
 			break;
 
 		case 3:
@@ -484,7 +493,7 @@ describe("table", function() {
 			}]);
 		});
 
-		it.only("deletion", function() {
+		it("deletion", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
 					save: {
@@ -499,7 +508,7 @@ describe("table", function() {
 				},
 			];
 
-			return runChanges(changes, [], true);
+			return runChanges(changes, []);
 		});
 				
 		it("constructors", function() {

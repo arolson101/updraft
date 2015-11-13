@@ -29,3 +29,4 @@ export type str = primitive<string> | RegExp;
 export type date = primitive<Date> | DateConditions;
 export type set<T> = SetConditions<T>;
 export type strSet = set<string>;
+export type none = {};

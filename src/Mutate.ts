@@ -49,7 +49,7 @@ export type str = primitive<string>;
 export type date = setter<Date>;
 export type obj = primitive<Object> | merge<Object> | deleter<string>;
 
-type array<T> =
+export type array<T> =
 	setter<Array<T>> |
 	push<T> |
 	unshift<T> |
@@ -259,9 +259,9 @@ export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element
 	}
 
   if (hasOwnProperty.call(spec, command.push)) {
-    verifyArrayCase(value, spec, command.push);
+    let nextValue: any[] = <any>shallowCopy(value) || [];
+    verifyArrayCase(nextValue, spec, command.push);
     if (spec[command.push].length) {
-      let nextValue: any[] = <any>shallowCopy(value);
       nextValue.push.apply(nextValue, spec[command.push]);
       return <any>nextValue;
     }
