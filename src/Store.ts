@@ -3,7 +3,7 @@
 import { hasOwnProperty, keyOf, mutate, isMutated, shallowCopy } from "./Mutate";
 import { Column, ColumnType, ColumnSet, Serializable } from "./Column";
 import { DbWrapper, DbTransaction } from "./Database";
-import { TableSpec, Table, TableChange, KeyType, FindOpts, FieldSpec, OrderBy } from "./Table";
+import { TableSpec, Table, TableChange, KeyType, FindOpts, FieldSpec, OrderBy, RenamedColumnSet } from "./Table";
 import { toText, fromText } from "./Text";
 import { assign } from "./assign";
 import { verify } from "./verify";
@@ -13,8 +13,9 @@ function startsWith(str: string, val: string) {
 	return str.lastIndexOf(val, 0) === 0;
 }
 
-type TableSpecAny = TableSpec<any, any, any>;
-	
+export type TableSpecAny = TableSpec<any, any, any>;
+export type TableAny = Table<any, any, any>;
+
 export interface CreateStoreParams {
 	db: DbWrapper;
 }
@@ -64,14 +65,6 @@ internalColumn[internal_column_composed] = Column.Bool();
 
 const deleteRow_action = { [internal_column_deleted]: { $set: true } };
 
-function getChangeTableName(name: string): string {
-	return internal_prefix + "changes_" + name;
-}
-
-function getSetTableName(tableName: string, col: string): string {
-	return internal_prefix + "set_" + tableName + "_" + col;
-}
-
 
 export class Store {
 	private params: CreateStoreParams;
@@ -86,60 +79,6 @@ export class Store {
 	}
 
 	createTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query> {
-		function buildIndices(spec: TableSpecAny) {
-			spec.indices = spec.indices || [];
-			for (let col in spec.columns) {
-				if (spec.columns[col].isIndex) {
-					spec.indices.push([col]);
-				}
-			}
-		}
-
-		function createInternalTableSpecs(table: Table<Element, Mutator, Query>): TableSpecAny[] {
-			let newSpec = shallowCopy(table.spec);
-			newSpec.columns = shallowCopy(table.spec.columns);
-			for (let col in internalColumn) {
-				verify(!table.spec.columns[col], "table %s cannot have reserved column name %s", table.spec.name, col);
-				newSpec.columns[col] = internalColumn[col];
-			}
-			buildIndices(newSpec);
-			return [newSpec, ...createSetTableSpecs(newSpec, verifyGetValue(newSpec.columns, table.key))];
-		}
-
-		function createChangeTableSpec(table: Table<Element, Mutator, Query>): TableSpecAny {
-			let newSpec = <TableSpecAny>{
-				name: getChangeTableName(table.spec.name),
-				columns: {
-					key: Column.Int().Key(),
-					time: Column.DateTime().Key(),
-					change: Column.JSON(),
-				}
-			};
-			buildIndices(newSpec);
-			return newSpec;
-		}
-		
-		function createSetTableSpecs(spec: TableSpec<Element, Mutator, Query>, keyColumn: Column): TableSpecAny[] {
-			let newSpecs: TableSpecAny[] = [];
-			for (let col in spec.columns) {
-				let column = spec.columns[col];
-				if (column.type == ColumnType.set) {
-					let newSpec = <TableSpecAny>{
-						name: getSetTableName(spec.name, col),
-						columns: {
-							key: keyColumn,
-							value: new Column(column.elementType).Key(),
-							time: Column.Int().Key()
-						}
-					};
-
-					buildIndices(newSpec);
-					newSpecs.push(newSpec);
-				}
-			}
-			return newSpecs;
-		}
-
 		verify(!this.db, "createTable() can only be added before open()");
 		verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
 		for (let col in tableSpec.columns) {
@@ -167,49 +106,6 @@ export class Store {
 
 	readSchema(): Promise<Schema> {
 		verify(this.db, "readSchema(): not opened");
-
-		function tableFromSql(name: string, sql: string): TableSpecAny {
-			let table = <TableSpecAny>{ name: name, columns: {}, indices: [], triggers: {} };
-			let matches = sql.match(/\((.*)\)/);
-			if (matches) {
-				let pksplit: string[] = matches[1].split(/PRIMARY KEY/i);
-				let fields = pksplit[0].split(",");
-				for (let i = 0; i < fields.length; i++) {
-					let ignore = /^\s*(primary|foreign)\s+key/i;  // ignore standalone "PRIMARY KEY xxx"
-					if (fields[i].match(ignore)) {
-						continue;
-					}
-					let quotedName = /"(.+)"\s+(.*)/;
-					let unquotedName = /(\w+)\s+(.*)/;
-					let parts = fields[i].match(quotedName);
-					if (!parts) {
-						parts = fields[i].match(unquotedName);
-					}
-					if (parts) {
-						table.columns[parts[1]] = Column.fromSql(parts[2]);
-					}
-				}
-
-				if (pksplit.length > 1) {
-					let pk = pksplit[1].match(/\((.*)\)/);
-					if (pk) {
-						let keys = pk[1].split(",");
-						for (let i = 0; i < keys.length; i++) {
-							let key = keys[i].trim();
-							table.columns[key].isKey = true;
-						}
-					}
-				}
-			}
-			return table;
-		}
-
-		function indexFromSql(sql: string): string[] {
-			let regex = /\((.*)\)/;
-			let matches = regex.exec(sql);
-			verify(matches, "bad format on index- couldn't determine column names from sql: %s", sql);
-			return matches[1].split(",").map((x: string) => x.trim());
-		}
 
 		return this.db.readTransaction((transaction: DbTransaction) => {
 			return transaction.executeSql("SELECT name, tbl_name, type, sql FROM sqlite_master", [], (tx: DbTransaction, resultSet: any[]) => {
@@ -261,91 +157,6 @@ export class Store {
 	}
 
 	private syncTable(transaction: DbTransaction, schema: Schema, spec: TableSpecAny): Promise<any> {
-		function createTable(name: string): Promise<any> {
-			let cols: string[] = [];
-			let pk: string[] = [];
-			for (let col in spec.columns) {
-				let attrs: Column = spec.columns[col];
-				let decl: string;
-				switch (attrs.type) {
-					case ColumnType.set:
-						// ignore this column; values go into a separate table
-						verify(!attrs.isKey, "table %s cannot have a key on set column %s", spec.name, col);
-						break;
-	
-					default:
-						decl = col + " " + Column.sql(attrs);
-						cols.push(decl);
-						if (attrs.isKey) {
-							pk.push(col);
-						}
-						break;
-				}
-			}
-			verify(pk.length, "table %s has no keys", name);
-			cols.push("PRIMARY KEY(" + pk.join(", ")  + ")");
-			return transaction.executeSql("CREATE TABLE " + name + " (" + cols.join(", ") + ")");
-		}
-
-		function dropTable(name: string): Promise<any> {
-			return transaction.executeSql("DROP TABLE " + name);
-		}
-
-		function createIndices(force: boolean = false): Promise<any> {
-			let indicesEqual = function(a: string[], b: string[]) {
-				if (a.length != b.length) {
-					return false;
-				}
-				for (let i = 0; i < a.length; i++) {
-					if (a[i] != b[i]) {
-						return false;
-					}
-				}
-				return true;
-			};
-
-			let p = Promise.resolve();
-			let oldIndices = (spec.name in schema) ? schema[spec.name].indices : [];
-			let newIndices = spec.indices;
-			let getIndexName = function(indices: string[]): string {
-					return "index_" + spec.name + "__" + indices.join("_");
-			};
-
-			oldIndices.forEach((value: string[], i: number) => {
-				let drop = true;
-
-				for (let j = 0; j < newIndices.length; j++) {
-					if (indicesEqual(oldIndices[i], newIndices[j])) {
-						drop = false;
-						break;
-					}
-				}
-
-				if (drop) {
-					p = p.then(() => transaction.executeSql("DROP INDEX " + getIndexName(oldIndices[i])));
-				}
-			});
-
-			newIndices.forEach((value: string[], j: number) => {
-				let create = true;
-
-				for (let i = 0; i < oldIndices.length; i++) {
-					if (indicesEqual(oldIndices[i], newIndices[j])) {
-						create = false;
-						break;
-					}
-				}
-
-				if (create || force) {
-					let index = newIndices[j];
-					let sql = "CREATE INDEX IF NOT EXISTS " + getIndexName(index) + " ON " + spec.name + " (" + index.join(", ") + ")";
-					p = p.then(() => transaction.executeSql(sql));
-				}
-			});
-
-			return p;
-		}
-
 		let p = Promise.resolve();
 		if (spec.name in schema) {
 			let oldColumns = schema[spec.name].columns;
@@ -384,68 +195,6 @@ export class Store {
 
 			if (recreateTable) {
 				// recreate and migrate data
-				let copyData = function(oldName: string, newName: string): Promise<any> {
-					let oldTableColumns = Object.keys(oldColumns).filter(col => (col in spec.columns) || (col in renamedColumns));
-					let newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
-					let p2 = Promise.resolve();
-					if (oldTableColumns.length && newTableColumns.length) {
-						let stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
-						stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
-						p2 = transaction.executeSql(stmt);
-					}
-					return p2;
-				};
-
-				let migrateChangeTable = function(changeTableName: string) {
-					let deletedColumns = Object.keys(oldColumns).filter(col => !(col in spec.columns) && !(col in renamedColumns));
-					let p2 = Promise.resolve();
-					if (spec.renamedColumns || deletedColumns) {
-						p2 = p2.then(() => {
-							return transaction.each(
-								"SELECT " + ROWID + ", change"
-								+ " FROM " + changeTableName,
-								[],
-								(selectChangeTransaction: DbTransaction, row: any) => {
-									let change = fromText(row.change);
-									let changed = false;
-									for (let oldCol in spec.renamedColumns) {
-										let newCol = spec.renamedColumns[oldCol];
-										if (oldCol in change) {
-											change[newCol] = change[oldCol];
-											delete change[oldCol];
-											changed = true;
-										}
-									}
-									for (let oldCol of deletedColumns) {
-										if (oldCol in change) {
-											delete change[oldCol];
-											changed = true;
-										}
-									}
-									if (changed) {
-										if (Object.keys(change).length) {
-											return selectChangeTransaction.executeSql(
-												"UPDATE " + changeTableName
-												+ " SET change=?"
-												+ " WHERE " + ROWID + "=?",
-												[toText(change), row[ROWID]]
-											);
-										}
-										else {
-											return selectChangeTransaction.executeSql(
-												"DELETE FROM " + changeTableName
-												+ " WHERE " + ROWID + "=?",
-												[row[ROWID]]
-											);
-										}
-									}
-								}
-							);
-						});
-					}
-					return p2;
-				};
-
 				let renameTable = function(oldName: string, newName: string): Promise<any> {
 					return transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName);
 				};
@@ -455,14 +204,14 @@ export class Store {
 
 				if (tempTableName in schema) {
 					// yikes!  migration failed but transaction got committed?
-					p = p.then(() => dropTable(tempTableName));
+					p = p.then(() => dropTable(transaction, tempTableName));
 				}
-				p = p.then(() => createTable(tempTableName));
-				p = p.then(() => copyData(spec.name, tempTableName));
-				p = p.then(() => dropTable(spec.name));
+				p = p.then(() => createTable(transaction, tempTableName, spec.columns));
+				p = p.then(() => copyData(transaction, spec.name, tempTableName, oldColumns, newColumns, renamedColumns));
+				p = p.then(() => dropTable(transaction, spec.name));
 				p = p.then(() => renameTable(tempTableName, spec.name));
-				p = p.then(() => migrateChangeTable(changeTableName));
-				p = p.then(() => createIndices(true));
+				p = p.then(() => migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns));
+				p = p.then(() => createIndices(transaction, schema, spec, true));
 			}
 			else if (Object.keys(addedColumns).length > 0) {
 				// alter table, add columns
@@ -471,17 +220,17 @@ export class Store {
 					let columnDecl = colName + " " + Column.sql(col);
 					p = p.then(() => transaction.executeSql("ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl));
 				});
-				p = p.then(() => createIndices());
+				p = p.then(() => createIndices(transaction, schema, spec));
 			}
 			else {
 				// no table modification is required
-				p = p.then(() => createIndices());
+				p = p.then(() => createIndices(transaction, schema, spec));
 			}
 		}
 		else {
 			// create new table
-			p = p.then(() => createTable(spec.name));
-			p = p.then(() => createIndices(true));
+			p = p.then(() => createTable(transaction, spec.name, spec.columns));
+			p = p.then(() => createIndices(transaction, schema, spec, true));
 		}
 
 		return p;
@@ -555,6 +304,258 @@ export class Store {
 			return runQuery(transaction, table, q, opts, table.spec.clazz);
 		});
 	}
+}
+
+function getChangeTableName(name: string): string {
+	return internal_prefix + "changes_" + name;
+}
+
+function getSetTableName(tableName: string, col: string): string {
+	return internal_prefix + "set_" + tableName + "_" + col;
+}
+
+function buildIndices(spec: TableSpecAny) {
+	spec.indices = spec.indices || [];
+	for (let col in spec.columns) {
+		if (spec.columns[col].isIndex) {
+			spec.indices.push([col]);
+		}
+	}
+}
+
+function createInternalTableSpecs(table: Table<any, any, any>): TableSpecAny[] {
+	let newSpec = shallowCopy(table.spec);
+	newSpec.columns = shallowCopy(table.spec.columns);
+	for (let col in internalColumn) {
+		verify(!table.spec.columns[col], "table %s cannot have reserved column name %s", table.spec.name, col);
+		newSpec.columns[col] = internalColumn[col];
+	}
+	buildIndices(newSpec);
+	return [newSpec, ...createSetTableSpecs(newSpec, verifyGetValue(newSpec.columns, table.key))];
+}
+
+function createChangeTableSpec(table: Table<any, any, any>): TableSpecAny {
+	let newSpec = <TableSpecAny>{
+		name: getChangeTableName(table.spec.name),
+		columns: {
+			key: Column.Int().Key(),
+			time: Column.DateTime().Key(),
+			change: Column.JSON(),
+		}
+	};
+	buildIndices(newSpec);
+	return newSpec;
+}
+
+function createSetTableSpecs(spec: TableSpecAny, keyColumn: Column): TableSpecAny[] {
+	let newSpecs: TableSpecAny[] = [];
+	for (let col in spec.columns) {
+		let column = spec.columns[col];
+		if (column.type == ColumnType.set) {
+			let newSpec = <TableSpecAny>{
+				name: getSetTableName(spec.name, col),
+				columns: {
+					key: keyColumn,
+					value: new Column(column.elementType).Key(),
+					time: Column.Int().Key()
+				}
+			};
+
+			buildIndices(newSpec);
+			newSpecs.push(newSpec);
+		}
+	}
+	return newSpecs;
+}
+
+function tableFromSql(name: string, sql: string): TableSpecAny {
+	let table = <TableSpecAny>{ name: name, columns: {}, indices: [], triggers: {} };
+	let matches = sql.match(/\((.*)\)/);
+	if (matches) {
+		let pksplit: string[] = matches[1].split(/PRIMARY KEY/i);
+		let fields = pksplit[0].split(",");
+		for (let i = 0; i < fields.length; i++) {
+			let ignore = /^\s*(primary|foreign)\s+key/i;  // ignore standalone "PRIMARY KEY xxx"
+			if (fields[i].match(ignore)) {
+				continue;
+			}
+			let quotedName = /"(.+)"\s+(.*)/;
+			let unquotedName = /(\w+)\s+(.*)/;
+			let parts = fields[i].match(quotedName);
+			if (!parts) {
+				parts = fields[i].match(unquotedName);
+			}
+			if (parts) {
+				table.columns[parts[1]] = Column.fromSql(parts[2]);
+			}
+		}
+
+		if (pksplit.length > 1) {
+			let pk = pksplit[1].match(/\((.*)\)/);
+			if (pk) {
+				let keys = pk[1].split(",");
+				for (let i = 0; i < keys.length; i++) {
+					let key = keys[i].trim();
+					table.columns[key].isKey = true;
+				}
+			}
+		}
+	}
+	return table;
+}
+
+function indexFromSql(sql: string): string[] {
+	let regex = /\((.*)\)/;
+	let matches = regex.exec(sql);
+	verify(matches, "bad format on index- couldn't determine column names from sql: %s", sql);
+	return matches[1].split(",").map((x: string) => x.trim());
+}
+
+function createTable(transaction: DbTransaction, name: string, columns: ColumnSet): Promise<any> {
+	let cols: string[] = [];
+	let pk: string[] = [];
+	for (let col in columns) {
+		let attrs: Column = columns[col];
+		let decl: string;
+		switch (attrs.type) {
+			case ColumnType.set:
+				// ignore this column; values go into a separate table
+				verify(!attrs.isKey, "table %s cannot have a key on set column %s", name, col);
+				break;
+
+			default:
+				decl = col + " " + Column.sql(attrs);
+				cols.push(decl);
+				if (attrs.isKey) {
+					pk.push(col);
+				}
+				break;
+		}
+	}
+	verify(pk.length, "table %s has no keys", name);
+	cols.push("PRIMARY KEY(" + pk.join(", ")  + ")");
+	return transaction.executeSql("CREATE TABLE " + name + " (" + cols.join(", ") + ")");
+}
+
+function dropTable(transaction: DbTransaction, name: string): Promise<any> {
+	return transaction.executeSql("DROP TABLE " + name);
+}
+
+function createIndices(transaction: DbTransaction, schema: Schema, spec: TableSpecAny, force: boolean = false): Promise<any> {
+	let indicesEqual = function(a: string[], b: string[]) {
+		if (a.length != b.length) {
+			return false;
+		}
+		for (let i = 0; i < a.length; i++) {
+			if (a[i] != b[i]) {
+				return false;
+			}
+		}
+		return true;
+	};
+
+	let p = Promise.resolve();
+	let oldIndices = (spec.name in schema) ? schema[spec.name].indices : [];
+	let newIndices = spec.indices;
+	let getIndexName = function(indices: string[]): string {
+			return "index_" + spec.name + "__" + indices.join("_");
+	};
+
+	oldIndices.forEach((value: string[], i: number) => {
+		let drop = true;
+
+		for (let j = 0; j < newIndices.length; j++) {
+			if (indicesEqual(oldIndices[i], newIndices[j])) {
+				drop = false;
+				break;
+			}
+		}
+
+		if (drop) {
+			p = p.then(() => transaction.executeSql("DROP INDEX " + getIndexName(oldIndices[i])));
+		}
+	});
+
+	newIndices.forEach((value: string[], j: number) => {
+		let create = true;
+
+		for (let i = 0; i < oldIndices.length; i++) {
+			if (indicesEqual(oldIndices[i], newIndices[j])) {
+				create = false;
+				break;
+			}
+		}
+
+		if (create || force) {
+			let index = newIndices[j];
+			let sql = "CREATE INDEX IF NOT EXISTS " + getIndexName(index) + " ON " + spec.name + " (" + index.join(", ") + ")";
+			p = p.then(() => transaction.executeSql(sql));
+		}
+	});
+
+	return p;
+}
+
+function copyData(transaction: DbTransaction, oldName: string, newName: string, oldColumns: ColumnSet, newColumns: ColumnSet, renamedColumns: RenamedColumnSet): Promise<any> {
+	let oldTableColumns = Object.keys(oldColumns).filter(col => (col in newColumns) || (col in renamedColumns));
+	let newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
+	let p2 = Promise.resolve();
+	if (oldTableColumns.length && newTableColumns.length) {
+		let stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
+		stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
+		p2 = transaction.executeSql(stmt);
+	}
+	return p2;
+}
+
+function migrateChangeTable(transaction: DbTransaction, changeTableName: string, oldColumns: ColumnSet, newColumns: ColumnSet, renamedColumns: RenamedColumnSet) {
+	let deletedColumns = Object.keys(oldColumns).filter(col => !(col in newColumns) && !(col in renamedColumns));
+	let p2 = Promise.resolve();
+	if (renamedColumns || deletedColumns) {
+		p2 = p2.then(() => {
+			return transaction.each(
+				"SELECT " + ROWID + ", change"
+				+ " FROM " + changeTableName,
+				[],
+				(selectChangeTransaction: DbTransaction, row: any) => {
+					let change = fromText(row.change);
+					let changed = false;
+					for (let oldCol in renamedColumns) {
+						let newCol = renamedColumns[oldCol];
+						if (oldCol in change) {
+							change[newCol] = change[oldCol];
+							delete change[oldCol];
+							changed = true;
+						}
+					}
+					for (let oldCol of deletedColumns) {
+						if (oldCol in change) {
+							delete change[oldCol];
+							changed = true;
+						}
+					}
+					if (changed) {
+						if (Object.keys(change).length) {
+							return selectChangeTransaction.executeSql(
+								"UPDATE " + changeTableName
+								+ " SET change=?"
+								+ " WHERE " + ROWID + "=?",
+								[toText(change), row[ROWID]]
+							);
+						}
+						else {
+							return selectChangeTransaction.executeSql(
+								"DELETE FROM " + changeTableName
+								+ " WHERE " + ROWID + "=?",
+								[row[ROWID]]
+							);
+						}
+					}
+				}
+			);
+		});
+	}
+	return p2;
 }
 
 function verifyGetValue(element: any, field: string | number): any {
