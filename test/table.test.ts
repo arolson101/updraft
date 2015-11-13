@@ -4,6 +4,7 @@
 import { expect } from "chai";
 import clone = require("clone");
 import { Updraft } from "../src/index";
+import Enum = require("enum");
 
 import Column = Updraft.Column;
 import ColumnType = Updraft.ColumnType;
@@ -13,8 +14,7 @@ import OrderBy = Updraft.OrderBy;
 import mutate = Updraft.mutate;
 
 // TODO: lists
-// TODO: test indexes
-// TODO: code coverage
+// TODO: blobs
 // TODO: compile .d.ts
 // TODO: documentation
 
@@ -64,25 +64,30 @@ enum TodoStatus {
 	Paused
 }
 
+let AltTodoStatus = new Enum(["NotStarted", "InProgress", "Paused"]);
+
 interface HistoryItem {
 	time: Date;
 	text: string;
 }
 
-interface _Todo<key, date, estatus, bool, str, strset, history> {
+interface _Todo<key, date, estatus, ealtstatus, real, bool, str, strset, history> {
 	id?: key;
 	created?: date;
 	status?: estatus;
+	altstatus?: ealtstatus;
+	progress?: real;
 	completed?: bool;
+	due?: date;
 	text?: str;
 	tags?: strset;
 	history?: history;
 }
 
-interface Todo extends _Todo<number, Date, TodoStatus, boolean, string, Set<string>, Array<HistoryItem>> {}
-interface TodoMutator extends _Todo<number, M.date, M.primitive<TodoStatus>, M.bool, M.str, M.strSet, M.array<HistoryItem>> {}
-interface TodoQuery extends _Todo<Q.num, Q.date, Q.primitive<TodoStatus>, Q.bool, Q.str, Q.strSet, Q.none> {}
-interface TodoFields extends _Todo<boolean, boolean, boolean, boolean, boolean, boolean, boolean> {}
+interface Todo extends _Todo<number, Date, TodoStatus, EnumValue, number, boolean, string, Set<string>, Array<HistoryItem>> {}
+interface TodoMutator extends _Todo<number, M.date, M.primitive<TodoStatus>, M.primitive<EnumValue>, M.num, M.bool, M.str, M.strSet, M.array<HistoryItem>> {}
+interface TodoQuery extends _Todo<Q.num, Q.date, Q.primitive<TodoStatus>, Q.primitive<EnumValue>, Q.num, Q.bool, Q.str, Q.strSet, Q.none> {}
+interface TodoFields extends _Todo<boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean> {}
 
 type TodoTable = Updraft.Table<Todo, TodoMutator, TodoQuery>;
 type TodoChange = Updraft.TableChange<Todo, TodoMutator>;
@@ -94,7 +99,10 @@ const todoTableSpec: TodoTableSpec = {
 		id: Column.Int().Key(),
 		created: Column.DateTime(),
 		status: Column.Enum(TodoStatus),
+		altstatus: Column.Enum(AltTodoStatus),
+		progress: Column.Real(),
 		completed: Column.Bool().Index(),
+		due: Column.Date(),
 		text: Column.String(),
 		history: Column.JSON(),
 		tags: Column.Set(ColumnType.text)
@@ -110,7 +118,10 @@ const todoTableExpectedSchema = {
 			id: Column.Int().Key(),
 			created: Column.DateTime(),
 			status: new Column(ColumnType.enum),
+			altstatus: new Column(ColumnType.enum),
 			completed: Column.Bool().Index(),
+			due: Column.Date(),
+			progress: Column.Real(),
 			text: Column.String(),
 			history: Column.JSON(),
 
@@ -152,9 +163,12 @@ function sampleTodos(count: number) {
 			id: i,
 			created: new Date(2001, 2, 14, 12, 30),
 			status: TodoStatus.NotStarted,
+			altstatus: AltTodoStatus.get("NotStarted"),
+			progress: 0,
 			completed: false,
 			tags: new Set<string>(),
-			text: "todo " + i
+			text: "todo " + i,
+			history: <HistoryItem[]>[]
 		};
 		todos.push(todo);
 	}
@@ -178,20 +192,24 @@ function sampleMutators(count: number) {
 
 		case 1:
 			m.text = { $set: "modified " + i };
+			m.progress = { $set: 0.25 };
 			break;
 
 		case 2:
 			m.status = { $set: TodoStatus.InProgress };
+			m.altstatus = { $set: AltTodoStatus.get("InProgress") };
 			m.history = { $push: [ {time: new Date(2005, 7, 17), text: "history 2"} ] };
 			break;
 
 		case 3:
 			m.tags = { $add: ["foo", "bar"] };
+			m.progress = { $inc: 0.10 };
 			break;
 
 		case 4:
 			m.completed = { $set: true };
 			m.status = { $set: TodoStatus.Paused };
+			m.altstatus = { $set: AltTodoStatus.get("Paused") };
 			m.created = { $set: new Date(2002, 1, 15, 15, 45) };
 			m.text = { $set: "modified " + i };
 			m.tags = { $delete: ["foo"] };
@@ -610,7 +628,6 @@ describe("table", function() {
 					.then(() => todoTable.find({completed: false}).then((results) => expect(results).to.deep.equal(todos)))
 					.then(() => todoTable.find({completed: true}).then((results) => expect(results).to.deep.equal([])))
 					.then(() => todoTable.find({id: 1}).then((results) => expect(results).to.deep.equal([todos[1]])))
-					.then(() => todoTable.find({status: {$in: [TodoStatus.NotStarted, TodoStatus.Paused]}}).then((results) => expect(results).to.deep.equal(todos)))
 					;
 			});
 
@@ -639,6 +656,8 @@ describe("table", function() {
 					.then(() => todoTable.find({text: {$in: ["todo 3", "todo 4"]}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
 					.then(() => todoTable.find({text: {$in: ["todo 4", "todo 3"]}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
 					.then(() => todoTable.find({id: {$in: [3, 4]}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
+					.then(() => todoTable.find({status: {$in: [TodoStatus.NotStarted, TodoStatus.Paused]}}).then((results) => expect(results).to.deep.equal(todos)))
+					.then(() => todoTable.find({altstatus: {$in: [AltTodoStatus.get("NotStarted"), AltTodoStatus.get("Paused")]}}).then((results) => expect(results).to.deep.equal(todos)))
 					;
 			});
 		});

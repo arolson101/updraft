@@ -30,6 +30,12 @@ interface SqliteMasterRow {
 	sql: string;
 }
 
+interface BaselineInfo<Element> {
+	element: Element;
+	time: number;
+	rowid: number;
+}
+
 interface ChangeTableRow {
 	key?: KeyType;
 	time?: number;
@@ -623,13 +629,6 @@ function resolve<Element>(transaction: DbTransaction, table: Table<Element, any,
 	});
 }
 
-interface BaselineInfo<Element> {
-	element: Element;
-	time: number;
-	rowid: number;
-}
-
-
 function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Element, any, Query>, query: Query, opts: FindOpts, clazz: new (props: Element) => Element): Promise<Element[]> {
 	opts = opts || {};
 
@@ -860,10 +859,10 @@ function applyChanges<Element, Mutator>(baseline: BaselineInfo<Element>, changes
 
 function setLatest<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, rowid: number): Promise<any> {
 	return transaction.executeSql(
-	"UPDATE " + table.spec.name
-	+ " SET " + internal_column_latest + "=(" + ROWID + "=" + rowid + ")"
-	+ " WHERE " + table.key + "=?",
-	[keyValue]);
+		"UPDATE " + table.spec.name
+		+ " SET " + internal_column_latest + "=(" + ROWID + "=" + rowid + ")"
+		+ " WHERE " + table.key + "=?",
+		[keyValue]);
 }
 
 function invalidateLatest<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<any> {
@@ -871,13 +870,12 @@ function invalidateLatest<Element>(transaction: DbTransaction, table: Table<Elem
 		"UPDATE " + table.spec.name
 		+ " SET " + internal_column_latest + "=0"
 		+ " WHERE " + table.key + "=?",
-	[keyValue]);
+		[keyValue]);
 }
 
 function selectableColumns(spec: TableSpecAny, cols: { [key: string]: any }): string[] {
 	return Object.keys(cols).filter(col => (col == ROWID) || (col in internalColumn) || ((col in spec.columns) && (spec.columns[col].type != ColumnType.set)));
 }
-
 
 function serializeValue(spec: TableSpecAny, col: string, value: any): Serializable {
 	if (col in spec.columns) {
@@ -885,7 +883,6 @@ function serializeValue(spec: TableSpecAny, col: string, value: any): Serializab
 	}
 	return value;
 }
-
 
 function deserializeRow<T>(spec: TableSpecAny, row: any[]): T {
 	let ret: T = <any>{};

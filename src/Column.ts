@@ -109,6 +109,7 @@ export class Column {
 				verify(<any>value instanceof Set, "value should already be a set");
 				return value;
 
+			/* istanbul ignore next */
 			default:
 				throw new Error("unsupported column type " + ColumnType[this.type]);
 		}
@@ -144,6 +145,7 @@ export class Column {
 				let date = (value == undefined) ? null : ((<Date>value).getTime() / 1000);
 				return date;
 
+			/* istanbul ignore next */
 			default:
 				throw new Error("unsupported column type " + ColumnType[this.type]);
 		}
@@ -240,6 +242,8 @@ export class Column {
 			case ColumnType.datetime:
 				stmt = "DATETIME";
 				break;
+
+			/* istanbul ignore next */
 			default:
 				throw new Error("unsupported type " + ColumnType[val.type]);
 		}
@@ -290,6 +294,8 @@ export class Column {
 			case "DATETIME":
 				col = Column.DateTime();
 				break;
+
+			/* istanbul ignore next */
 			default:
 				throw new Error("unsupported type: " + ColumnType[parts[0]]);
 		}
