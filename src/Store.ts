@@ -558,6 +558,7 @@ function verifyGetValue(element: any, field: string | number): any {
 
 function insert(transaction: DbTransaction, tableName: string, columns: string[], values: any[]): Promise<any> {
 	let questionMarks = values.map(v => "?");
+	verify(columns.indexOf(ROWID) == -1, "should not insert with rowid column");
 	return transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values);
 }
 
@@ -753,6 +754,12 @@ function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Eleme
 	});
 }
 
+function popValue<Element>(element: Element, field: string) {
+	let ret = verifyGetValue(element, field);
+	delete element[field];
+	return ret;
+}
+
 function selectBaseline<Element, Query>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<BaselineInfo<Element>> {
 	let fieldSpec = <FieldSpec>{
 		[ROWID]: true,
@@ -782,8 +789,8 @@ function selectBaseline<Element, Query>(transaction: DbTransaction, table: Table
 			if (baselineResults.length) {
 				let element = <Element>baselineResults[0];
 				baseline.element = element;
-				baseline.time = verifyGetValue(baselineResults[0], internal_column_time);
-				baseline.rowid = verifyGetValue(baselineResults[0], ROWID);
+				baseline.time = popValue(element, internal_column_time);
+				baseline.rowid = popValue(element, ROWID);
 			}
 			else {
 				baseline.element[table.key] = keyValue;
