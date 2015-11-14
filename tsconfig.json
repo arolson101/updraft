@@ -1,28 +1,32 @@
 {
-    "version": "1.5.0-alpha",
-    "compilerOptions": {
-        "target": "es5",
-        "module": "commonjs",
-        "declaration": true,
-        "noImplicitAny": true,
-        "removeComments": false,
-        "noLib": false,
-        "preserveConstEnums": true,
-        "suppressImplicitAnyIndexErrors": true,
-        "sourceMap": true,
-        "out": "./dist/updraft.js"
-    },
-    "filesGlob": [
-        "./src/**/*.ts",
-        "!./node_modules/**/*.ts"
-    ],
-    "files": [
-        "./src/main.ts",
-        "./src/model.ts",
-        "./src/query.ts",
-        "./src/set.ts",
-        "./src/store.ts",
-        "./src/util.ts",
-        "./src/websql.d.ts"
-    ]
+		"version": "1.6",
+		"compilerOptions": {
+				"target": "es5",
+				"noImplicitAny": true,
+				"removeComments": false,
+				"preserveConstEnums": true,
+				"suppressImplicitAnyIndexErrors": true,
+				"sourceMap": true,
+				"declaration": true,
+				"out": "dist/updraft.js"
+		},
+		"filesGlob": [
+				"./src/**/*.ts",
+				"!./node_modules/**/*.ts"
+		],
+		"files": [
+				"./src/assign.ts",
+				"./src/Column.ts",
+				"./src/Database.ts",
+				"./src/index.ts",
+				"./src/Mutate.ts",
+				"./src/Query.ts",
+				"./src/SQLiteWrapper.ts",
+				"./src/Store.ts",
+				"./src/Table.ts",
+				"./src/Text.ts",
+				"./src/verify.ts",
+				"./src/websql.d.ts",
+				"./src/WebsqlWrapper.ts"
+		]
 }

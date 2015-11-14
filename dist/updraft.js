@@ -1,856 +1,98 @@
+"use strict";
 var Updraft;
 (function (Updraft) {
-    /**
-     * @private
-     */
-    function startsWith(str, val) {
-        return str.lastIndexOf(val, 0) === 0;
+    /* istanbul ignore next */
+    function toObject(val) {
+        if (val === null || val === undefined) {
+            throw new TypeError("Object.assign cannot be called with null or undefined");
+        }
+        return Object(val);
     }
-    Updraft.startsWith = startsWith;
-    /**
-     * @private
-     */
-    function clone(obj) {
-        var copy;
-        // Handle the 3 simple types, and null or undefined
-        if (null === obj || "object" !== typeof obj) {
-            return obj;
-        }
-        // Handle Array
-        if (obj instanceof Array) {
-            copy = [];
-            for (var i = 0, len = obj.length; i < len; i++) {
-                copy[i] = clone(obj[i]);
-            }
-            return copy;
-        }
-        // Handle complicated (read: enum) objects
-        if (obj instanceof Object && obj.constructor.name !== "Object") {
-            return obj;
-        }
-        // Handle simple Objects
-        if (obj instanceof Object && obj.constructor.name === "Object") {
-            copy = {};
-            for (var attr in obj) {
-                if (obj.hasOwnProperty(attr)) {
-                    copy[attr] = clone(obj[attr]);
+    /* istanbul ignore next */
+    var ObjectAssign = Object.assign || function (target, source) {
+        var hasOwnProperty = Object.prototype.hasOwnProperty;
+        var propIsEnumerable = Object.prototype.propertyIsEnumerable;
+        var from;
+        var to = toObject(target);
+        var symbols;
+        for (var s = 1; s < arguments.length; s++) {
+            from = Object(arguments[s]);
+            for (var key in from) {
+                if (hasOwnProperty.call(from, key)) {
+                    to[key] = from[key];
                 }
             }
-            return copy;
-        }
-        throw new Error("Unable to copy obj! Its type isn't supported.");
-    }
-    Updraft.clone = clone;
-    /**
-     * @private
-     */
-    function keyOf(obj) {
-        if (obj instanceof Updraft.Instance) {
-            return obj._primaryKey();
-        }
-        if (typeof (obj) === 'object' && typeof (obj.toString) === 'function') {
-            return obj.toString();
-        }
-        return obj;
-    }
-    Updraft.keyOf = keyOf;
-    /**
-     * In non-typescript environments, use this function to derive a class from {@link Instance}
-     * @example
-     * ```
-     *
-     *   function Task() { Updraft.Instance.apply(this, arguments); }
-     *   var Task = Updraft.createClass({
-     *     tableName: 'tasks',
-     *     columns: {
-     *       name: Updraft.Column.Text().Key(),
-     *       description: Updraft.Column.Text(),
-     *       done: Updraft.Column.Bool()
-     *     }
-     *   });
-     * ```
-     */
-    function createClass(proto, descriptor) {
-        console.assert(typeof proto === 'function');
-        console.assert(typeof descriptor === 'object');
-        proto.prototype = Object.create(Updraft.Instance.prototype);
-        proto.prototype.constructor = proto;
-        for (var key in descriptor) {
-            var value = descriptor[key];
-            if (typeof value === 'function') {
-                proto.prototype[key] = value;
-            }
-            else {
-                proto[key] = descriptor[key];
+            if (Object.getOwnPropertySymbols) {
+                symbols = Object.getOwnPropertySymbols(from);
+                for (var i = 0; i < symbols.length; i++) {
+                    if (propIsEnumerable.call(from, symbols[i])) {
+                        to[symbols[i]] = from[symbols[i]];
+                    }
+                }
             }
         }
-        return proto;
-    }
-    Updraft.createClass = createClass;
+        return to;
+    };
+    Updraft.assign = ObjectAssign;
 })(Updraft || (Updraft = {}));
-/// <reference path="./websql.d.ts" />
+"use strict";
 var Updraft;
 (function (Updraft) {
-    /**
-     * State that a value can be in
-     * @private
-     * @enum
-     */
-    var State;
-    (function (State) {
-        State[State["saved"] = 2] = "saved";
-        State[State["added"] = 4] = "added";
-        State[State["removed"] = 8] = "removed";
-    })(State || (State = {}));
-    var Set = (function () {
-        /**
-         * @param dirtyFcn - function to call when set's state changes
-         */
-        function Set(dirtyFcn) {
-            this._dirtyFcn = dirtyFcn;
-            this._states = {};
+    function reviver(key, value) {
+        if (typeof value === "string") {
+            var regexp = /^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ$/.exec(value);
+            if (regexp) {
+                return new Date(value);
+            }
         }
-        /**
-         * load values from a database; initialize values
-         * @private
-         * @param results - database row
-         */
-        Set.prototype.initFromDb = function (results) {
-            for (var i = 0; i < results.rows.length; i++) {
-                var row = results.rows.item(i);
-                console.assert(Object.keys(row).length === 1);
-                var item = row[Object.keys(row)[0]];
-                this._states[item] = State.saved;
-            }
-        };
-        /**
-         * Set all values from an array.  <tt>Add</tt>s all values, and <tt>remove</tt>s any existing set values that are
-         * not in <tt>arr</tt>
-         * @param objects - array of values to assign.  If values are {@link Instance}s, assign their <tt>_primaryKey()</tt>s instead
-         */
-        Set.prototype.assign = function (objects) {
-            this.clear();
-            this.add.apply(this, objects);
-        };
-        /**
-         * Removes all objects from set
-         */
-        Set.prototype.clear = function () {
-            for (var val in this._states) {
-                this._states[val] = State.removed;
-            }
-        };
-        /**
-         * Adds value(s) to set
-         * @param objects - array of values to assign.  If values are {@link Instance}s, assign their <tt>_primaryKey()</tt>s instead
-         */
-        Set.prototype.add = function () {
-            var objects = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                objects[_i - 0] = arguments[_i];
-            }
-            var dirty = false;
-            var self = this;
-            objects
-                .map(Updraft.keyOf)
-                .forEach(function (arg) {
-                console.assert(typeof (arg) !== 'object');
-                if (self._states[arg] !== State.saved) {
-                    self._states[arg] = State.added;
-                    dirty = true;
-                }
-            });
-            if (dirty) {
-                this._dirtyFcn();
-            }
-        };
-        /**
-         * Alias for {@link add}
-         * @param objects - values to add
-         */
-        Set.prototype.push = function () {
-            var objects = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                objects[_i - 0] = arguments[_i];
-            }
-            return this.add.apply(this, objects);
-        };
-        /**
-         * Removes value(s) from set
-         * @param objects - values to remove
-         */
-        Set.prototype.remove = function () {
-            var objects = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                objects[_i - 0] = arguments[_i];
-            }
-            var dirty = false;
-            var self = this;
-            objects
-                .map(Updraft.keyOf)
-                .forEach(function (arg) {
-                self._states[arg] = State.removed;
-                dirty = true;
-            });
-            if (dirty) {
-                this._dirtyFcn();
-            }
-        };
-        /**
-         * Gets values from set which match the given <tt>stateMask</tt>
-         * @param stateMask - states of objects to return
-         * @return values that match <tt>stateMask</tt>
-         * @private
-         */
-        Set.prototype.which = function (stateMask) {
-            var self = this;
-            return Object.keys(this._states)
-                .filter(function (element, index, array) {
-                return (self._states[element] & stateMask) ? true : false;
-            });
-        };
-        /**
-         * Gets valid (added or saved) values of the set
-         */
-        Set.prototype.values = function () {
-            return this.which(State.saved | State.added);
-        };
-        /**
-         * Gets the values that have been added to the set since it was last saved
-         */
-        Set.prototype.getAdded = function () {
-            return this.which(State.added);
-        };
-        /**
-         * Gets the values that have been removed from the set since it was last saved
-         */
-        Set.prototype.getRemoved = function () {
-            return this.which(State.removed);
-        };
-        /**
-         * Marks the values in the set as saved.  Any objects marked 'remove' will be
-         * expunged from the set.
-         */
-        Set.prototype.clearChanges = function () {
-            var newValues = {};
-            for (var val in this._states) {
-                if (this._states[val] !== State.removed) {
-                    newValues[val] = State.saved;
-                }
-            }
-            this._states = newValues;
-        };
-        return Set;
-    })();
-    Updraft.Set = Set;
+        return value;
+    }
+    function toText(o) {
+        return JSON.stringify(o);
+    }
+    Updraft.toText = toText;
+    function fromText(text) {
+        return JSON.parse(text, reviver);
+    }
+    Updraft.fromText = fromText;
 })(Updraft || (Updraft = {}));
-/// <reference path="../typings/tsd.d.ts" />
-/// <reference path="./store.ts" />
+"use strict";
 var Updraft;
 (function (Updraft) {
-    /**
-     * Do not construct objects of type Query directly- instead, use {@link ClassTemplate}.all
-     * @constructor
-     */
-    var Query = (function () {
-        function Query(model, store) {
-            console.assert(model != null);
-            console.assert(store != null);
-            this._model = model;
-            this._store = store;
-            this._justCount = false;
-            this._tables = [model.tableName];
-            this._columns = [];
-            this._conditions = [];
-            this._order = undefined;
-            this._limit = undefined;
-            this._offset = undefined;
-            this._asc = true;
-            this._nocase = false;
-            // add child tables
-            for (var col in model.columns) {
-                if (model.columns[col].type !== Updraft.ColumnType.set) {
-                    this._columns.push(model.tableName + '.' + col);
-                }
-            }
+    function makePrintable(x) {
+        if (Array.isArray(x) || (x && typeof x === "object")) {
+            return JSON.stringify(x);
         }
-        Query.prototype.all = function () {
-            return this.get();
-        };
-        Query.prototype.addCondition = function (conj, col, op, val) {
-            var fields = col.split(/\./);
-            var field;
-            var f = this._model;
-            val = Updraft.keyOf(val);
-            for (var i = 0; i < fields.length - 1; i++) {
-                field = fields[i];
-                console.assert(field in f.columns);
-                var ref = f.columns[field].ref;
-                console.assert(ref != null);
-                if (this._tables.indexOf(ref.tableName) === -1) {
-                    this._tables.push(ref.tableName);
-                    this._conditions.push({
-                        conj: 'AND',
-                        col: f.tableName + '.' + field,
-                        op: '=',
-                        val: ref.tableName + '.' + ref.key
-                    });
-                }
-                f = ref;
-            }
-            field = fields[fields.length - 1];
-            switch (op) {
-                case 'contains':
-                    console.assert(f.columns[field].type === Updraft.ColumnType.set);
-                    var setTable = f.columns[field].setTable;
-                    console.assert(setTable != null);
-                    if (this._tables.indexOf(setTable.tableName) === -1) {
-                        this._tables.push(setTable.tableName);
-                        this._conditions.push({
-                            conj: 'AND',
-                            col: f.tableName + '.' + f.key,
-                            op: '=',
-                            val: setTable.tableName + '.' + f.key
-                        });
-                    }
-                    this._conditions.push({
-                        conj: conj,
-                        col: setTable.tableName + '.' + field,
-                        op: '=',
-                        val: '?',
-                        arg: val
-                    });
-                    break;
-                default:
-                    console.assert(f.columns[field].type !== Updraft.ColumnType.set);
-                    this._conditions.push({
-                        conj: conj,
-                        col: f.tableName + '.' + field,
-                        op: op,
-                        val: '?',
-                        arg: val
-                    });
-                    break;
-            }
-            return this;
-        };
-        /**
-         * Adds an 'AND' condition to the query
-         *
-         * @param col - column field to match on
-         * @param op - SQLite binary [operator]{@link https://www.sqlite.org/lang_expr.html}
-         * @param val - value to match against `col`
-         * @see {@link or}
-         * @example
-         * ```
-         *
-         *  return Class.all.where('col2', '>', 10).and('col2', '<', 30).get();
-         *  // -> SELECT ... WHERE col2 > 10 AND col2 < 30
-         * ```
-         */
-        Query.prototype.and = function (col, op, val) {
-            return this.addCondition('AND', col, op, val);
-        };
-        /**
-         * alias for {@link and}
-         *
-         * @example
-         * ```
-         *
-         *  return Class.all.where('col2', '>', 10).get();
-         * ```
-         */
-        Query.prototype.where = function () {
-            return this.and.apply(this, arguments);
-        };
-        /**
-         * Adds an 'OR' condition to the query
-         *
-         * @param col - column field to match on
-         * @param op - SQLite binary [operator]{@link https://www.sqlite.org/lang_expr.html}
-         * @param val - value to match against `col`
-         * @see {@link and}
-         * @example
-         * ```
-         *
-         *  return Class.all.where('col2', '=', 10).or('col2', '=', 30).get();
-         *  // -> SELECT ... WHERE col2 = 10 OR col2 = 30
-         * ```
-         */
-        Query.prototype.or = function (col, op, val) {
-            return this.addCondition('OR', col, op, val);
-        };
-        /**
-         * Sort the results by specified field
-         *
-         * @param col - column to sort by
-         * @param asc - sort ascending (true, default) or descending (false)
-         * @see {@link nocase}
-         * @example
-         * ```
-         *
-         *  return Class.all.order('x').get();
-         *  // -> SELECT ... ORDER BY x
-         * ```
-         */
-        Query.prototype.order = function (col, asc) {
-            this._order = this._model.tableName + '.' + col;
-            if (typeof asc !== 'undefined') {
-                this._asc = asc;
-            }
-            return this;
-        };
-        /**
-         * Changes the match collation to be case-insensitive.  Only applies to result sorting, as 'LIKE' is
-         * always case-insensitive
-         *
-         * @see {@link order}
-         * @example
-         * ```
-         *
-         *  return Class.all.order('x').nocase().get();
-         *  // -> SELECT ... ORDER BY x COLLATE NOCASE
-         * ```
-         */
-        Query.prototype.nocase = function () {
-            this._nocase = true;
-            return this;
-        };
-        /**
-         * Limits the result set to a certain number.  Useful in pagination
-         *
-         * @see {@link offset}
-         * @example
-         * ```
-         *
-         *  return Class.all.limit(5).get();
-         *  // -> SELECT ... FROM ... LIMIT 5
-         * ```
-         */
-        Query.prototype.limit = function (count) {
-            this._limit = count;
-            return this;
-        };
-        /**
-         * Skip a number of results.  Useful in pagination
-         *
-         * @see {@link limit}
-         * @example
-         * ```
-         *
-         *  return Class.all.limit(10).offset(50).get();
-         *  // -> SELECT ... FROM ... LIMIT 10 OFFSET 50
-         * ```
-         */
-        Query.prototype.offset = function (count) {
-            this._offset = count;
-            return this;
-        };
-        /**
-         * Executes the query, returning a promise resolving with the count of objects that match
-         *
-         * @see {@link get}
-         * @example
-         * ```
-         *
-         *  return Class.all.count()
-         *  .then(function(count) { console.log(count + " objects") });
-         *  // -> SELECT COUNT(*) FROM ...
-         * ```
-         */
-        Query.prototype.count = function () {
-            this._justCount = true;
-            return this.get();
-        };
-        /**
-         * Executes the query, returning a promise resolving with the array of objects that match any conditions
-         * set on the Query
-         *
-         * @see {@link count}
-         * @example
-         * ```
-         *
-         *  return Class.all.where('x', '>', 0).get();
-         *  // -> SELECT ... WHERE x > 0
-         * ```
-         */
-        Query.prototype.get = function () {
-            var countProp = 'COUNT(*)';
-            var stmt = 'SELECT ';
-            var model = this._model;
-            if (this._justCount) {
-                stmt += countProp;
-            }
-            else {
-                stmt += this._columns.join(', ');
-            }
-            stmt += ' FROM ' + this._tables.join(', ');
-            var args = [];
-            for (var i = 0; i < this._conditions.length; i++) {
-                var cond = this._conditions[i];
-                stmt += (i === 0) ? ' WHERE ' : (' ' + cond.conj + ' ');
-                stmt += cond.col + ' ' + cond.op + ' ' + cond.val;
-                if ('arg' in cond) {
-                    args.push(cond.arg);
-                }
-            }
-            if (this._order) {
-                stmt += ' ORDER BY ' + this._order;
-                stmt += (this._nocase ? ' COLLATE NOCASE' : '');
-                stmt += (this._asc ? ' ASC' : ' DESC');
-            }
-            console.assert(!this._offset || this._limit);
-            if (this._limit) {
-                stmt += ' LIMIT ' + this._limit;
-                if (this._offset) {
-                    stmt += ' OFFSET ' + this._offset;
-                }
-            }
-            var objects = [];
-            var query = this;
-            return this._store.execRead(stmt, args, function (tx, results) {
-                if (query._justCount) {
-                    return results.rows.item(0)[countProp];
-                }
-                for (var i = 0; i < results.rows.length; i++) {
-                    var o = Updraft.constructFromDb(model, results.rows.item(i));
-                    objects.push(o);
-                }
-                var setcols = Object.keys(model.columns)
-                    .filter(function (col) {
-                    return (model.columns[col].type === Updraft.ColumnType.set);
-                });
-                return Promise.all(objects.map(function (o) {
-                    return Promise.all(setcols.map(function (col) {
-                        var setTable = model.columns[col].setTable;
-                        console.assert(setTable != null);
-                        var key = o._primaryKey();
-                        var s = 'SELECT ' + col;
-                        s += ' FROM ' + setTable.tableName;
-                        s += ' WHERE ' + query._model.key + ' = ?';
-                        return query._store.exec(tx, s, [key], function (tx, results) {
-                            if (results.rows.length > 0) {
-                                o[col].initFromDb(results);
-                            }
-                        });
-                    }));
-                }))
-                    .then(function () {
-                    return objects;
-                });
-            });
-        };
-        return Query;
-    })();
-    Updraft.Query = Query;
-})(Updraft || (Updraft = {}));
-/// <reference path="./util.ts" />
-/// <reference path="./store.ts" />
-/// <reference path="./set.ts" />
-/// <reference path="./query.ts" />
-var Updraft;
-(function (Updraft) {
-    /**
-     * Instances of this type will have properties for all the columns defined in its {@link ClassTemplate}.
-     *  Do not create objects of type Instance directly; instead create subclassed objects
-     *
-     * @see {@link createClass}
-     * @example
-     * ```
-     *
-     *   // ------ typescript ------
-     *   class Task extends Updraft.Instance {
-     *     constructor() {
-     *       super.apply(this, arguments);
-     *     }
-     *
-     *     public name: string;
-     *     public description: string;
-     *     public done: boolean;
-     *
-     *     static tableName: string = 'tasks';
-     *     static columns: Updraft.ColumnSet = {
-     *       name: Updraft.Column.Text().Key(),
-     *       description: Updraft.Column.Text(),
-     *       done: Updraft.Column.Bool()
-     *     };
-     *   }
-     * ```
-     */
-    var Instance = (function () {
-        function Instance(props) {
-            var o = this;
-            o._changeMask = 0;
-            for (var key in this._model.columns) {
-                var col = this._model.columns[key];
-                if ('defaultValue' in col) {
-                    o['_' + key] = col.defaultValue;
-                }
-            }
-            props = props || {};
-            for (var key in props) {
-                var value = props[key];
-                if (value instanceof Instance) {
-                    value = value._primaryKey();
-                }
-                o[key] = value;
-            }
-        }
-        /**
-         * Return the object's primary key's value
-         *
-         * @returns Value of primary key
-         * @private
-         * @example
-         * ```
-         *
-         *  var x = new Class();
-         *  x.id = 123;
-         *  console.log(x._primaryKey());
-         *  // -> '123'
-         * ```
-         */
-        Instance.prototype._primaryKey = function () {
-            var key = '_' + this._model.key;
-            console.assert(key in this);
-            return this[key];
-        };
-        /**
-         * Get the fields that have been changed since the object was last loaded/saved
-         *
-         * @returns Names of the fields that have changed
-         * @private
-         * @example
-         * ```
-         *
-         *  var x = new Class();
-         *  x.foo = 'bar';
-         *  console.log(x.changes());
-         *  // -> ['foo']
-         * ```
-         */
-        Instance.prototype._changes = function () {
-            var changes = [];
-            var propIdx = 0;
-            for (var col in this._model.columns) {
-                var propMask = (1 << propIdx++);
-                if (this._changeMask & propMask) {
-                    changes.push(col);
-                }
-            }
-            return changes;
-        };
-        /**
-         * Set state to be have no changes
-         * @private
-         */
-        Instance.prototype._clearChanges = function () {
-            this._changeMask = 0;
-            for (var col in this._model.columns) {
-                if (col in this
-                    && typeof this[col] !== 'undefined'
-                    && typeof this[col]['clearChanges'] === 'function') {
-                    this[col].clearChanges();
-                }
-            }
-        };
-        return Instance;
-    })();
-    Updraft.Instance = Instance;
-    /**
-     * Add a get/set property to the class
-     *
-     * @param model - class template
-     * @param proto - function prototype
-     * @param col - the column/field to set the property on
-     * @param propMask - the bits to set on <tt>_changes</tt>
-     * @private
-     */
-    function addClassProperty(model, proto, col, propMask) {
-        var prop = '_' + col;
-        switch (model.columns[col].type) {
-            default:
-                Object.defineProperty(proto, col, {
-                    configurable: true,
-                    get: function () {
-                        return this[prop];
-                    },
-                    set: function (val) {
-                        if (this[prop] !== val) {
-                            this[prop] = val;
-                            this._changeMask |= propMask;
-                        }
-                    }
-                });
-                break;
-            case Updraft.ColumnType.ptr:
-                Object.defineProperty(proto, col, {
-                    configurable: true,
-                    get: function () {
-                        var ref = this._model.columns[col].ref;
-                        console.assert(ref.get != null);
-                        var ret = {
-                            ref: ref,
-                            own: this,
-                            get: function () { return this.ref.get(this.own[prop]); }
-                        };
-                        ret[ref.key] = this[prop];
-                        return ret;
-                    },
-                    set: function (val) {
-                        // allow client to do object.field = otherobject; we'll transform it to object.field = otherobject._primaryKey()
-                        val = Updraft.keyOf(val);
-                        if (this[prop] !== val) {
-                            this[prop] = val;
-                            this._changeMask |= propMask;
-                        }
-                    }
-                });
-                break;
-            case Updraft.ColumnType.set:
-                Object.defineProperty(proto, col, {
-                    configurable: true,
-                    get: function () {
-                        if (!(prop in this)) {
-                            var o = this;
-                            o[prop] = new Updraft.Set(function () { o._changeMask |= propMask; });
-                        }
-                        return this[prop];
-                    },
-                    set: function (val) {
-                        if (!(prop in this)) {
-                            var o = this;
-                            o[prop] = new Updraft.Set(function () { o._changeMask |= propMask; });
-                        }
-                        this[prop].assign(val);
-                        this._changeMask |= propMask;
-                    }
-                });
-                break;
+        else {
+            return x;
         }
     }
     /**
-     * Add properties to a provided {@link Instance} subclass that can be created, saved and retrieved from the db
-     * @private
-     */
-    function MakeClassTemplate(templ, store) {
-        console.assert(store != null);
-        console.assert(templ != null);
-        console.assert(templ.tableName != null);
-        console.assert(templ.tableName[0] !== '_');
-        console.assert(templ.columns != null);
-        console.assert(Object.keys(templ.columns).length < 64);
-        console.assert(!('changes' in templ.columns));
-        console.assert(!('template' in templ.columns));
-        console.assert(!templ.renamedColumns || Object.keys(templ.renamedColumns).every(function (old) { return !(old in templ.columns); }));
-        // instance properties
-        var proto = templ.prototype;
-        Object.defineProperty(proto, '_model', { configurable: true, enumerable: true, value: templ });
-        Object.defineProperty(proto, '_store', { configurable: true, enumerable: true, value: store });
-        // class static methods/properties
-        templ.get = function (id) {
-            return this.all.where(this.key, '=', id).get()
-                .then(function (results) {
-                console.assert(results.length < 2);
-                if (results.length === 0) {
-                    return null;
-                }
-                else {
-                    return results[0];
-                }
-            });
-        };
-        Object.defineProperty(templ, 'all', {
-            configurable: true,
-            get: function () {
-                return new Updraft.Query(this, store);
-            }
-        });
-        templ.indices = templ.indices || [];
-        var key = null;
-        var keyType = null;
-        var propIdx = 0;
-        for (var col in templ.columns) {
-            if (templ.columns[col].isKey) {
-                key = col;
-                keyType = templ.columns[col].type;
-            }
-            if (templ.columns[col].isIndex) {
-                templ.indices.push([col]);
-            }
-            var propMask = (1 << propIdx++);
-            addClassProperty(templ, proto, col, propMask);
-            if (propIdx >= 63) {
-                throw new Error("class has too many columns- max 63");
-            }
+    * Use verify() to assert state which your program assumes to be true.
+    *
+    * Provide sprintf-style format (only %s is supported) and arguments
+    * to provide information about what broke and what you were
+    * expecting.
+    */
+    function verify(condition, format) {
+        var args = [];
+        for (var _i = 2; _i < arguments.length; _i++) {
+            args[_i - 2] = arguments[_i];
         }
-        console.assert(key != null);
-        templ.key = key;
-        templ.keyType = keyType;
-    }
-    Updraft.MakeClassTemplate = MakeClassTemplate;
-    /**
-     * construct object from a database result row
-     *
-     * @return Instance with fields initialized according to row, with _isInDb=true and no changes set
-     * @private
-     */
-    function constructFromDb(model, row) {
-        var o = new model();
-        console.assert(o instanceof Instance);
-        for (var col in row) {
-            var val = row[col];
-            var _col = '_' + col;
-            // TODO: refactor this into column class
-            switch (model.columns[col].type) {
-                case Updraft.ColumnType.json:
-                    o[_col] = JSON.parse(val);
-                    break;
-                case Updraft.ColumnType.date:
-                case Updraft.ColumnType.datetime:
-                    o[_col] = new Date(val * 1000);
-                    break;
-                case Updraft.ColumnType.enum:
-                    var enumClass = o._model.columns[col].enum;
-                    console.assert(enumClass != null);
-                    if (typeof enumClass === 'object' && typeof enumClass.get == 'function') {
-                        o[_col] = enumClass.get(val);
-                    }
-                    else {
-                        console.assert(val in enumClass);
-                        o[_col] = enumClass[val];
-                    }
-                    break;
-                case Updraft.ColumnType.set:
-                    o[_col].push(val);
-                    break;
-                default:
-                    o[_col] = val;
-                    break;
-            }
+        if (!condition) {
+            var argIndex = 0;
+            var error = new Error(format.replace(/%s/g, function () { return makePrintable(args[argIndex++]); }));
+            error.framesToPop = 1; // we don't care about verify's own frame
+            throw error;
         }
-        o._isInDb = true;
-        console.assert(o._changeMask === 0);
-        return o;
     }
-    Updraft.constructFromDb = constructFromDb;
+    Updraft.verify = verify;
 })(Updraft || (Updraft = {}));
-/// <reference path="../typings/tsd.d.ts" />
-/// <reference path="./util.ts" />
-/// <reference path="./model.ts" />
-/// <reference path="./websql.d.ts" />
-var __extends = this.__extends || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
-};
+///<reference path="./Text"/>
+///<reference path="./verify"/>
+"use strict";
 var Updraft;
 (function (Updraft) {
-    /**
-     * Column types.  Note that these are just column affinities, and technically any value type can be stored in any column type.
-     * see {@link https://www.sqlite.org/datatype3.html}
-     */
     (function (ColumnType) {
         ColumnType[ColumnType["int"] = 0] = "int";
         ColumnType[ColumnType["real"] = 1] = "real";
@@ -861,67 +103,128 @@ var Updraft;
         ColumnType[ColumnType["date"] = 6] = "date";
         ColumnType[ColumnType["datetime"] = 7] = "datetime";
         ColumnType[ColumnType["json"] = 8] = "json";
-        ColumnType[ColumnType["ptr"] = 9] = "ptr";
-        ColumnType[ColumnType["set"] = 10] = "set";
+        ColumnType[ColumnType["set"] = 9] = "set";
     })(Updraft.ColumnType || (Updraft.ColumnType = {}));
     var ColumnType = Updraft.ColumnType;
     /**
-     * Column in db.  Use static methods to create columns.
-     */
+    * Column in db.  Use static methods to create columns.
+    */
     var Column = (function () {
         function Column(type) {
             this.type = type;
+            if (type == ColumnType.bool) {
+                this.defaultValue = false;
+            }
         }
         /**
-         * Column is the primary key.  Only one column can have this set.
-         */
-        Column.prototype.Key = function (value) {
-            if (value === void 0) { value = true; }
-            this.isKey = value;
+            * Column is the primary key.  Only one column can have this set.
+            */
+        Column.prototype.Key = function () {
+            this.isKey = true;
             return this;
         };
         /**
-         * Create an index for this column for faster queries.
-         */
-        Column.prototype.Index = function (value) {
-            if (value === void 0) { value = true; }
-            this.isIndex = value;
+            * Create an index for this column for faster queries.
+            */
+        Column.prototype.Index = function () {
+            this.isIndex = true;
             return this;
         };
         /**
-         * Set a default value for the column
-         */
+            * Set a default value for the column
+            */
         // TODO
         Column.prototype.Default = function (value) {
+            if (this.type == ColumnType.bool) {
+                value = value ? true : false;
+            }
             this.defaultValue = value;
             return this;
         };
-        /** create a column with 'INTEGER' affinity */
+        Column.prototype.deserialize = function (value) {
+            switch (this.type) {
+                case ColumnType.int:
+                case ColumnType.real:
+                case ColumnType.text:
+                    return value;
+                case ColumnType.bool:
+                    return value ? true : false;
+                case ColumnType.json:
+                    return Updraft.fromText(value);
+                case ColumnType.enum:
+                    if (typeof this.enum.get === "function") {
+                        return this.enum.get(value);
+                    }
+                    Updraft.verify(value in this.enum, "enum value %s not in %s", value, this.enum);
+                    return this.enum[value];
+                case ColumnType.date:
+                case ColumnType.datetime:
+                    Updraft.verify(!value || parseFloat(value) == value, "expected date to be stored as a number: %s", value);
+                    return value ? new Date(parseFloat(value) * 1000) : undefined;
+                case ColumnType.set:
+                    Updraft.verify(value instanceof Set, "value should already be a set");
+                    return value;
+                /* istanbul ignore next */
+                default:
+                    throw new Error("unsupported column type " + ColumnType[this.type]);
+            }
+        };
+        Column.prototype.serialize = function (value) {
+            switch (this.type) {
+                case ColumnType.int:
+                case ColumnType.real:
+                case ColumnType.text:
+                    return value;
+                case ColumnType.bool:
+                    return value ? 1 : 0;
+                case ColumnType.json:
+                    return Updraft.toText(value);
+                case ColumnType.enum:
+                    if (typeof value === "string" || typeof value === undefined || value === null) {
+                        return value;
+                    }
+                    else if (typeof value === "number") {
+                        Updraft.verify(value in this.enum, "enum doesn't contain %s", value);
+                        return this.enum[value];
+                    }
+                    Updraft.verify(typeof value.toString === "function", "expected an enum value supporting toString(); got %s", value);
+                    return value.toString();
+                case ColumnType.date:
+                case ColumnType.datetime:
+                    Updraft.verify(value == undefined || value instanceof Date, "expected a date, got %s", value);
+                    var date = (value == undefined) ? null : (value.getTime() / 1000);
+                    return date;
+                /* istanbul ignore next */
+                default:
+                    throw new Error("unsupported column type " + ColumnType[this.type]);
+            }
+        };
+        /** create a column with "INTEGER" affinity */
         Column.Int = function () {
             return new Column(ColumnType.int);
         };
-        /** create a column with 'REAL' affinity */
+        /** create a column with "REAL" affinity */
         Column.Real = function () {
             return new Column(ColumnType.real);
         };
-        /** create a column with 'BOOL' affinity */
+        /** create a column with "BOOL" affinity */
         Column.Bool = function () {
             return new Column(ColumnType.bool);
         };
-        /** create a column with 'TEXT' affinity */
+        /** create a column with "TEXT" affinity */
         Column.Text = function () {
             return new Column(ColumnType.text);
         };
-        /** create a column with 'TEXT' affinity */
+        /** create a column with "TEXT" affinity */
         Column.String = function () {
             return new Column(ColumnType.text);
         };
-        /** create a column with 'BLOB' affinity */
+        /** create a column with "BLOB" affinity */
         Column.Blob = function () {
             var c = new Column(ColumnType.blob);
             return c;
         };
-        /** a javascript object with instance method 'toString' and class method 'get' (e.g. {@link https://github.com/adrai/enum}). */
+        /** a typescript enum or javascript object with instance method "toString" and class method "get" (e.g. {@link https://github.com/adrai/enum}). */
         Column.Enum = function (enum_) {
             var c = new Column(ColumnType.enum);
             c.enum = enum_;
@@ -939,734 +242,1370 @@ var Updraft;
         Column.JSON = function () {
             return new Column(ColumnType.json);
         };
-        /** points to an object in another table.  Its affinity will automatically be that table's key's affinity */
-        Column.Ptr = function (ref) {
-            var c = new Column(ColumnType.ptr);
-            c.ref = ref;
-            return c;
-        };
         /** unordered collection */
-        Column.Set = function (ref /*| ColumnType*/) {
+        Column.Set = function (type) {
             var c = new Column(ColumnType.set);
-            c.ref = ref;
+            c.elementType = type;
             return c;
         };
         Column.sql = function (val) {
             var stmt = "";
             switch (val.type) {
                 case ColumnType.int:
-                    stmt = 'INTEGER';
+                    stmt = "INTEGER";
                     break;
                 case ColumnType.bool:
-                    stmt = 'BOOL';
+                    stmt = "BOOLEAN NOT NULL";
                     break;
                 case ColumnType.real:
-                    stmt = 'REAL';
+                    stmt = "REAL";
                     break;
                 case ColumnType.text:
+                    stmt = "TEXT";
+                    break;
                 case ColumnType.json:
+                    stmt = "CLOB";
+                    break;
                 case ColumnType.enum:
-                    stmt = 'TEXT';
+                    stmt = "CHARACTER(20)";
                     break;
                 case ColumnType.blob:
-                    stmt = 'BLOB';
+                    stmt = "BLOB";
                     break;
                 case ColumnType.date:
-                    stmt = 'DATE';
+                    stmt = "DATE";
                     break;
                 case ColumnType.datetime:
-                    stmt = 'DATETIME';
+                    stmt = "DATETIME";
                     break;
+                /* istanbul ignore next */
                 default:
-                    throw new Error("unsupported type");
+                    throw new Error("unsupported type " + ColumnType[val.type]);
             }
-            if ('defaultValue' in val) {
-                stmt += ' DEFAULT ' + val.defaultValue;
+            if ("defaultValue" in val) {
+                var escape = function (x) {
+                    if (typeof x === "number") {
+                        return x;
+                    }
+                    else if (typeof x === "string") {
+                        return "'" + x.replace(/'/g, "''") + "'";
+                    }
+                    else {
+                        Updraft.verify(false, "default value (%s) must be number or string", x);
+                    }
+                };
+                stmt += " DEFAULT " + escape(val.serialize(val.defaultValue));
             }
             return stmt;
+        };
+        Column.fromSql = function (text) {
+            var parts = text.split(" ");
+            var col = null;
+            switch (parts[0]) {
+                case "INTEGER":
+                    col = Column.Int();
+                    break;
+                case "BOOLEAN":
+                    col = Column.Bool();
+                    break;
+                case "REAL":
+                    col = Column.Real();
+                    break;
+                case "TEXT":
+                    col = Column.Text();
+                    break;
+                case "CLOB":
+                    col = Column.JSON();
+                    break;
+                case "CHARACTER(20)":
+                    col = new Column(ColumnType.enum);
+                    break;
+                case "DATE":
+                    col = Column.Date();
+                    break;
+                case "DATETIME":
+                    col = Column.DateTime();
+                    break;
+                /* istanbul ignore next */
+                default:
+                    throw new Error("unsupported type: " + ColumnType[parts[0]]);
+            }
+            var match = text.match(/DEFAULT\s+'((?:[^']|'')*)'/i);
+            if (match) {
+                var val = match[1].replace(/''/g, "'");
+                col.Default(val);
+            }
+            else {
+                match = text.match(/DEFAULT\s+(\S+)/i);
+                if (match) {
+                    var val = match[1];
+                    var valnum = parseInt(val, 10);
+                    if (val == valnum) {
+                        val = valnum;
+                    }
+                    col.Default(val);
+                }
+            }
+            return col;
+        };
+        Column.equal = function (a, b) {
+            if (a.type != b.type) {
+                return false;
+            }
+            if ((a.defaultValue || b.defaultValue) && (a.defaultValue != b.defaultValue)) {
+                return false;
+            }
+            if ((a.isKey || b.isKey) && (a.isKey != b.isKey)) {
+                return false;
+            }
+            return true;
         };
         return Column;
     })();
     Updraft.Column = Column;
-    /**
-     * The parameters used to open a database
-     *
-     * @property name - the name of the database to open
-     */
-    var StoreOptions = (function () {
-        function StoreOptions() {
+})(Updraft || (Updraft = {}));
+// written to React"s immutability helpers spec
+// see https://facebook.github.io/react/docs/update.html
+///<reference path="../typings/tsd.d.ts"/>
+///<reference path="./assign"/>
+///<reference path="./verify"/>
+"use strict";
+var Updraft;
+(function (Updraft) {
+    function shallowCopy(x) {
+        if (Array.isArray(x)) {
+            return x.concat();
         }
-        return StoreOptions;
+        else if (x instanceof Set) {
+            return new Set(x);
+        }
+        else if (x && typeof x === "object") {
+            return Updraft.assign(new x.constructor(), x);
+        }
+        else {
+            return x;
+        }
+    }
+    Updraft.shallowCopy = shallowCopy;
+    function shallowEqual(a, b) {
+        if (Array.isArray(a) && Array.isArray(b)) {
+            var aa = a;
+            var bb = b;
+            if (aa.length == bb.length) {
+                for (var i = 0; i < aa.length; i++) {
+                    if (aa[i] != bb[i]) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+        else if (a instanceof Set && b instanceof Set) {
+            var aa = a;
+            var bb = b;
+            if (aa.size == bb.size) {
+                for (var elt in aa) {
+                    if (!bb.has(elt)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+        else if (a instanceof Date && b instanceof Date) {
+            return a.getTime() == b.getTime();
+        }
+        else if (typeof a == "object" && typeof b == "object") {
+            var akeys = Object.keys(a);
+            var bkeys = Object.keys(b);
+            if (akeys.length == bkeys.length) {
+                for (var _i = 0; _i < akeys.length; _i++) {
+                    var key = akeys[_i];
+                    if (!(key in b) || a[key] != b[key]) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+        return a == b;
+    }
+    Updraft.hasOwnProperty = {}.hasOwnProperty;
+    function keyOf(obj) { return Object.keys(obj)[0]; }
+    Updraft.keyOf = keyOf;
+    var command = {
+        set: keyOf({ $set: null }),
+        increment: keyOf({ $inc: null }),
+        push: keyOf({ $push: null }),
+        unshift: keyOf({ $unshift: null }),
+        splice: keyOf({ $splice: null }),
+        merge: keyOf({ $merge: null }),
+        add: keyOf({ $add: null }),
+        deleter: keyOf({ $delete: null }),
+    };
+    function verifyArrayCase(value, spec, c) {
+        Updraft.verify(Array.isArray(value), "mutate(): expected target of %s to be an array; got %s.", c, value);
+        var specValue = spec[c];
+        Updraft.verify(Array.isArray(specValue), "mutate(): expected spec of %s to be an array; got %s. " +
+            "Did you forget to wrap your parameter in an array?", c, specValue);
+    }
+    function verifySetCase(value, spec, c) {
+        Updraft.verify(value instanceof Set, "mutate(): expected target of %s to be a set; got %s.", c, value);
+        var specValue = spec[c];
+        Updraft.verify(Array.isArray(specValue), "mutate(): expected spec of %s to be an array; got %s. " +
+            "Did you forget to wrap your parameter in an array?", c, specValue);
+    }
+    function mutate(value, spec) {
+        Updraft.verify(typeof spec === "object", "mutate(): You provided a key path to mutate() that did not contain one " +
+            "of %s. Did you forget to include {%s: ...}?", Object.keys(command).join(", "), command.set);
+        // verify(
+        // 	Object.keys(spec).reduce( function(previousValue: boolean, currentValue: string): boolean {
+        // 		return previousValue && (keyOf(spec[currentValue]) in command);
+        // 	}, true),
+        // 	"mutate(): argument has an unknown key; supported keys are (%s).  mutator: %s",
+        // 	Object.keys(command).join(", "),
+        // 	spec
+        // );
+        if (Updraft.hasOwnProperty.call(spec, command.set)) {
+            Updraft.verify(Object.keys(spec).length === 1, "Cannot have more than one key in an object with %s", command.set);
+            return shallowEqual(value, spec[command.set]) ? value : spec[command.set];
+        }
+        if (Updraft.hasOwnProperty.call(spec, command.increment)) {
+            Updraft.verify(typeof (value) === "number" && typeof (spec[command.increment]) === "number", "Source (%s) and argument (%s) to %s must be numbers", value, spec[command.increment], command.increment);
+            return value + spec[command.increment];
+        }
+        var changed = false;
+        if (Updraft.hasOwnProperty.call(spec, command.merge)) {
+            var mergeObj = spec[command.merge];
+            var nextValue_1 = shallowCopy(value);
+            Updraft.verify(mergeObj && typeof mergeObj === "object", "mutate(): %s expects a spec of type 'object'; got %s", command.merge, mergeObj);
+            Updraft.verify(nextValue_1 && typeof nextValue_1 === "object", "mutate(): %s expects a target of type 'object'; got %s", command.merge, nextValue_1);
+            Updraft.assign(nextValue_1, spec[command.merge]);
+            return shallowEqual(value, nextValue_1) ? value : nextValue_1;
+        }
+        if (Updraft.hasOwnProperty.call(spec, command.deleter) && (typeof value === "object") && !(value instanceof Set)) {
+            var key = spec[command.merge];
+            Updraft.verify(key && typeof key === "string", "mutate(): %s expects a spec of type 'string'; got %s", command.deleter, key);
+            if (key in value) {
+                var nextValue_2 = shallowCopy(value);
+                delete nextValue_2[key];
+                return nextValue_2;
+            }
+            else {
+                return value;
+            }
+        }
+        if (Updraft.hasOwnProperty.call(spec, command.push)) {
+            var nextValue_3 = shallowCopy(value) || [];
+            verifyArrayCase(nextValue_3, spec, command.push);
+            if (spec[command.push].length) {
+                nextValue_3.push.apply(nextValue_3, spec[command.push]);
+                return nextValue_3;
+            }
+            else {
+                return value;
+            }
+        }
+        if (Updraft.hasOwnProperty.call(spec, command.unshift)) {
+            verifyArrayCase(value, spec, command.unshift);
+            if (spec[command.unshift].length) {
+                var nextValue_4 = shallowCopy(value);
+                nextValue_4.unshift.apply(nextValue_4, spec[command.unshift]);
+                return nextValue_4;
+            }
+            else {
+                return value;
+            }
+        }
+        if (Updraft.hasOwnProperty.call(spec, command.splice)) {
+            var nextValue_5 = shallowCopy(value);
+            Updraft.verify(Array.isArray(value), "Expected %s target to be an array; got %s", command.splice, value);
+            Updraft.verify(Array.isArray(spec[command.splice]), "mutate(): expected spec of %s to be an array of arrays; got %s. " +
+                "Did you forget to wrap your parameters in an array?", command.splice, spec[command.splice]);
+            spec[command.splice].forEach(function (args) {
+                Updraft.verify(Array.isArray(args), "mutate(): expected spec of %s to be an array of arrays; got %s. " +
+                    "Did you forget to wrap your parameters in an array?", command.splice, spec[command.splice]);
+                nextValue_5.splice.apply(nextValue_5, args);
+            });
+            return shallowEqual(nextValue_5, value) ? value : nextValue_5;
+        }
+        if (Updraft.hasOwnProperty.call(spec, command.add)) {
+            var nextValue_6 = shallowCopy(value) || new Set();
+            verifySetCase(nextValue_6, spec, command.add);
+            spec[command.add].forEach(function (item) {
+                if (!nextValue_6.has(item)) {
+                    nextValue_6.add(item);
+                    changed = true;
+                }
+            });
+            return changed ? nextValue_6 : value;
+        }
+        if (Updraft.hasOwnProperty.call(spec, command.deleter) && (value instanceof Set)) {
+            var nextValue_7 = shallowCopy(value);
+            verifySetCase(value, spec, command.deleter);
+            spec[command.deleter].forEach(function (item) {
+                if (nextValue_7.delete(item)) {
+                    changed = true;
+                }
+            });
+            return changed ? nextValue_7 : value;
+        }
+        var nextValue;
+        for (var k in spec) {
+            if (!(command.hasOwnProperty(k) && command[k])) {
+                var oldValue = value[k];
+                var newValue = mutate(oldValue, spec[k]);
+                if (oldValue !== newValue) {
+                    if (!nextValue) {
+                        nextValue = shallowCopy(value);
+                    }
+                    nextValue[k] = newValue;
+                    changed = true;
+                }
+            }
+        }
+        return changed ? nextValue : value;
+    }
+    Updraft.mutate = mutate;
+    function isMutated(a, b) {
+        return a !== b;
+    }
+    Updraft.isMutated = isMutated;
+})(Updraft || (Updraft = {}));
+///<reference path="./Column"/>
+///<reference path="./verify"/>
+"use strict";
+var Updraft;
+(function (Updraft) {
+    (function (OrderBy) {
+        OrderBy[OrderBy["ASC"] = 0] = "ASC";
+        OrderBy[OrderBy["DESC"] = 1] = "DESC";
+    })(Updraft.OrderBy || (Updraft.OrderBy = {}));
+    var OrderBy = Updraft.OrderBy;
+    var Table = (function () {
+        function Table(spec) {
+            this.spec = spec;
+            this.key = tableKey(spec);
+        }
+        Table.prototype.keyValue = function (element) {
+            Updraft.verify(this.key in element, "object does not have key field '%s' set: %s", this.key, element);
+            return element[this.key];
+        };
+        return Table;
     })();
-    Updraft.StoreOptions = StoreOptions;
-    /**
-     * Database schema.  The outer keys will be the tables in the database.  The values will consist of an
-     * object whose keys will be the table's rows and values will be the row's type.  It will also have an
-     * '_indices' object with all the indices found.
-     * Note: tables or indices beginning with underscore or 'sqlite' will be ignored
-     *
-     * @private
-     * @example
-     * ```
-     *
-     *    var schema = {
-     *      'todos': {
-     *        _indices: {
-     *          'index_todos__name': 'CREATE INDEX ...',
-     *        },
-     *        _triggers: {
-     *          'trigger_todos__task': 'CREATE TRIGGER ...',
-     *        },
-     *        'id': 'INTEGER PRIMARY KEY',
-     *        'name': 'TEXT',
-     *      },
-     *      'tasks': {
-     *        'id': 'INTEGER PRIMARY KEY',
-     *        'description': 'TEXT',
-     *      }
-     *    };
-     * ```
-     */
+    Updraft.Table = Table;
+    function tableKey(spec) {
+        var key = null;
+        for (var name_1 in spec.columns) {
+            var column = spec.columns[name_1];
+            Updraft.verify(column, "column '%s' is not in %s", name_1, spec);
+            if (column.isKey) {
+                Updraft.verify(!key, "Table %s has more than one key- %s and %s", spec.name, key, name_1);
+                key = name_1;
+            }
+        }
+        Updraft.verify(key, "Table %s does not have a key", spec.name);
+        return key;
+    }
+    Updraft.tableKey = tableKey;
+})(Updraft || (Updraft = {}));
+///<reference path="./Mutate"/>
+///<reference path="./Column"/>
+///<reference path="./Database"/>
+///<reference path="./Table"/>
+///<reference path="./Text"/>
+///<reference path="./assign"/>
+///<reference path="./verify"/>
+"use strict";
+var Updraft;
+(function (Updraft) {
+    function startsWith(str, val) {
+        return str.lastIndexOf(val, 0) === 0;
+    }
     var Schema = (function () {
         function Schema() {
         }
         return Schema;
     })();
     Updraft.Schema = Schema;
-    /**
-     * @private
-     */
-    var SchemaTable = (function () {
-        function SchemaTable() {
-        }
-        return SchemaTable;
-    })();
-    Updraft.SchemaTable = SchemaTable;
-    /**
-     * Internal class used in key/value storage
-     * @private
-     */
-    var KeyValue = (function (_super) {
-        __extends(KeyValue, _super);
-        function KeyValue(props) {
-            _super.call(this, props);
-        }
-        KeyValue.get = function (id) { return null; };
-        KeyValue.tableName = 'updraft_kv';
-        KeyValue.columns = {
-            key: Column.String().Key(),
-            value: Column.String(),
-        };
-        return KeyValue;
-    })(Updraft.Instance);
-    /**
-     * @private
-     */
-    function anyFcn(tx, results) { }
-    /**
-     * Interface for creating classes & database interaction
-     */
+    var ROWID = "rowid";
+    var COUNT = "COUNT(*)";
+    var internal_prefix = "updraft_";
+    var internal_column_deleted = internal_prefix + "deleted";
+    var internal_column_time = internal_prefix + "time";
+    var internal_column_latest = internal_prefix + "latest";
+    var internal_column_composed = internal_prefix + "composed";
+    var internalColumn = {};
+    internalColumn[internal_column_deleted] = Updraft.Column.Bool();
+    internalColumn[internal_column_time] = Updraft.Column.Int().Key();
+    internalColumn[internal_column_latest] = Updraft.Column.Bool();
+    internalColumn[internal_column_composed] = Updraft.Column.Bool();
+    var deleteRow_action = (_a = {}, _a[internal_column_deleted] = { $set: true }, _a);
     var Store = (function () {
-        function Store() {
-            var self = this;
-            this.logSql = false;
-            self.tables = [];
-            self.kv = {};
-            this.addClass(KeyValue);
-        }
-        /**
-         * create a new type whose instances can be stored in a database
-         * @param templ
-         */
-        Store.prototype.addClass = function (templ) {
-            Updraft.MakeClassTemplate(templ, this);
-            this.tables.push(templ);
-        };
-        /**
-         * set a key/value pair
-         *
-         * @param key
-         * @param value - value will be stored as JSON text, so value can be any object that will
-         *        survive serialization
-         * @return a promise that will resolve once the value is saved.  Key/values are cached
-         *         on the <tt>Store</tt>, so you can use the value immediately and don't need to wait for
-         *         the promise to resolve.
-         */
-        Store.prototype.set = function (key, value) {
-            this.kv[key] = value;
-            var pair = new KeyValue({ key: key, value: JSON.stringify(value) });
-            return this.save(pair);
-        };
-        /**
-         * gets a key/value pair.  Values are cached on the <tt>Store</tt> so they are immediately available
-         *
-         * @param key
-         * @return value
-         */
-        Store.prototype.get = function (key) {
-            return this.kv[key];
-        };
-        /**
-         * read the key/value pairs from the database, caching them on the <tt>Store</tt>
-         * @private
-         */
-        Store.prototype.loadKeyValues = function () {
-            var self = this;
-            return KeyValue.all.get().then(function (vals) {
-                for (var i = 0; i < vals.length; i++) {
-                    var val = vals[i];
-                    self.kv[val.key] = JSON.parse(val.value);
-                }
-            });
-        };
-        /**
-         * Delete all tables in database.  For development purposes; you probably don't want to ship with this.
-         *
-         * @param opts
-         * @return a promise that resolves when all tables are deleted
-         * @see {@link open}
-         * @example
-         * ```
-         *
-         *    store.purge({name: 'my cool db'}).then(function() {
-         *      // everything is gone
-         *    });
-         * ```
-         */
-        Store.prototype.purge = function (opts) {
-            console.assert(!this.db);
-            this.db = window.openDatabase(opts.name, '1.0', 'updraft created database', 5 * 1024 * 1024);
-            console.assert(this.db != null);
-            var self = this;
-            console.assert(this instanceof Store);
-            return self.readSchema()
-                .then(function (schema) {
-                return new Promise(function (fulfill, reject) {
-                    self.db.transaction(function (tx) {
-                        var promises = [];
-                        Object.keys(schema).forEach(function (table) {
-                            promises.push(self.exec(tx, 'DROP TABLE ' + table));
-                        });
-                        return Promise.all(promises)
-                            .then(function () {
-                            self.db = null;
-                        })
-                            .then(fulfill, reject);
-                    });
-                });
-            });
-        };
-        /**
-         * open the database
-         *
-         * @param opts
-         * @return a promise that resolves with no parameters when the database is created and ready
-         * @example
-         * ```
-         *
-         *    store.open({name: 'my cool db'}).then(function() {
-         *      // start loading & saving objects
-         *    });
-         * ```
-         */
-        Store.prototype.open = function (opts) {
-            this.db = window.openDatabase(opts.name, '1.0', 'updraft created database', 5 * 1024 * 1024);
-            console.assert(this.db != null);
-            // add tables for 'set' columns
-            var setTables = [];
-            for (var i = 0; i < this.tables.length; i++) {
-                var table = this.tables[i];
-                for (var col in table.columns) {
-                    if (table.columns[col].type === ColumnType.set) {
-                        var ref = table.columns[col].ref;
-                        console.assert(ref != null);
-                        var setTable = {
-                            tableName: table.tableName + '_' + col,
-                            recreate: table.recreate,
-                            temp: table.temp,
-                            key: '',
-                            keyType: table.keyType,
-                            columns: {},
-                            indices: [[table.key], [col]],
-                            get: function (id) { throw new Error("not callable"); }
-                        };
-                        setTable.columns[table.key] = new Column(table.keyType),
-                            setTable.columns[col] = new Column(ref.keyType),
-                            table.columns[col].setTable = setTable;
-                        setTables.push(setTable);
-                    }
-                }
-            }
-            this.tables = this.tables.concat(setTables);
-            var self = this;
-            console.assert(this instanceof Store);
-            return self.readSchema()
-                .then(self.syncTables.bind(self))
-                .then(self.loadKeyValues.bind(self));
-        };
-        /**
-         * close the database
-         */
-        Store.prototype.close = function () {
+        function Store(params) {
+            this.params = params;
+            this.tables = [];
             this.db = null;
-            this.constructor();
-        };
-        /**
-         * exec a sql statement within a given transaction
-         *
-         * @param tx - a transaction created by <tt>db.transaction</tt> or <tt>db.readTransaction</tt>
-         * @param stmt - sql statement to execute
-         * @param args - array of strings to substitute into <tt>stmt</tt>
-         * @param callback - callback with parameters (transaction, [SQLResultSet]{@link http://www.w3.org/TR/webdatabase/#sqlresultset})
-         * @return a promise that resolves with (transaction, return value of the callback)
-         * @private
-         */
-        Store.prototype.exec = function (tx, stmt, args, callback) {
-            if (callback === void 0) { callback = anyFcn; }
-            if (this.logSql) {
-                console.log(stmt, args);
+            Updraft.verify(this.params.db, "must pass a DbWrapper");
+        }
+        Store.prototype.createTable = function (tableSpec) {
+            var _this = this;
+            Updraft.verify(!this.db, "createTable() can only be added before open()");
+            Updraft.verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
+            for (var col in tableSpec.columns) {
+                Updraft.verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
             }
-            var self = this;
-            return new Promise(function (fulfill, reject) {
-                try {
-                    tx.executeSql(stmt, args, function (tx, results) {
-                        var ret = callback ? callback(tx, results) : null;
-                        return Promise.resolve(ret).then(fulfill, reject);
-                    }, function (tx, error) {
-                        self.reportError(error);
-                        reject(error);
-                        return false;
-                    });
+            var table = new Updraft.Table(tableSpec);
+            table.add = function () {
+                var changes = [];
+                for (var _i = 0; _i < arguments.length; _i++) {
+                    changes[_i - 0] = arguments[_i];
                 }
-                catch (reason) {
-                    console.log('Failed to exec "' + stmt + '":' + reason);
-                    throw reason;
-                }
-            });
+                return _this.add.apply(_this, [table].concat(changes));
+            };
+            table.find = function (query, opts) { return _this.find(table, query, opts); };
+            (_a = this.tables).push.apply(_a, createInternalTableSpecs(table));
+            this.tables.push(createChangeTableSpec(table));
+            return table;
+            var _a;
         };
-        /**
-         * exec a sql statement within a new read transaction
-         *
-         * @param stmt - sql statement to execute
-         * @param args - array of strings to substitute into <tt>stmt</tt>
-         * @param callback - callback with parameters (transaction, [SQLResultSet]{@link http://www.w3.org/TR/webdatabase/#sqlresultset})
-         * @return a promise that resolves with (transaction, return value of the callback)
-         * @private
-         */
-        Store.prototype.execRead = function (stmt, args, callback) {
-            var self = this;
-            console.assert(self.db != null);
-            return new Promise(function (fulfill, reject) {
-                self.db.readTransaction(function (rtx) {
-                    return self.exec(rtx, stmt, args, callback)
-                        .then(fulfill, reject);
-                });
-            });
+        Store.prototype.open = function () {
+            var _this = this;
+            Updraft.verify(!this.db, "open() called more than once!");
+            Updraft.verify(this.tables.length, "open() called before any tables were added");
+            this.db = this.params.db;
+            return Promise.resolve()
+                .then(function () { return _this.readSchema(); })
+                .then(function (schema) { return _this.syncTables(schema); });
+            //.then(() => this.loadKeyValues());
         };
-        Store.prototype.reportError = function (error) {
-            switch (error.code) {
-                case error.SYNTAX_ERR:
-                    console.log("Syntax error: " + error.message);
-                    break;
-                default:
-                    console.log(error);
-            }
-        };
-        /**
-         * get the existing database's schema in object form
-         *
-         * @return a promise that resolves with the {@link Schema}
-         */
         Store.prototype.readSchema = function () {
-            function tableFromSql(sql) {
-                var table = { _indices: {}, _triggers: {} };
-                var matches = sql.match(/\((.*)\)/);
-                if (matches) {
-                    var fields = matches[1].split(',');
-                    for (var i = 0; i < fields.length; i++) {
-                        var ignore = /^\s*(primary|foreign)\s+key/i; // ignore standalone 'PRIMARY KEY xxx'
-                        if (fields[i].match(ignore)) {
-                            continue;
-                        }
-                        var quotedName = /"(.+)"\s+(.*)/;
-                        var unquotedName = /(\w+)\s+(.*)/;
-                        var parts = fields[i].match(quotedName);
-                        if (!parts) {
-                            parts = fields[i].match(unquotedName);
-                        }
-                        if (parts) {
-                            table[parts[1]] = parts[2];
-                        }
-                    }
-                }
-                return table;
-            }
-            return this.execRead('SELECT name, tbl_name, type, sql FROM sqlite_master', [], function (tx, results) {
-                /*jshint camelcase:false*/
-                var schema = {};
-                for (var i = 0; i < results.rows.length; i++) {
-                    var row = results.rows.item(i);
-                    if (row.name[0] != '_' && !Updraft.startsWith(row.name, 'sqlite')) {
-                        switch (row.type) {
-                            case 'table':
-                                schema[row.name] = tableFromSql(row.sql);
-                                break;
-                            case 'index':
-                                schema[row.tbl_name]._indices = schema[row.tbl_name]._indices || {};
-                                schema[row.tbl_name]._indices[row.name] = row.sql;
-                                break;
-                            case 'trigger':
-                                schema[row.tbl_name]._triggers = schema[row.tbl_name]._triggers || {};
-                                schema[row.tbl_name]._triggers[row.name] = row.sql;
-                                break;
-                        }
-                    }
-                }
-                return schema;
-            });
-        };
-        /**
-         * Check whether the tables in the current database match up with the ClassFactories.
-         * They will be created or modified as needed.
-         *
-         * @param schema
-         * @return A promise that resolves with no parameters once all tables are up-to-date.
-         * @private
-         */
-        Store.prototype.syncTables = function (schema) {
-            var self = this;
-            console.assert(self.db != null);
-            return new Promise(function (fulfill, reject) {
-                self.db.transaction(function (tx) {
-                    return Promise.all(self.tables.map(function (f) { return self.syncTable(tx, schema, f); }))
-                        .then(fulfill, reject);
-                });
-            });
-        };
-        /**
-         * Check whether an individual table in the current database matches up with its corresponding ClassTemplate.
-         * It will be created or modified as needed.
-         *
-         * @param tx - a writeable transaction
-         * @param schema
-         * @param f
-         * @return A promise that resolves with no parameters once the table is up-to-date.
-         * @private
-         */
-        Store.prototype.syncTable = function (tx, schema, f) {
-            var self = this;
-            // execute CREATE TABLE statement
-            function createTable(name) {
-                var cols = [];
-                for (var col in f.columns) {
-                    var attrs = f.columns[col];
-                    var decl;
-                    switch (attrs.type) {
-                        case ColumnType.ptr:
-                            console.assert(attrs.ref != null);
-                            console.assert(attrs.ref.columns != null);
-                            console.assert(attrs.ref.tableName != null);
-                            console.assert(attrs.ref.key != null);
-                            var foreignCol = attrs.ref.columns[attrs.ref.key];
-                            decl = col + ' ' + Column.sql(foreignCol);
-                            cols.push(decl);
-                            break;
-                        case ColumnType.set:
-                            break;
-                        default:
-                            decl = col + ' ' + Column.sql(attrs);
-                            if (f.key === col) {
-                                decl += ' PRIMARY KEY';
+            Updraft.verify(this.db, "readSchema(): not opened");
+            return this.db.readTransaction(function (transaction) {
+                return transaction.executeSql("SELECT name, tbl_name, type, sql FROM sqlite_master", [], function (tx, resultSet) {
+                    var schema = {};
+                    for (var i = 0; i < resultSet.length; i++) {
+                        var row = resultSet[i];
+                        if (row.name[0] != "_" && !startsWith(row.name, "sqlite")) {
+                            switch (row.type) {
+                                case "table":
+                                    schema[row.name] = tableFromSql(row.name, row.sql);
+                                    break;
+                                case "index":
+                                    var index = indexFromSql(row.sql);
+                                    if (index.length == 1) {
+                                        var col = index[0];
+                                        Updraft.verify(row.tbl_name in schema, "table %s used by index %s should have been returned first", row.tbl_name, row.name);
+                                        Updraft.verify(col in schema[row.tbl_name].columns, "table %s does not have column %s used by index %s", row.tbl_name, col, row.name);
+                                        schema[row.tbl_name].columns[col].isIndex = true;
+                                    }
+                                    else {
+                                        schema[row.tbl_name].indices.push(index);
+                                    }
+                                    break;
+                                case "trigger":
+                                    //schema[row.tbl_name].triggers[row.name] = row.sql;
+                                    break;
                             }
-                            cols.push(decl);
+                        }
+                    }
+                    return schema;
+                });
+            });
+        };
+        Store.prototype.syncTables = function (schema) {
+            var _this = this;
+            Updraft.verify(this.db, "syncTables(): not opened");
+            return this.db.transaction(function (transaction) {
+                var p = Promise.resolve();
+                _this.tables.forEach(function (table) {
+                    p = p.then(function () { return _this.syncTable(transaction, schema, table); });
+                });
+                return p;
+            });
+        };
+        Store.prototype.syncTable = function (transaction, schema, spec) {
+            var p = Promise.resolve();
+            if (spec.name in schema) {
+                var oldColumns = schema[spec.name].columns;
+                var newColumns = spec.columns;
+                var recreateTable = false;
+                for (var colName in oldColumns) {
+                    if (!(colName in newColumns)) {
+                        recreateTable = true;
+                        break;
+                    }
+                    var oldCol = oldColumns[colName];
+                    var newCol = newColumns[colName];
+                    if (!Updraft.Column.equal(oldCol, newCol)) {
+                        recreateTable = true;
+                        break;
                     }
                 }
-                return self.exec(tx, 'CREATE ' + (f.temp ? 'TEMP ' : '') + 'TABLE ' + name + ' (' + cols.join(', ') + ')');
-            }
-            function dropTable(name) {
-                return self.exec(tx, 'DROP TABLE ' + name);
-            }
-            function createIndices(force) {
-                if (force === void 0) { force = false; }
-                var promises = [];
-                var toRemove = (f.tableName in schema) ? Updraft.clone(schema[f.tableName]._indices) : {};
-                f.indices.forEach(function (index) {
-                    var name = 'index_' + f.tableName + '__' + index.join('_');
-                    var sql = 'CREATE INDEX ' + name + ' ON ' + f.tableName + ' (' + index.join(', ') + ')';
-                    delete toRemove[name];
-                    var create = true;
-                    var drop = false;
-                    if (schema[f.tableName] && schema[f.tableName]._indices && schema[f.tableName]._indices[name]) {
-                        if (schema[f.tableName]._indices[name] === sql) {
-                            create = false;
-                        }
-                        else {
-                            drop = true;
+                var renamedColumns = spec.renamedColumns || {};
+                for (var colName in renamedColumns) {
+                    if (colName in oldColumns) {
+                        recreateTable = true;
+                    }
+                }
+                var addedColumns = {};
+                if (!recreateTable) {
+                    for (var _i = 0, _a = selectableColumns(spec, newColumns); _i < _a.length; _i++) {
+                        var colName = _a[_i];
+                        if (!(colName in oldColumns)) {
+                            addedColumns[colName] = newColumns[colName];
                         }
                     }
-                    if (drop) {
-                        promises.push(self.exec(tx, 'DROP INDEX ' + name));
+                }
+                if (recreateTable) {
+                    // recreate and migrate data
+                    var renameTable = function (oldName, newName) {
+                        return transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName);
+                    };
+                    var tempTableName = "temp_" + spec.name;
+                    var changeTableName = getChangeTableName(spec.name);
+                    if (tempTableName in schema) {
+                        // yikes!  migration failed but transaction got committed?
+                        p = p.then(function () { return dropTable(transaction, tempTableName); });
                     }
-                    if (create || force) {
-                        promises.push(self.exec(tx, sql));
-                    }
-                });
-                // delete orphaned indices
-                Object.keys(toRemove).forEach(function (name) {
-                    promises.push(self.exec(tx, 'DROP INDEX ' + name));
-                });
-                return Promise.all(promises);
-            }
-            // check if table already exists
-            if (f.tableName in schema) {
-                if (f.recreate) {
-                    return Promise.all([
-                        dropTable(f.tableName),
-                        createTable(f.tableName),
-                        createIndices(true),
-                    ]);
+                    p = p.then(function () { return createTable(transaction, tempTableName, spec.columns); });
+                    p = p.then(function () { return copyData(transaction, spec.name, tempTableName, oldColumns, newColumns, renamedColumns); });
+                    p = p.then(function () { return dropTable(transaction, spec.name); });
+                    p = p.then(function () { return renameTable(tempTableName, spec.name); });
+                    p = p.then(function () { return migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns); });
+                    p = p.then(function () { return createIndices(transaction, schema, spec, true); });
+                }
+                else if (Object.keys(addedColumns).length > 0) {
+                    // alter table, add columns
+                    Object.keys(addedColumns).forEach(function (colName) {
+                        var col = spec.columns[colName];
+                        var columnDecl = colName + " " + Updraft.Column.sql(col);
+                        p = p.then(function () { return transaction.executeSql("ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl); });
+                    });
+                    p = p.then(function () { return createIndices(transaction, schema, spec); });
                 }
                 else {
-                    //console.log("table " + f.tableName + " exists; checking columns");
-                    var columns = Updraft.clone(schema[f.tableName]);
-                    delete columns._indices;
-                    delete columns._triggers;
-                    var key;
-                    var addedColumns = [];
-                    var addedForeignKey = false;
-                    for (key in f.columns) {
-                        if (!(key in columns)) {
-                            addedColumns.push(key);
-                            if (f.columns[key].ref) {
-                                addedForeignKey = true;
-                            }
-                        }
-                    }
-                    var renamedColumns = Updraft.clone(f.renamedColumns) || {};
-                    for (key in Object.keys(renamedColumns)) {
-                        if (!(key in columns)) {
-                            delete renamedColumns[key];
-                        }
-                    }
-                    var deletedColumns = Object.keys(columns).filter(function (col) {
-                        return !(col in f.columns);
-                    });
-                    if (addedForeignKey || Object.keys(renamedColumns).length > 0 || deletedColumns.length > 0) {
-                        // must recreate table and migrate data
-                        var copyData = function (oldName, newName) {
-                            var oldTableColumns = Object.keys(columns).filter(function (col) { return (col in f.columns) || (col in renamedColumns); });
-                            var newTableColumns = oldTableColumns.map(function (col) { return (col in renamedColumns) ? renamedColumns[col] : col; });
-                            if (oldTableColumns.length && newTableColumns.length) {
-                                var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
-                                stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
-                                return self.exec(tx, stmt);
-                            }
-                        };
-                        var renameTable = function (oldName, newName) {
-                            return self.exec(tx, 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName);
-                        };
-                        var newTableName = 'new_' + f.tableName;
-                        console.assert(!(newTableName in schema));
-                        return Promise.all([
-                            createTable(newTableName),
-                            copyData(f.tableName, newTableName),
-                            dropTable(f.tableName),
-                            renameTable(newTableName, f.tableName),
-                            createIndices(true)
-                        ]);
-                    }
-                    else if (addedColumns.length > 0) {
-                        // alter table, add columns
-                        var promises = [];
-                        addedColumns.forEach(function (columnName) {
-                            var attrs = f.columns[columnName];
-                            var columnDecl = columnName + ' ' + Column.sql(attrs);
-                            promises.push(self.exec(tx, 'ALTER TABLE ' + f.tableName + ' ADD COLUMN ' + columnDecl));
-                        });
-                        promises.push(createIndices());
-                        return Promise.all(promises);
-                    }
-                    else {
-                        // no table modification is required
-                        return createIndices();
-                    }
+                    // no table modification is required
+                    p = p.then(function () { return createIndices(transaction, schema, spec); });
                 }
             }
             else {
-                //console.log('creating table: ' + f.tableName);
-                return Promise.all([
-                    createTable(f.tableName),
-                    createIndices(true)
-                ]);
+                // create new table
+                p = p.then(function () { return createTable(transaction, spec.name, spec.columns); });
+                p = p.then(function () { return createIndices(transaction, schema, spec, true); });
             }
+            return p;
         };
-        /**
-         * Save all objects to database.  Atomic operation- all objects will be saved within the same transaction
-         * or nothing will be written.  Objects can be heterogeneous.
-         *
-         * @param objects - objects to save
-         */
-        Store.prototype.save = function () {
-            var objects = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                objects[_i - 0] = arguments[_i];
+        Store.prototype.add = function (table) {
+            var changes = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                changes[_i - 1] = arguments[_i];
             }
-            return this.mutate({ save: objects });
-        };
-        /**
-         * Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
-         * or nothing will be written.  Objects can be heterogeneous.
-         *
-         * @param objects - objects to delete
-         */
-        Store.prototype.delete = function () {
-            var objects = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                objects[_i - 0] = arguments[_i];
-            }
-            return this.mutate({ delete: objects });
-        };
-        /**
-         * Delete all objects from database.  Atomic operation- all objects will be deleted within the same transaction
-         * or nothing will be written.  Objects can be heterogeneous.
-         *
-         * @param objects - objects to save
-         */
-        Store.prototype.mutate = function (params) {
-            var saveObjects = Array.prototype.concat.apply([], params.save); // flatten array
-            var deleteObjects = Array.prototype.concat.apply([], params.delete); // flatten array
-            saveObjects.map(function (o) {
-                console.assert(('_' + o._model.key) in o, "object must have a key");
-            });
-            deleteObjects.map(function (o) {
-                console.assert(('_' + o._model.key) in o, "object must have a key");
-            });
-            var self = this;
-            return new Promise(function (resolve, reject) {
-                self.db.transaction(function (tx) {
-                    function value(o, col) {
-                        var val = o['_' + col];
-                        switch (o._model.columns[col].type) {
-                            case ColumnType.date:
-                            case ColumnType.datetime:
-                                if (typeof val !== 'undefined') {
-                                    console.assert(val instanceof Date);
-                                    val = Math.floor(val.getTime() / 1000);
-                                }
-                                break;
-                            case ColumnType.json:
-                                val = JSON.stringify(val);
-                                break;
-                            case ColumnType.enum:
-                                console.assert(o._model.columns[col].enum != null);
-                                val = val.toString();
-                                break;
-                            default:
-                                console.assert(typeof val !== 'object');
-                                break;
-                        }
-                        return val;
+            Updraft.verify(this.db, "apply(): not opened");
+            var changeTable = getChangeTableName(table.spec.name);
+            return this.db.transaction(function (transaction) {
+                var p1 = Promise.resolve();
+                var toResolve = new Set();
+                changes.forEach(function (change) {
+                    var time = change.time || Date.now();
+                    Updraft.verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
+                    if (change.save) {
+                        // append internal column values
+                        var element = Updraft.assign({}, change.save, (_a = {}, _a[internal_column_time] = time, _a));
+                        p1 = p1.then(function () { return insertElement(transaction, table, element); });
+                        toResolve.add(table.keyValue(element));
                     }
-                    function insertSets(o, force) {
-                        var changes = o._changes();
-                        var f = o._model;
-                        var promises = [];
-                        Object.keys(f.columns)
-                            .filter(function (col) {
-                            return (f.columns[col].type === ColumnType.set) && (force || changes.indexOf(col) > -1);
-                        })
-                            .forEach(function (col) {
-                            var ref = f.columns[col].ref;
-                            var setTable = f.columns[col].setTable;
-                            console.assert(ref != null);
-                            console.assert(setTable != null);
-                            var set = o['_' + col];
-                            if (set) {
-                                var key = o._primaryKey();
-                                var deletions = set.getRemoved();
-                                var additions = set.getAdded();
-                                deletions.forEach(function (del) {
-                                    promises.push(self.exec(tx, 'DELETE FROM ' + setTable.tableName + ' WHERE ' + f.key + '=? AND ' + col + '=?', [key, del]));
-                                });
-                                additions.forEach(function (add) {
-                                    promises.push(self.exec(tx, 'INSERT INTO ' + setTable.tableName + ' (' + f.key + ', ' + col + ') VALUES (?, ?)', [key, add]));
-                                });
-                            }
-                        });
-                        return Promise.all(promises).then(function () { return true; });
-                    }
-                    function insert(o, callback) {
-                        if (callback === void 0) { callback = null; }
-                        var f = o._model;
-                        var isNotSet = function (col) { return f.columns[col].type !== ColumnType.set; };
-                        var cols = Object.keys(f.columns).filter(isNotSet);
-                        var columns = cols.join(', ');
-                        var values = cols.map(function () { return '?'; }).join(', ');
-                        var args = cols.map(function (col) { return value(o, col); });
-                        return self.exec(tx, 'INSERT OR IGNORE INTO ' + f.tableName + ' (' + columns + ') VALUES (' + values + ')', args, function (tx, results) {
-                            var changes = results.rowsAffected !== 0;
-                            return callback ? callback(changes) : changes;
-                        });
-                    }
-                    function update(o, callback) {
-                        if (callback === void 0) { callback = null; }
-                        var f = o._model;
-                        var cols = o._changes();
-                        var isNotSet = function (col) { return f.columns[col].type !== ColumnType.set; };
-                        var isNotKey = function (col) { return col !== f.key; };
-                        var assignments = cols
-                            .filter(isNotSet)
-                            .filter(isNotKey)
-                            .map(function (col) { return col + '=?'; })
-                            .join(', ');
-                        var values = cols
-                            .filter(isNotSet)
-                            .filter(isNotKey)
-                            .map(function (col) { return value(o, col); });
-                        values.push(o['_' + f.key]); // for WHERE clause
-                        return self.exec(tx, 'UPDATE OR IGNORE ' + f.tableName + ' SET ' + assignments + ' WHERE ' + f.key + '=?', values, function (tx, results) {
-                            var changes = results.rowsAffected !== 0;
-                            return callback ? callback(changes) : changes;
-                        });
-                    }
-                    function upsert(o) {
-                        var p;
-                        if (o._isInDb) {
-                            p = update(o, function (changed) { return changed ? insertSets(o, false) : insert(o); });
+                    else if (change.change || change.delete) {
+                        var changeRow = {
+                            key: null,
+                            time: time,
+                            change: null
+                        };
+                        if (change.change) {
+                            // store changes
+                            var mutator = Updraft.shallowCopy(change.change);
+                            changeRow.key = table.keyValue(mutator);
+                            delete mutator[table.key];
+                            changeRow.change = Updraft.toText(mutator);
                         }
                         else {
-                            p = insert(o, function (changed) { return changed ? insertSets(o, true) : update(o); });
+                            // mark deleted
+                            changeRow.key = change.delete;
+                            changeRow.change = Updraft.toText(deleteRow_action);
                         }
-                        return p
-                            .then(function (changed) {
-                            console.assert(changed);
-                            if (changed) {
-                                o._clearChanges();
-                                o._isInDb = true;
-                            }
-                        });
+                        // insert into change table
+                        var columns = Object.keys(changeRow);
+                        var values = columns.map(function (k) { return changeRow[k]; });
+                        p1 = p1.then(function () { return insert(transaction, changeTable, columns, values); });
+                        toResolve.add(changeRow.key);
                     }
-                    ;
-                    function remove(o) {
-                        var f = o._model;
-                        var keyVal = o._primaryKey();
-                        return self.exec(tx, 'DELETE FROM ' + f.tableName + ' WHERE ' + f.key + '=?', [keyVal]);
+                    else {
+                        throw new Error("no operation specified for change- should be one of save, change, or delete");
                     }
-                    var savePromises = saveObjects.map(upsert);
-                    var deletePromises = deleteObjects.map(remove);
-                    return Promise.all(deletePromises.concat(savePromises))
-                        .then(resolve, reject);
+                    var _a;
                 });
+                toResolve.forEach(function (keyValue) {
+                    p1 = p1.then(function () { return resolve(transaction, table, keyValue); });
+                });
+                return p1;
+            });
+        };
+        Store.prototype.find = function (table, query, opts) {
+            return this.db.readTransaction(function (transaction) {
+                var q = Updraft.assign({}, query, (_a = {},
+                    _a[internal_column_deleted] = false,
+                    _a[internal_column_latest] = true,
+                    _a
+                ));
+                return runQuery(transaction, table, q, opts, table.spec.clazz);
+                var _a;
             });
         };
         return Store;
     })();
     Updraft.Store = Store;
+    function getChangeTableName(name) {
+        return internal_prefix + "changes_" + name;
+    }
+    function getSetTableName(tableName, col) {
+        return internal_prefix + "set_" + tableName + "_" + col;
+    }
+    function buildIndices(spec) {
+        spec.indices = spec.indices || [];
+        for (var col in spec.columns) {
+            if (spec.columns[col].isIndex) {
+                spec.indices.push([col]);
+            }
+        }
+    }
+    function createInternalTableSpecs(table) {
+        var newSpec = Updraft.shallowCopy(table.spec);
+        newSpec.columns = Updraft.shallowCopy(table.spec.columns);
+        for (var col in internalColumn) {
+            Updraft.verify(!table.spec.columns[col], "table %s cannot have reserved column name %s", table.spec.name, col);
+            newSpec.columns[col] = internalColumn[col];
+        }
+        buildIndices(newSpec);
+        return [newSpec].concat(createSetTableSpecs(newSpec, verifyGetValue(newSpec.columns, table.key)));
+    }
+    function createChangeTableSpec(table) {
+        var newSpec = {
+            name: getChangeTableName(table.spec.name),
+            columns: {
+                key: Updraft.Column.Int().Key(),
+                time: Updraft.Column.DateTime().Key(),
+                change: Updraft.Column.JSON(),
+            }
+        };
+        buildIndices(newSpec);
+        return newSpec;
+    }
+    function createSetTableSpecs(spec, keyColumn) {
+        var newSpecs = [];
+        for (var col in spec.columns) {
+            var column = spec.columns[col];
+            if (column.type == Updraft.ColumnType.set) {
+                var newSpec = {
+                    name: getSetTableName(spec.name, col),
+                    columns: {
+                        key: keyColumn,
+                        value: new Updraft.Column(column.elementType).Key(),
+                        time: Updraft.Column.Int().Key()
+                    }
+                };
+                buildIndices(newSpec);
+                newSpecs.push(newSpec);
+            }
+        }
+        return newSpecs;
+    }
+    function tableFromSql(name, sql) {
+        var table = { name: name, columns: {}, indices: [], triggers: {} };
+        var matches = sql.match(/\((.*)\)/);
+        if (matches) {
+            var pksplit = matches[1].split(/PRIMARY KEY/i);
+            var fields = pksplit[0].split(",");
+            for (var i = 0; i < fields.length; i++) {
+                var ignore = /^\s*(primary|foreign)\s+key/i; // ignore standalone "PRIMARY KEY xxx"
+                if (fields[i].match(ignore)) {
+                    continue;
+                }
+                var quotedName = /"(.+)"\s+(.*)/;
+                var unquotedName = /(\w+)\s+(.*)/;
+                var parts = fields[i].match(quotedName);
+                if (!parts) {
+                    parts = fields[i].match(unquotedName);
+                }
+                if (parts) {
+                    table.columns[parts[1]] = Updraft.Column.fromSql(parts[2]);
+                }
+            }
+            if (pksplit.length > 1) {
+                var pk = pksplit[1].match(/\((.*)\)/);
+                if (pk) {
+                    var keys = pk[1].split(",");
+                    for (var i = 0; i < keys.length; i++) {
+                        var key = keys[i].trim();
+                        table.columns[key].isKey = true;
+                    }
+                }
+            }
+        }
+        return table;
+    }
+    function indexFromSql(sql) {
+        var regex = /\((.*)\)/;
+        var matches = regex.exec(sql);
+        Updraft.verify(matches, "bad format on index- couldn't determine column names from sql: %s", sql);
+        return matches[1].split(",").map(function (x) { return x.trim(); });
+    }
+    function createTable(transaction, name, columns) {
+        var cols = [];
+        var pk = [];
+        for (var col in columns) {
+            var attrs = columns[col];
+            var decl = void 0;
+            switch (attrs.type) {
+                case Updraft.ColumnType.set:
+                    // ignore this column; values go into a separate table
+                    Updraft.verify(!attrs.isKey, "table %s cannot have a key on set column %s", name, col);
+                    break;
+                default:
+                    decl = col + " " + Updraft.Column.sql(attrs);
+                    cols.push(decl);
+                    if (attrs.isKey) {
+                        pk.push(col);
+                    }
+                    break;
+            }
+        }
+        Updraft.verify(pk.length, "table %s has no keys", name);
+        cols.push("PRIMARY KEY(" + pk.join(", ") + ")");
+        return transaction.executeSql("CREATE TABLE " + name + " (" + cols.join(", ") + ")");
+    }
+    function dropTable(transaction, name) {
+        return transaction.executeSql("DROP TABLE " + name);
+    }
+    function createIndices(transaction, schema, spec, force) {
+        if (force === void 0) { force = false; }
+        var indicesEqual = function (a, b) {
+            if (a.length != b.length) {
+                return false;
+            }
+            for (var i = 0; i < a.length; i++) {
+                if (a[i] != b[i]) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        var p = Promise.resolve();
+        var oldIndices = (spec.name in schema) ? schema[spec.name].indices : [];
+        var newIndices = spec.indices;
+        var getIndexName = function (indices) {
+            return "index_" + spec.name + "__" + indices.join("_");
+        };
+        oldIndices.forEach(function (value, i) {
+            var drop = true;
+            for (var j = 0; j < newIndices.length; j++) {
+                if (indicesEqual(oldIndices[i], newIndices[j])) {
+                    drop = false;
+                    break;
+                }
+            }
+            if (drop) {
+                p = p.then(function () { return transaction.executeSql("DROP INDEX " + getIndexName(oldIndices[i])); });
+            }
+        });
+        newIndices.forEach(function (value, j) {
+            var create = true;
+            for (var i = 0; i < oldIndices.length; i++) {
+                if (indicesEqual(oldIndices[i], newIndices[j])) {
+                    create = false;
+                    break;
+                }
+            }
+            if (create || force) {
+                var index = newIndices[j];
+                var sql = "CREATE INDEX IF NOT EXISTS " + getIndexName(index) + " ON " + spec.name + " (" + index.join(", ") + ")";
+                p = p.then(function () { return transaction.executeSql(sql); });
+            }
+        });
+        return p;
+    }
+    function copyData(transaction, oldName, newName, oldColumns, newColumns, renamedColumns) {
+        var oldTableColumns = Object.keys(oldColumns).filter(function (col) { return (col in newColumns) || (col in renamedColumns); });
+        var newTableColumns = oldTableColumns.map(function (col) { return (col in renamedColumns) ? renamedColumns[col] : col; });
+        var p2 = Promise.resolve();
+        if (oldTableColumns.length && newTableColumns.length) {
+            var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
+            stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
+            p2 = transaction.executeSql(stmt);
+        }
+        return p2;
+    }
+    function migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns) {
+        var deletedColumns = Object.keys(oldColumns).filter(function (col) { return !(col in newColumns) && !(col in renamedColumns); });
+        var p2 = Promise.resolve();
+        if (renamedColumns || deletedColumns) {
+            p2 = p2.then(function () {
+                return transaction.each("SELECT " + ROWID + ", change"
+                    + " FROM " + changeTableName, [], function (selectChangeTransaction, row) {
+                    var change = Updraft.fromText(row.change);
+                    var changed = false;
+                    for (var oldCol in renamedColumns) {
+                        var newCol = renamedColumns[oldCol];
+                        if (oldCol in change) {
+                            change[newCol] = change[oldCol];
+                            delete change[oldCol];
+                            changed = true;
+                        }
+                    }
+                    for (var _i = 0; _i < deletedColumns.length; _i++) {
+                        var oldCol = deletedColumns[_i];
+                        if (oldCol in change) {
+                            delete change[oldCol];
+                            changed = true;
+                        }
+                    }
+                    if (changed) {
+                        if (Object.keys(change).length) {
+                            return selectChangeTransaction.executeSql("UPDATE " + changeTableName
+                                + " SET change=?"
+                                + " WHERE " + ROWID + "=?", [Updraft.toText(change), row[ROWID]]);
+                        }
+                        else {
+                            return selectChangeTransaction.executeSql("DELETE FROM " + changeTableName
+                                + " WHERE " + ROWID + "=?", [row[ROWID]]);
+                        }
+                    }
+                });
+            });
+        }
+        return p2;
+    }
+    function verifyGetValue(element, field) {
+        Updraft.verify(field in element, "element does not contain field %s: %s", field, element);
+        return element[field];
+    }
+    function insert(transaction, tableName, columns, values) {
+        var questionMarks = values.map(function (v) { return "?"; });
+        Updraft.verify(columns.indexOf(ROWID) == -1, "should not insert with rowid column");
+        return transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values);
+    }
+    function insertElement(transaction, table, element) {
+        var keyValue = table.keyValue(element);
+        var columns = selectableColumns(table.spec, element);
+        var values = columns.map(function (col) { return serializeValue(table.spec, col, element[col]); });
+        var time = verifyGetValue(element, internal_column_time);
+        var promises = [];
+        promises.push(insert(transaction, table.spec.name, columns, values));
+        // insert set values
+        Object.keys(table.spec.columns).forEach(function insertElementEachColumn(col) {
+            var column = table.spec.columns[col];
+            if (column.type == Updraft.ColumnType.set && (col in element)) {
+                var set = element[col];
+                if (set.size) {
+                    var serializer = new Updraft.Column(column.elementType);
+                    var setValues = [];
+                    var placeholders = [];
+                    set.forEach(function (value) {
+                        placeholders.push("(?, ?, ?)");
+                        setValues.push(time, table.keyValue(element), serializer.serialize(value));
+                    });
+                    var p = transaction.executeSql("INSERT INTO " + getSetTableName(table.spec.name, col)
+                        + " (time, key, value)"
+                        + " VALUES " + placeholders.join(", "), setValues);
+                    promises.push(p);
+                }
+            }
+        });
+        return Promise.all(promises);
+    }
+    function resolve(transaction, table, keyValue) {
+        return selectBaseline(transaction, table, keyValue).then(function resolveSelectBaselineCallback(baseline) {
+            return getChanges(transaction, table, baseline).then(function resolveGetChangesCallback(changes) {
+                var mutation = applyChanges(baseline, changes);
+                var promises = [];
+                if (!mutation.isChanged) {
+                    // mark it as latest (and others as not)
+                    return setLatest(transaction, table, keyValue, baseline.rowid);
+                }
+                else {
+                    // invalidate old latest rows
+                    // insert new latest row
+                    var element = Updraft.mutate(mutation.element, (_a = {},
+                        _a[internal_column_latest] = { $set: true },
+                        _a[internal_column_time] = { $set: mutation.time },
+                        _a[internal_column_composed] = { $set: true },
+                        _a
+                    ));
+                    return Promise.resolve()
+                        .then(function () { return invalidateLatest(transaction, table, keyValue); })
+                        .then(function () { return insertElement(transaction, table, element); });
+                }
+                var _a;
+            });
+        });
+    }
+    function runQuery(transaction, table, query, opts, clazz) {
+        opts = opts || {};
+        var numericConditions = {
+            $gt: ">",
+            $gte: ">=",
+            $lt: "<",
+            $lte: "<="
+        };
+        var inCondition = Updraft.keyOf({ $in: false });
+        var conditions = [];
+        var values = [];
+        Object.keys(query).forEach(function (col) {
+            Updraft.verify((col in table.spec.columns) || (col in internalColumn), "attempting to query based on column '%s' not in schema (%s)", col, table.spec.columns);
+            var column = (col in internalColumn) ? internalColumn[col] : table.spec.columns[col];
+            var spec = query[col];
+            var found = false;
+            for (var condition in numericConditions) {
+                if (Updraft.hasOwnProperty.call(spec, condition)) {
+                    conditions.push("(" + col + numericConditions[condition] + "?)");
+                    var value = spec[condition];
+                    Updraft.verify(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
+                    values.push(value);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                if (Updraft.hasOwnProperty.call(spec, inCondition)) {
+                    Updraft.verify(Array.isArray(spec[inCondition]), "must be an array: %s", spec[inCondition]);
+                    conditions.push(col + " IN (" + spec[inCondition].map(function (x) { return "?"; }).join(", ") + ")");
+                    var inValues = spec[inCondition];
+                    inValues = inValues.map(function (val) { return column.serialize(val); });
+                    values.push.apply(values, inValues);
+                    found = true;
+                }
+            }
+            if (!found) {
+                if (column.type == Updraft.ColumnType.bool) {
+                    conditions.push(col + (spec ? "!=0" : "=0"));
+                    found = true;
+                }
+                else if (typeof spec === "number" || typeof spec === "string") {
+                    conditions.push("(" + col + "=?)");
+                    values.push(spec);
+                    found = true;
+                }
+                else if (spec instanceof RegExp) {
+                    var rx = spec;
+                    var arg = rx.source.replace(/\.\*/g, "%").replace(/\./g, "_");
+                    if (arg[0] == "^") {
+                        arg = arg.substring(1);
+                    }
+                    else {
+                        arg = "%" + arg;
+                    }
+                    if (arg[arg.length - 1] == "$") {
+                        arg = arg.substring(0, arg.length - 1);
+                    }
+                    else {
+                        arg = arg + "%";
+                    }
+                    Updraft.verify(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
+                    conditions.push("(" + col + " LIKE ?)");
+                    values.push(arg);
+                    found = true;
+                }
+                Updraft.verify(found, "unknown query condition for %s: %s", col, spec);
+            }
+        });
+        var fields = Updraft.assign({}, opts.fields || table.spec.columns, (_a = {}, _a[internal_column_time] = true, _a));
+        var columns = selectableColumns(table.spec, fields);
+        var stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
+        stmt += " FROM " + table.spec.name;
+        stmt += " WHERE " + conditions.join(" AND ");
+        if (opts.orderBy) {
+            var col = Updraft.keyOf(opts.orderBy);
+            var order = opts.orderBy[col];
+            stmt += " ORDER BY " + col + " " + (order == Updraft.OrderBy.ASC ? "ASC" : "DESC");
+        }
+        if (opts.limit) {
+            stmt += " LIMIT " + opts.limit;
+        }
+        if (opts.offset) {
+            stmt += " OFFSET " + opts.offset;
+        }
+        return transaction.executeSql(stmt, values, function (tx2, rows) {
+            if (opts.count) {
+                var count = parseInt(rows[0][COUNT], 10);
+                return count;
+            }
+            else {
+                var promises = rows.map(function (element) { return loadExternals(transaction, table, element, opts.fields); });
+                return Promise.all(promises)
+                    .then(function () {
+                    var results = [];
+                    for (var i = 0; i < rows.length; i++) {
+                        var row = deserializeRow(table.spec, rows[i]);
+                        for (var col in internalColumn) {
+                            if (!opts.fields || !(col in opts.fields)) {
+                                delete row[col];
+                            }
+                        }
+                        var obj = clazz ? new clazz(row) : row;
+                        results.push(obj);
+                    }
+                    return results;
+                });
+            }
+        });
+        var _a;
+    }
+    function popValue(element, field) {
+        var ret = verifyGetValue(element, field);
+        delete element[field];
+        return ret;
+    }
+    function selectBaseline(transaction, table, keyValue) {
+        var fieldSpec = (_a = {},
+            _a[ROWID] = true,
+            _a[internal_column_time] = true,
+            _a[internal_column_deleted] = true,
+            _a
+        );
+        Object.keys(table.spec.columns).forEach(function (col) { return fieldSpec[col] = true; });
+        var query = (_b = {},
+            _b[table.key] = keyValue,
+            _b[internal_column_composed] = false,
+            _b
+        );
+        var opts = {
+            fields: fieldSpec,
+            orderBy: (_c = {}, _c[internal_column_time] = Updraft.OrderBy.DESC, _c),
+            limit: 1
+        };
+        return runQuery(transaction, table, query, opts, null)
+            .then(function (baselineResults) {
+            var baseline = {
+                element: {},
+                time: 0,
+                rowid: -1
+            };
+            if (baselineResults.length) {
+                var element = baselineResults[0];
+                baseline.element = element;
+                baseline.time = popValue(element, internal_column_time);
+                baseline.rowid = popValue(element, ROWID);
+            }
+            else {
+                baseline.element[table.key] = keyValue;
+            }
+            return baseline;
+        });
+        var _a, _b, _c;
+    }
+    function loadExternals(transaction, table, element, fields) {
+        var promises = [];
+        Object.keys(table.spec.columns).forEach(function loadExternalsForEach(col) {
+            if (!fields || (col in fields && fields[col])) {
+                var column = table.spec.columns[col];
+                if (column.type == Updraft.ColumnType.set) {
+                    var columnDeserializer = new Updraft.Column(column.elementType);
+                    var set = element[col] = element[col] || new Set();
+                    var keyValue = verifyGetValue(element, table.key);
+                    var time = verifyGetValue(element, internal_column_time);
+                    var p = transaction.executeSql("SELECT value "
+                        + "FROM " + getSetTableName(table.spec.name, col)
+                        + " WHERE key=?"
+                        + " AND time=?", [keyValue, time], function loadExternalsSqlCallback(tx, results) {
+                        for (var _i = 0; _i < results.length; _i++) {
+                            var row = results[_i];
+                            set.add(columnDeserializer.deserialize(row.value));
+                        }
+                    });
+                    promises.push(p);
+                }
+            }
+        });
+        return Promise.all(promises);
+    }
+    function getChanges(transaction, table, baseline) {
+        var keyValue = verifyGetValue(baseline.element, table.key);
+        return transaction.executeSql("SELECT key, time, change"
+            + " FROM " + getChangeTableName(table.spec.name)
+            + " WHERE key=? AND time>=?"
+            + " ORDER BY time ASC", [keyValue, baseline.time]);
+    }
+    function applyChanges(baseline, changes) {
+        var element = baseline.element;
+        var time = baseline.time;
+        for (var i = 0; i < changes.length; i++) {
+            var row = changes[i];
+            var mutator = Updraft.fromText(row.change);
+            element = Updraft.mutate(element, mutator);
+            time = Math.max(time, row.time);
+        }
+        var isChanged = Updraft.isMutated(baseline.element, element) || baseline.rowid == -1;
+        return { element: element, time: time, isChanged: isChanged };
+    }
+    function setLatest(transaction, table, keyValue, rowid) {
+        return transaction.executeSql("UPDATE " + table.spec.name
+            + " SET " + internal_column_latest + "=(" + ROWID + "=" + rowid + ")"
+            + " WHERE " + table.key + "=?", [keyValue]);
+    }
+    function invalidateLatest(transaction, table, keyValue) {
+        return transaction.executeSql("UPDATE " + table.spec.name
+            + " SET " + internal_column_latest + "=0"
+            + " WHERE " + table.key + "=?", [keyValue]);
+    }
+    function selectableColumns(spec, cols) {
+        return Object.keys(cols).filter(function (col) { return (col == ROWID) || (col in internalColumn) || ((col in spec.columns) && (spec.columns[col].type != Updraft.ColumnType.set)); });
+    }
+    function serializeValue(spec, col, value) {
+        if (col in spec.columns) {
+            return spec.columns[col].serialize(value);
+        }
+        return value;
+    }
+    function deserializeRow(spec, row) {
+        var ret = {};
+        for (var col in row) {
+            if (row[col] == null) {
+            }
+            else if (col in spec.columns) {
+                ret[col] = spec.columns[col].deserialize(row[col]);
+            }
+            else {
+                ret[col] = row[col];
+            }
+        }
+        return ret;
+    }
+    function createStore(params) {
+        return new Store(params);
+    }
+    Updraft.createStore = createStore;
+    var _a;
 })(Updraft || (Updraft = {}));
-/// <reference path="./store.ts" />
-/// <reference path="./query.ts" />
+///<reference path="./Store"/>
+"use strict";
 if (typeof module !== "undefined") {
     module.exports = Updraft;
 }
+"use strict";
+///<reference path="../typings/tsd.d.ts"/>
+///<reference path="./Database"/>
+"use strict";
+var Updraft;
+(function (Updraft) {
+    var SQLiteWrapper = (function () {
+        function SQLiteWrapper(db) {
+            this.db = db;
+        }
+        SQLiteWrapper.prototype.run = function (sql) {
+            var _this = this;
+            return new Promise(function (resolve, reject) {
+                _this.db.run(sql, function (err) {
+                    if (err) {
+                        console.log("SQLiteWrapper.run(): error executing '" + sql + "': ", err);
+                        reject(err);
+                    }
+                    else {
+                        resolve();
+                    }
+                });
+            });
+        };
+        SQLiteWrapper.prototype.all = function (tx, sql, params, callback) {
+            var _this = this;
+            return new Promise(function (resolve, reject) {
+                _this.db.all(sql, params, function (err, rows) {
+                    if (err) {
+                        console.log("SQLiteWrapper.all(): error executing '" + sql + "': ", err);
+                        reject(err);
+                    }
+                    else {
+                        if (callback) {
+                            resolve(callback(tx, rows));
+                        }
+                        else {
+                            resolve(rows);
+                        }
+                    }
+                });
+            });
+        };
+        SQLiteWrapper.prototype.each = function (tx, sql, params, callback) {
+            var _this = this;
+            var p = undefined;
+            return new Promise(function (resolve, reject) {
+                _this.db.each(sql, params, function (err, row) {
+                    if (err) {
+                        console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
+                        reject(err);
+                    }
+                    else {
+                        if (callback) {
+                            p = callback(tx, row);
+                        }
+                    }
+                }, function (err, count) {
+                    if (err) {
+                        console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
+                        reject(err);
+                    }
+                    else {
+                        resolve(p);
+                    }
+                });
+            });
+        };
+        SQLiteWrapper.prototype.transaction = function (callback) {
+            var _this = this;
+            var result = undefined;
+            return Promise.resolve()
+                .then(function () { return _this.run("BEGIN TRANSACTION"); })
+                .then(function () {
+                var tx = {
+                    executeSql: function (sql, params, resultsCb) {
+                        return _this.all(tx, sql, params, resultsCb);
+                    },
+                    each: function (sql, params, resultsCb) {
+                        return _this.each(tx, sql, params, resultsCb);
+                    }
+                };
+                return callback(tx);
+            })
+                .then(function (ret) { return result = ret; })
+                .then(function () { return _this.run("COMMIT TRANSACTION"); })
+                .then(function () { return result; })
+                .catch(function (err) {
+                console.log("encountered error, rolling back transaction: ", err);
+                _this.run("ROLLBACK TRANSACTION");
+                throw err;
+            });
+        };
+        SQLiteWrapper.prototype.readTransaction = function (callback) {
+            return this.transaction(callback);
+        };
+        return SQLiteWrapper;
+    })();
+    function createSQLiteWrapper(db) {
+        return new SQLiteWrapper(db);
+    }
+    Updraft.createSQLiteWrapper = createSQLiteWrapper;
+})(Updraft || (Updraft = {}));
+///<reference path="./websql.d.ts"/>
+///<reference path="./Database"/>
+"use strict";
+var Updraft;
+(function (Updraft) {
+    var WebsqlWrapper = (function () {
+        function WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback) {
+            version = version || "1.0";
+            displayName = displayName || name;
+            estimatedSize = estimatedSize || 5 * 1024 * 1024;
+            this.db = window.openDatabase(name, version, displayName, estimatedSize);
+            this.traceCallback = traceCallback;
+        }
+        WebsqlWrapper.prototype.trace = function (sql, params) {
+            if (this.traceCallback) {
+                var idx = 0;
+                var escapedString = sql.replace(/\?/g, function () {
+                    var x = params[idx++];
+                    if (typeof x == "number") {
+                        return x;
+                    }
+                    else {
+                        return "'" + x + "'";
+                    }
+                });
+                this.traceCallback(escapedString);
+            }
+        };
+        WebsqlWrapper.prototype.all = function (tx, sql, params, callback) {
+            var _this = this;
+            return new Promise(function (resolve, reject) {
+                _this.trace(sql, params);
+                tx.realTransaction.executeSql(sql, params, function (transaction, resultSet) {
+                    var results = [];
+                    for (var i = 0; i < resultSet.rows.length; i++) {
+                        var row = resultSet.rows.item(i);
+                        results.push(row);
+                    }
+                    if (callback) {
+                        resolve(callback(_this.wrapTransaction(transaction), results));
+                    }
+                    else {
+                        resolve(results);
+                    }
+                }, function (transaction, error) {
+                    console.error("error executing '" + sql + "': ", error);
+                    reject(error);
+                    return true;
+                });
+            });
+        };
+        WebsqlWrapper.prototype.each = function (tx, sql, params, callback) {
+            var _this = this;
+            return new Promise(function (resolve, reject) {
+                _this.trace(sql, params);
+                tx.realTransaction.executeSql(sql, params, function (transaction, resultSet) {
+                    var p = Promise.resolve();
+                    for (var i = 0; i < resultSet.rows.length; i++) {
+                        var row = resultSet.rows.item(i);
+                        if (callback) {
+                            (function (row) {
+                                p = p.then(function () { return callback(tx, row); });
+                            })(row);
+                        }
+                    }
+                    resolve(p);
+                }, function (transaction, error) {
+                    console.error("error executing '" + sql + "': ", error);
+                    reject(error);
+                    return true;
+                });
+            });
+        };
+        WebsqlWrapper.prototype.wrapTransaction = function (transaction) {
+            var _this = this;
+            var tx = {
+                realTransaction: transaction,
+                executeSql: function (sql, params, callback) {
+                    return _this.all(tx, sql, params, callback);
+                },
+                each: function (sql, params, callback) {
+                    return _this.each(tx, sql, params, callback);
+                }
+            };
+            return tx;
+        };
+        WebsqlWrapper.prototype.transaction = function (callback) {
+            var _this = this;
+            return new Promise(function (resolve, reject) {
+                _this.db.transaction(function (transaction) {
+                    var tx = _this.wrapTransaction(transaction);
+                    resolve(callback(tx));
+                });
+            });
+        };
+        WebsqlWrapper.prototype.readTransaction = function (callback) {
+            var _this = this;
+            return new Promise(function (resolve, reject) {
+                _this.db.readTransaction(function (transaction) {
+                    var tx = _this.wrapTransaction(transaction);
+                    resolve(callback(tx));
+                });
+            });
+        };
+        return WebsqlWrapper;
+    })();
+    function createWebsqlWrapper(name, version, displayName, estimatedSize, traceCallback) {
+        return new WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback);
+    }
+    Updraft.createWebsqlWrapper = createWebsqlWrapper;
+})(Updraft || (Updraft = {}));
 
-//# sourceMappingURL=../dist/updraft.js.map
+//# sourceMappingURL=updraft.js.map

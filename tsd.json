@@ -6,7 +6,40 @@
   "bundle": "typings/tsd.d.ts",
   "installed": {
     "es6-promise/es6-promise.d.ts": {
-      "commit": "f3244190e20af6901e865f4cc58127d19216baa1"
+      "commit": "0dd29bf8253536ae24e61c109524e924ea510046"
+    },
+    "chai/chai.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "chai-as-promised/chai-as-promised.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "mocha/mocha.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "promises-a-plus/promises-a-plus.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "es6-collections/es6-collections.d.ts": {
+      "commit": "0dd29bf8253536ae24e61c109524e924ea510046"
+    },
+    "clone/clone.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "node/node.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "sqlite3/sqlite3.d.ts": {
+      "commit": "62eedc3121a5e28c50473d2e4a9cefbcb9c3957f"
+    },
+    "es6-promises/es6-promises.d.ts": {
+      "commit": "eb59a40d3c2f3257e34ec2ede181046230814a41"
+    },
+    "gulp-mocha/gulp-mocha.d.ts": {
+      "commit": "0dd29bf8253536ae24e61c109524e924ea510046"
+    },
+    "chai-datetime/chai-datetime.d.ts": {
+      "commit": "8c4ec896ab619e7cb6572f82423e6e1eece70f5a"
     }
   }
 }
