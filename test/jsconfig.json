@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"target": "ES6",
+		"module": "commonjs"
+	},
+	"files": [
+		"js.test.js",
+		"../typings/node/node.d.ts",
+		"../dist/updraft.d.ts"
+	]
+}

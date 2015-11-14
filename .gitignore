@@ -8,7 +8,6 @@ logs/
 log/
 results/
 src/*.js
-test/*.js
 
 *.seed
 *.log

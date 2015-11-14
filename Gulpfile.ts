@@ -108,7 +108,7 @@ gulp.task("test", ["test-node"/*, "test-phantomjs"*/]);
 
 
 gulp.task("test-node", ["compile"], function () {
-	return gulp.src(["test/*.ts"])
+	return gulp.src(["test/*.ts", "test/*.js"])
 		.pipe(mocha());
 });
 
