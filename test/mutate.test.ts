@@ -1,15 +1,16 @@
 ///<reference path="../typings/tsd.d.ts"/>
-///<reference path="../src/index"/>
+///<reference path="../dist/updraft.d.ts"/>
 
+require("./updraft_loader");
 import clone = require("clone");
 import chai = require("chai");
-import { Updraft } from "../src/index";
 import chaiDateTime = require("chai-datetime");
 
 let expect = chai.expect;
 chai.use(chaiDateTime);
 
 import M = Updraft.Mutate;
+import mutate = Updraft.mutate;
 
 interface _Test<bool, str, num, date, obj, strArray, numArray, objArray, strSet> {
 	myBool?: bool;
@@ -25,7 +26,6 @@ interface _Test<bool, str, num, date, obj, strArray, numArray, objArray, strSet>
 
 interface Test extends _Test<boolean, string, number, Date, Object, Array<string>, Array<number>, Array<Object>, Set<string>> {};
 interface TestMutator extends _Test<M.bool, M.str, M.num, M.date, M.obj, M.strArray, M.numArray, M.objArray, M.strSet> {};
-function mutate(value: Test, spec: TestMutator): Test { return Updraft.mutate<Test, TestMutator>(value, spec); }
 
 describe("mutate()", function() {
 	describe("operations", function() {

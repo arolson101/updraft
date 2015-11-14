@@ -20,7 +20,7 @@
     "CloudKit"
   ],
   "scripts": {
-    "coverage": "tsc && cd generated && istanbul cover ../node_modules/mocha/bin/_mocha"
+    "test": "gulp test"
   },
   "author": "Andrew Olson",
   "license": "MIT",
@@ -56,7 +56,6 @@
     "ts-loader": "^0.6.0",
     "ts-node": "^0.4.2",
     "tslint": "^3.0.0-dev.1",
-    "typescript": "^1.8.0-dev.20151030",
-    "webpack": "^1.12.3"
+    "typescript": "^1.8.0-dev.20151030"
   }
 }

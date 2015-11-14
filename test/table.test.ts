@@ -1,9 +1,10 @@
 ///<reference path="../typings/tsd.d.ts"/>
+///<reference path="../dist/updraft.d.ts"/>
 "use strict";
 
+require("./updraft_loader");
 import { expect } from "chai";
 import clone = require("clone");
-import { Updraft } from "../src/index";
 import Enum = require("enum");
 
 import Column = Updraft.Column;
@@ -15,8 +16,6 @@ import mutate = Updraft.mutate;
 
 // TODO: lists
 // TODO: blobs
-// TODO: compile .d.ts
-// TODO: documentation
 
 
 interface Db {
@@ -28,7 +27,7 @@ interface Db {
 function createDb(inMemory: boolean, trace: boolean): Db {
 	if (typeof window != "undefined") {
 		let traceCallback = trace ? (str: string) => console.log(str) : null;
-		let db = Updraft.wrapWebSql("testdb", "1.0", "updraft test database", 5 * 1024 * 1024, traceCallback);
+		let db: any = Updraft.createWebsqlWrapper("testdb", "1.0", "updraft test database", 5 * 1024 * 1024, traceCallback);
 		return {
 			db: db,
 			close: () => db.transaction((transaction: Updraft.DbTransaction) => {
@@ -52,7 +51,7 @@ function createDb(inMemory: boolean, trace: boolean): Db {
 			db.on("trace", (sql: string) => console.log(sql));
 		}
 		return {
-			db: Updraft.wrapSql(db),
+			db: Updraft.createSQLiteWrapper(db),
 			close: () => db.close()
 		};
 	}

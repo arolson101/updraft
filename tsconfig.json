@@ -2,20 +2,16 @@
 		"version": "1.6",
 		"compilerOptions": {
 				"target": "es5",
-				"module": "commonjs",
 				"noImplicitAny": true,
 				"removeComments": false,
-				"noLib": false,
 				"preserveConstEnums": true,
 				"suppressImplicitAnyIndexErrors": true,
-				"sourceMap": false,
-				"inlineSourceMap": true,
-				"declaration": false,
-				"outDir": "generated"
+				"sourceMap": true,
+				"declaration": true,
+				"out": "dist/updraft.js"
 		},
 		"filesGlob": [
 				"./src/**/*.ts",
-				"./test/**/*.ts",
 				"!./node_modules/**/*.ts"
 		],
 		"files": [
@@ -31,8 +27,6 @@
 				"./src/Text.ts",
 				"./src/verify.ts",
 				"./src/websql.d.ts",
-				"./src/WebsqlWrapper.ts",
-				"./test/mutate.test.ts",
-				"./test/table.test.ts"
+				"./src/WebsqlWrapper.ts"
 		]
 }
