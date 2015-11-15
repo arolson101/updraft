@@ -43,7 +43,7 @@ namespace Updraft {
 		//public setTable: ClassTemplate<any>;
 		public defaultValue: number | boolean | string;
 		public enum: EnumClass | TypeScriptEnum;
-		public elementType: ColumnType;
+		public element: Column;
 	
 		constructor(type: ColumnType) {
 			this.type = type;
@@ -207,7 +207,7 @@ namespace Updraft {
 		/** unordered collection */
 		static Set(type: ColumnType): Column {
 			let c = new Column(ColumnType.set);
-			c.elementType = type;
+			c.element = new Column(type);
 			return c;
 		}
 	

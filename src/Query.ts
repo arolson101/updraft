@@ -8,10 +8,16 @@ namespace Updraft.Query {
 		$lte?: number;
 	}
 	
-	export interface SetConditions<T> {
+	export interface SetHasCondition<T> {
 		$has?: T;
-		$doesNotHave?: T;
-		$size?: number | NumericConditions;
+	}
+
+	export interface SetHasAnyCondition<T> {
+		$hasAny?: T[];
+	}
+
+	export interface SetHasAllConditions<T> {
+		$hasAll?: T[];
 	}
 	
 	export interface DateConditions {
@@ -28,7 +34,7 @@ namespace Updraft.Query {
 	export type num = primitive<number> | NumericConditions;
 	export type str = primitive<string> | RegExp;
 	export type date = primitive<Date> | DateConditions;
-	export type set<T> = SetConditions<T>;
+	export type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
 	export type strSet = set<string>;
 	export type none = {};
 }

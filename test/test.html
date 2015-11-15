@@ -26,7 +26,6 @@
 		<script src="../node_modules/mocha/mocha.js"></script>
 		<script src="../node_modules/chai/chai.js"></script>
 		<script src="../node_modules/chai-datetime/chai-datetime.js"></script>
-		<script src="../node_modules/chai-as-promised/lib/chai-as-promised.js"></script>
 		<script>
 			mocha.setup('bdd');
 			mocha.reporter('html');
@@ -36,6 +35,22 @@
 		<script>
 			module = {};
 			exports = {};
+			
+			// enum-2.2.0.js isn't exposing a global Enum :()
+			function Enum(values) {
+				var _this = this;
+				values.forEach(function(value, i) {
+					_this[values[i]] = _this[i] = {
+						value: i,
+						key: values[i],
+						toString: function() { return values[i]; }
+					}
+				});
+				
+				this["get"] = function(value) {
+					return this[value];
+				}
+			}
 
 			function require(script) {
 				switch (script) {
@@ -48,7 +63,7 @@
 				}
 			}
 		</script>
-		<script src="../node_modules/enum/enum-2.2.0.js"></script>
+		<!--<script src="../node_modules/enum/enum-2.2.0.js"></script>-->
 		<script src="../node_modules/clone/clone.js"></script>
 		<script src="../dist/updraft.js"></script>
 

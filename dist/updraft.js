@@ -245,7 +245,7 @@ var Updraft;
         /** unordered collection */
         Column.Set = function (type) {
             var c = new Column(ColumnType.set);
-            c.elementType = type;
+            c.element = new Column(type);
             return c;
         };
         Column.sql = function (val) {
@@ -912,7 +912,7 @@ var Updraft;
                     name: getSetTableName(spec.name, col),
                     columns: {
                         key: keyColumn,
-                        value: new Updraft.Column(column.elementType).Key(),
+                        value: new Updraft.Column(column.element.type).Key(),
                         time: Updraft.Column.Int().Key()
                     }
                 };
@@ -1109,12 +1109,11 @@ var Updraft;
             if (column.type == Updraft.ColumnType.set && (col in element)) {
                 var set = element[col];
                 if (set.size) {
-                    var serializer = new Updraft.Column(column.elementType);
                     var setValues = [];
                     var placeholders = [];
                     set.forEach(function (value) {
                         placeholders.push("(?, ?, ?)");
-                        setValues.push(time, table.keyValue(element), serializer.serialize(value));
+                        setValues.push(time, table.keyValue(element), column.element.serialize(value));
                     });
                     var p = transaction.executeSql("INSERT INTO " + getSetTableName(table.spec.name, col)
                         + " (time, key, value)"
@@ -1160,6 +1159,9 @@ var Updraft;
             $lte: "<="
         };
         var inCondition = Updraft.keyOf({ $in: false });
+        var hasCondition = Updraft.keyOf({ $has: false });
+        var hasAnyCondition = Updraft.keyOf({ $hasAny: false });
+        var hasAllConditions = Updraft.keyOf({ $hasAll: false });
         var conditions = [];
         var values = [];
         Object.keys(query).forEach(function (col) {
@@ -1184,6 +1186,45 @@ var Updraft;
                     var inValues = spec[inCondition];
                     inValues = inValues.map(function (val) { return column.serialize(val); });
                     values.push.apply(values, inValues);
+                    found = true;
+                }
+            }
+            if (!found) {
+                var has = Updraft.hasOwnProperty.call(spec, hasCondition);
+                var hasAny = Updraft.hasOwnProperty.call(spec, hasAnyCondition);
+                var hasAll = Updraft.hasOwnProperty.call(spec, hasAllConditions);
+                if (has || hasAny || hasAll) {
+                    var existsSetValues = function (setValues, args) {
+                        var escapedValues = setValues.map(function (value) { return column.element.serialize(value); });
+                        args.push.apply(args, escapedValues);
+                        return "EXISTS ("
+                            + "SELECT 1 FROM " + getSetTableName(table.spec.name, col)
+                            + " WHERE value IN (" + setValues.map(function (x) { return "?"; }).join(", ") + ")"
+                            + " AND key=" + table.spec.name + "." + table.key
+                            + " AND time=" + table.spec.name + "." + internal_column_time
+                            + ")";
+                    };
+                    if (has) {
+                        var hasValue = spec[hasCondition];
+                        Updraft.verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
+                        var condition = existsSetValues([hasValue], values);
+                        conditions.push(condition);
+                    }
+                    else if (hasAny) {
+                        var hasAnyValues = spec[hasAnyCondition];
+                        Updraft.verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
+                        var condition = existsSetValues(hasAnyValues, values);
+                        conditions.push(condition);
+                    }
+                    else if (hasAll) {
+                        var hasAllValues = spec[hasAllConditions];
+                        Updraft.verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
+                        for (var _i = 0; _i < hasAllValues.length; _i++) {
+                            var hasValue = hasAllValues[_i];
+                            var condition = existsSetValues([hasValue], values);
+                            conditions.push(condition);
+                        }
+                    }
                     found = true;
                 }
             }
@@ -1311,7 +1352,6 @@ var Updraft;
             if (!fields || (col in fields && fields[col])) {
                 var column = table.spec.columns[col];
                 if (column.type == Updraft.ColumnType.set) {
-                    var columnDeserializer = new Updraft.Column(column.elementType);
                     var set = element[col] = element[col] || new Set();
                     var keyValue = verifyGetValue(element, table.key);
                     var time = verifyGetValue(element, internal_column_time);
@@ -1321,7 +1361,7 @@ var Updraft;
                         + " AND time=?", [keyValue, time], function loadExternalsSqlCallback(tx, results) {
                         for (var _i = 0; _i < results.length; _i++) {
                             var row = results[_i];
-                            set.add(columnDeserializer.deserialize(row.value));
+                            set.add(column.element.deserialize(row.value));
                         }
                     });
                     promises.push(p);
@@ -1511,18 +1551,22 @@ var Updraft;
         }
         WebsqlWrapper.prototype.trace = function (sql, params) {
             if (this.traceCallback) {
-                var idx = 0;
-                var escapedString = sql.replace(/\?/g, function () {
-                    var x = params[idx++];
-                    if (typeof x == "number") {
-                        return x;
-                    }
-                    else {
-                        return "'" + x + "'";
-                    }
-                });
+                var escapedString = this.stringify(sql, params);
                 this.traceCallback(escapedString);
             }
+        };
+        WebsqlWrapper.prototype.stringify = function (sql, params) {
+            var idx = 0;
+            var escapedString = sql.replace(/\?/g, function () {
+                var x = params[idx++];
+                if (typeof x == "number") {
+                    return x;
+                }
+                else {
+                    return "'" + x + "'";
+                }
+            });
+            return escapedString;
         };
         WebsqlWrapper.prototype.all = function (tx, sql, params, callback) {
             var _this = this;
@@ -1541,7 +1585,7 @@ var Updraft;
                         resolve(results);
                     }
                 }, function (transaction, error) {
-                    console.error("error executing '" + sql + "': ", error);
+                    console.error("error executing '" + _this.stringify(sql, params) + "': ", error);
                     reject(error);
                     return true;
                 });
@@ -1563,7 +1607,7 @@ var Updraft;
                     }
                     resolve(p);
                 }, function (transaction, error) {
-                    console.error("error executing '" + sql + "': ", error);
+                    console.error("error executing '" + _this.stringify(sql, params) + "': ", error);
                     reject(error);
                     return true;
                 });

@@ -49,7 +49,7 @@ declare namespace Updraft {
         type: ColumnType;
         defaultValue: number | boolean | string;
         enum: EnumClass | TypeScriptEnum;
-        elementType: ColumnType;
+        element: Column;
         constructor(type: ColumnType);
         /**
             * Column is the primary key.  Only one column can have this set.
@@ -235,10 +235,14 @@ declare namespace Updraft.Query {
         $lt?: number;
         $lte?: number;
     }
-    interface SetConditions<T> {
+    interface SetHasCondition<T> {
         $has?: T;
-        $doesNotHave?: T;
-        $size?: number | NumericConditions;
+    }
+    interface SetHasAnyCondition<T> {
+        $hasAny?: T[];
+    }
+    interface SetHasAllConditions<T> {
+        $hasAll?: T[];
     }
     interface DateConditions {
         $after?: Date;
@@ -252,7 +256,7 @@ declare namespace Updraft.Query {
     type num = primitive<number> | NumericConditions;
     type str = primitive<string> | RegExp;
     type date = primitive<Date> | DateConditions;
-    type set<T> = SetConditions<T>;
+    type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
     type strSet = set<string>;
     type none = {};
 }

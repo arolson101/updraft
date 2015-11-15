@@ -356,7 +356,7 @@ namespace Updraft {
 					name: getSetTableName(spec.name, col),
 					columns: {
 						key: keyColumn,
-						value: new Column(column.elementType).Key(),
+						value: new Column(column.element.type).Key(),
 						time: Column.Int().Key()
 					}
 				};
@@ -584,12 +584,11 @@ namespace Updraft {
 			if (column.type == ColumnType.set && (col in element)) {
 				let set: Set<any> = element[col];
 				if (set.size) {
-					let serializer = new Column(column.elementType);
 					let setValues: any[] = [];
 					let placeholders: string[] = [];
 					set.forEach((value: any) => {
 						placeholders.push("(?, ?, ?)");
-						setValues.push(time, table.keyValue(element), serializer.serialize(value));
+						setValues.push(time, table.keyValue(element), column.element.serialize(value));
 					});
 					let p = transaction.executeSql(
 						"INSERT INTO " + getSetTableName(table.spec.name, col)
@@ -641,6 +640,9 @@ namespace Updraft {
 		};
 	
 		const inCondition = keyOf({ $in: false });
+		const hasCondition = keyOf({ $has: false });
+		const hasAnyCondition = keyOf({ $hasAny: false });
+		const hasAllConditions = keyOf({ $hasAll: false });
 	
 		let conditions: string[] = [];
 		let values: (string | number)[] = [];
@@ -669,6 +671,46 @@ namespace Updraft {
 					let inValues: any[] = spec[inCondition];
 					inValues = inValues.map(val => column.serialize(val));
 					values.push(...inValues);
+					found = true;
+				}
+			}
+			
+			if (!found) {
+				let has = hasOwnProperty.call(spec, hasCondition);
+				let hasAny = hasOwnProperty.call(spec, hasAnyCondition);
+				let hasAll = hasOwnProperty.call(spec, hasAllConditions);
+				if (has || hasAny || hasAll) {
+					let existsSetValues = function(setValues: any[], args: (string | number)[]): string {
+						let escapedValues = setValues.map(value => column.element.serialize(value));
+						args.push(...escapedValues);
+						return "EXISTS ("
+							+ "SELECT 1 FROM " + getSetTableName(table.spec.name, col)
+							+ " WHERE value IN (" + setValues.map(x => "?").join(", ") + ")"
+							+ " AND key=" + table.spec.name + "." + table.key
+							+ " AND time=" + table.spec.name + "." + internal_column_time
+							+ ")";
+					};
+					
+					if (has) {
+						let hasValue = spec[hasCondition];
+						verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
+						let condition = existsSetValues([hasValue], values);
+						conditions.push(condition);
+					}
+					else if (hasAny) {
+						let hasAnyValues: any[] = spec[hasAnyCondition];
+						verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
+						let condition = existsSetValues(hasAnyValues, values);
+						conditions.push(condition);
+					}
+					else if (hasAll) {
+						let hasAllValues: any[] = spec[hasAllConditions];
+						verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
+						for (let hasValue of hasAllValues) {
+							let condition = existsSetValues([hasValue], values);
+							conditions.push(condition);
+						}
+					}
 					found = true;
 				}
 			}
@@ -806,7 +848,6 @@ namespace Updraft {
 			if (!fields || (col in fields && fields[col])) {
 				let column = table.spec.columns[col];
 				if (column.type == ColumnType.set) {
-					let columnDeserializer = new Column(column.elementType);
 					let set: Set<any> = element[col] = element[col] || new Set<any>();
 					let keyValue = verifyGetValue(element, table.key);
 					let time = verifyGetValue(element, internal_column_time);
@@ -818,7 +859,7 @@ namespace Updraft {
 						[keyValue, time],
 						function loadExternalsSqlCallback(tx: DbTransaction, results: SetTableRow[]) {
 							for (let row of results) {
-								set.add(columnDeserializer.deserialize(row.value));
+								set.add(column.element.deserialize(row.value));
 							}
 						}
 					);

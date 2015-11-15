@@ -24,17 +24,22 @@ namespace Updraft {
 		
 		trace(sql: string, params?: (string | number)[]) {
 			if (this.traceCallback) {
-				let idx: number = 0;
-				let escapedString = sql.replace(/\?/g, () => {
-					let x = params[idx++];
-					if (typeof x == "number") {
-						return <string>x;
-					} else {
-						return "'" + x + "'";
-					}
-				});
+				let escapedString = this.stringify(sql, params);
 				this.traceCallback(escapedString);
 			}
+		}
+		
+		stringify(sql: string, params?: (string | number)[]): string {
+			let idx: number = 0;
+			let escapedString = sql.replace(/\?/g, () => {
+				let x = params[idx++];
+				if (typeof x == "number") {
+					return <string>x;
+				} else {
+					return "'" + x + "'";
+				}
+			});
+			return escapedString;
 		}
 	
 		all(tx: WebsqlTransaction, sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
@@ -56,7 +61,7 @@ namespace Updraft {
 						}
 					},
 					(transaction: SQLTransaction, error: SQLError) => {
-						console.error("error executing '" + sql + "': ", error);
+						console.error("error executing '" + this.stringify(sql, params) + "': ", error);
 						reject(error);
 						return true;
 					}
@@ -82,7 +87,7 @@ namespace Updraft {
 						resolve(p);
 					},
 					(transaction: SQLTransaction, error: SQLError) => {
-						console.error("error executing '" + sql + "': ", error);
+						console.error("error executing '" + this.stringify(sql, params) + "': ", error);
 						reject(error);
 						return true;
 					}

@@ -165,7 +165,7 @@ function sampleTodos(count: number) {
 			altstatus: AltTodoStatus.get("NotStarted"),
 			progress: 0,
 			completed: false,
-			tags: new Set<string>(),
+			tags: new Set<string>(["all", (i % 2 ? "odd" : "even"), "tag" + i]),
 			text: "todo " + i,
 			history: <HistoryItem[]>[]
 		};
@@ -307,7 +307,9 @@ describe("table", function() {
 				.then(() => store.readSchema())
 				.then((schema) => expect(schema).to.deep.equal(newSchema))
 				.then(() => todoTable.find({}, {orderBy: {id: Updraft.OrderBy.ASC}}))
-				.then((data: any[]) => expect(data).to.deep.equal(newData))
+				.then((data: any[]) => 
+					expect(data).to.deep.equal(newData)
+				)
 				.then(() => w.close());
 		}
 
@@ -657,6 +659,19 @@ describe("table", function() {
 					.then(() => todoTable.find({id: {$in: [3, 4]}}).then((results) => expect(results).to.deep.equal([todos[3], todos[4]])))
 					.then(() => todoTable.find({status: {$in: [TodoStatus.NotStarted, TodoStatus.Paused]}}).then((results) => expect(results).to.deep.equal(todos)))
 					.then(() => todoTable.find({altstatus: {$in: [AltTodoStatus.get("NotStarted"), AltTodoStatus.get("Paused")]}}).then((results) => expect(results).to.deep.equal(todos)))
+					;
+			});
+			
+			it("$has", function() {
+				let evens = [todos[0], todos[2], todos[4], todos[6], todos[8], todos[10]];
+				return Promise.resolve()
+					.then(() => todoTable.find({tags: {$has: "all"}}).then((results) => expect(results).to.deep.equal(todos)))
+					.then(() => todoTable.find({tags: {$has: "even"}}).then((results) => expect(results).to.deep.equal(evens)))
+					.then(() => todoTable.find({tags: {$has: "tag1"}}).then((results) => expect(results).to.deep.equal([todos[1]])))
+					.then(() => todoTable.find({tags: {$hasAny: ["tag1", "tag2"]}}).then((results) => expect(results).to.deep.equal([todos[1], todos[2]])))
+					.then(() => todoTable.find({tags: {$hasAll: ["tag1", "tag2"]}}).then((results) => expect(results).to.deep.equal([])))
+					.then(() => todoTable.find({tags: {$hasAll: ["all", "tag2"]}}).then((results) => expect(results).to.deep.equal([todos[2]])))
+					.then(() => todoTable.find({tags: {$hasAll: ["all", "even"]}}).then((results) => expect(results).to.deep.equal(evens)))
 					;
 			});
 		});
