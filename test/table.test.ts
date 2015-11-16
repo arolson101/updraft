@@ -151,7 +151,33 @@ const todoTableExpectedSchema = {
 			time: Column.DateTime().Key(),
 			change: Column.JSON()
 		}
-	}
+	},
+	
+	updraft_keyValues: {
+		name: "updraft_keyValues",
+		indices: <string[]>[],
+		triggers: {},
+		columns: {
+			key: Column.String().Key(),
+			value: Column.JSON(),
+			
+			updraft_deleted: Column.Bool(),
+			updraft_composed: Column.Bool(),
+			updraft_time: Column.Int().Key(),
+			updraft_latest: Column.Bool()
+		}
+	},
+	
+	updraft_changes_updraft_keyValues: {
+		name: "updraft_changes_updraft_keyValues",
+		indices: <string[]>[],
+		triggers: {},
+		columns: {
+			key: Column.Int().Key(),
+			time: Column.DateTime().Key(),
+			change: Column.JSON()
+		}
+	},
 };
 
 function sampleTodos(count: number) {
@@ -233,6 +259,42 @@ function populateData(db: Updraft.DbWrapper, count: number) {
 
 describe("table", function() {
 	this.timeout(0);
+	
+	describe("key/value store", function() {
+		it("saves and restores values", function() {
+			let w = createDb(true, false);
+			let store = Updraft.createStore({ db: w.db });
+			let complexValue = {
+				halloween: new Date(2007, 9, 31),
+				nestedValue: {
+					foo: "bar",
+					bar: 1234
+				}
+			};
+
+			return Promise.resolve()
+				.then(() => store.open())
+				.then(() => {
+					return Promise.resolve()
+						.then(() => store.setValue("simpleString", "abc"))
+						.then(() => store.setValue("simpleNumber", 123))
+						.then(() => store.setValue("complex", complexValue));
+				})
+				.then(() => {
+					store = Updraft.createStore({ db: w.db });
+					return store.open();
+				})
+				.then(() => {
+					let simpleString = store.getValue("simpleString");
+					let simpleNumber = store.getValue("simpleNumber");
+					let complex = store.getValue("complex");
+					expect(simpleString).to.equal("abc");
+					expect(simpleNumber).to.be.a("number").and.equal(123);
+					expect(complex).to.deep.equal(complexValue);
+				})
+				.then(() => w.close());
+		});
+	});
 	
 	describe("schema migrations", function() {
 		function runMigration(newFields: {[name: string]: Column}, deletedFields: string[], rename: {[old: string]: string}, debug?: boolean) {

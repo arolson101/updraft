@@ -217,12 +217,16 @@ declare namespace Updraft {
         private params;
         private tables;
         private db;
+        private keyValueTable;
+        private keyValues;
         constructor(params: CreateStoreParams);
         createTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query>;
         open(): Promise<any>;
         readSchema(): Promise<Schema>;
-        private syncTables(schema);
         private syncTable(transaction, schema, spec);
+        private loadKeyValues(transaction);
+        getValue(key: string): any;
+        setValue(key: string, value: any): Promise<any>;
         add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any>;
         find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]>;
     }

@@ -48,8 +48,16 @@ namespace Updraft {
 		time?: number;
 		value?: string;
 	}
+
+	interface KeyValue {
+		key?: string;
+		value?: any; // stored as JSON
+	}
 	
-	
+	interface KeyValueMap {
+		[key: string]: any;
+	}
+
 	const ROWID = "rowid";
 	const COUNT = "COUNT(*)";
 	const internal_prefix = "updraft_";
@@ -65,22 +73,34 @@ namespace Updraft {
 	
 	const deleteRow_action = { [internal_column_deleted]: { $set: true } };
 	
+	const keyValueTableSpec: TableSpec<KeyValue, any, any> = {
+		name: internal_prefix + "keyValues",
+		columns: {
+			key: Column.String().Key(),
+			value: Column.JSON(),
+		}
+	};
 	
 	export class Store {
 		private params: CreateStoreParams;
 		private tables: TableSpecAny[];
 		private db: DbWrapper;
+		private keyValueTable: Table<KeyValue, any, any>;
+		private keyValues: KeyValueMap;
 	
 		constructor(params: CreateStoreParams) {
 			this.params = params;
 			this.tables = [];
 			this.db = null;
 			verify(this.params.db, "must pass a DbWrapper");
+			this.keyValueTable = this.createTable<KeyValue, any, any>(keyValueTableSpec);
 		}
 	
 		createTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query> {
 			verify(!this.db, "createTable() can only be added before open()");
-			verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
+			if (tableSpec !== keyValueTableSpec) {
+				verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
+			}
 			for (let col in tableSpec.columns) {
 				verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
 			}
@@ -100,8 +120,19 @@ namespace Updraft {
 	
 			return Promise.resolve()
 				.then(() => this.readSchema())
-				.then((schema) => this.syncTables(schema));
-			//.then(() => this.loadKeyValues());
+				.then((schema) => {
+					return this.db.transaction((transaction: DbTransaction) => {
+						let p = Promise.resolve();
+						this.tables.forEach(
+							(table: TableSpecAny) => {
+								p = p.then(() => this.syncTable(transaction, schema, table));
+							}
+						);
+						p = p.then(() => this.loadKeyValues(transaction));
+						return p;
+					});
+				})
+				;
 		}
 	
 		readSchema(): Promise<Schema> {
@@ -140,22 +171,7 @@ namespace Updraft {
 				});
 			});
 		}
-	
-	
-		private syncTables(schema: Schema): Promise<any> {
-			verify(this.db, "syncTables(): not opened");
-	
-			return this.db.transaction((transaction: DbTransaction) => {
-				let p = Promise.resolve();
-				this.tables.forEach(
-					(table: TableSpecAny) => {
-						p = p.then(() => this.syncTable(transaction, schema, table));
-					}
-				);
-				return p;
-			});
-		}
-	
+
 		private syncTable(transaction: DbTransaction, schema: Schema, spec: TableSpecAny): Promise<any> {
 			let p = Promise.resolve();
 			if (spec.name in schema) {
@@ -235,7 +251,25 @@ namespace Updraft {
 	
 			return p;
 		}
-	
+		
+		private loadKeyValues(transaction: DbTransaction): Promise<any> {
+			return runQuery(transaction, this.keyValueTable, {}, undefined, undefined)
+				.then((rows: KeyValue[]) => {
+					this.keyValues = {};
+					rows.forEach((row: KeyValue) => {
+						this.keyValues[row.key] = row.value;
+					});
+				});
+		}
+
+		getValue(key: string): any {
+			return this.keyValues[key];
+		}
+		
+		setValue(key: string, value: any): Promise<any> {
+			this.keyValues[key] = value;
+			return this.keyValueTable.add({save: {key, value}});
+		}
 	
 		add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
 			verify(this.db, "apply(): not opened");
@@ -754,7 +788,9 @@ namespace Updraft {
 		let columns: string[] = selectableColumns(table.spec, fields);
 		let stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
 		stmt += " FROM " + table.spec.name;
-		stmt += " WHERE " + conditions.join(" AND ");
+		if (conditions.length) {
+			stmt += " WHERE " + conditions.join(" AND ");
+		}
 	
 		if (opts.orderBy) {
 			let col = keyOf(opts.orderBy);

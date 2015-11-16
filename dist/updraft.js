@@ -644,17 +644,27 @@ var Updraft;
     internalColumn[internal_column_latest] = Updraft.Column.Bool();
     internalColumn[internal_column_composed] = Updraft.Column.Bool();
     var deleteRow_action = (_a = {}, _a[internal_column_deleted] = { $set: true }, _a);
+    var keyValueTableSpec = {
+        name: internal_prefix + "keyValues",
+        columns: {
+            key: Updraft.Column.String().Key(),
+            value: Updraft.Column.JSON(),
+        }
+    };
     var Store = (function () {
         function Store(params) {
             this.params = params;
             this.tables = [];
             this.db = null;
             Updraft.verify(this.params.db, "must pass a DbWrapper");
+            this.keyValueTable = this.createTable(keyValueTableSpec);
         }
         Store.prototype.createTable = function (tableSpec) {
             var _this = this;
             Updraft.verify(!this.db, "createTable() can only be added before open()");
-            Updraft.verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
+            if (tableSpec !== keyValueTableSpec) {
+                Updraft.verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
+            }
             for (var col in tableSpec.columns) {
                 Updraft.verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
             }
@@ -679,8 +689,16 @@ var Updraft;
             this.db = this.params.db;
             return Promise.resolve()
                 .then(function () { return _this.readSchema(); })
-                .then(function (schema) { return _this.syncTables(schema); });
-            //.then(() => this.loadKeyValues());
+                .then(function (schema) {
+                return _this.db.transaction(function (transaction) {
+                    var p = Promise.resolve();
+                    _this.tables.forEach(function (table) {
+                        p = p.then(function () { return _this.syncTable(transaction, schema, table); });
+                    });
+                    p = p.then(function () { return _this.loadKeyValues(transaction); });
+                    return p;
+                });
+            });
         };
         Store.prototype.readSchema = function () {
             Updraft.verify(this.db, "readSchema(): not opened");
@@ -714,17 +732,6 @@ var Updraft;
                     }
                     return schema;
                 });
-            });
-        };
-        Store.prototype.syncTables = function (schema) {
-            var _this = this;
-            Updraft.verify(this.db, "syncTables(): not opened");
-            return this.db.transaction(function (transaction) {
-                var p = Promise.resolve();
-                _this.tables.forEach(function (table) {
-                    p = p.then(function () { return _this.syncTable(transaction, schema, table); });
-                });
-                return p;
             });
         };
         Store.prototype.syncTable = function (transaction, schema, spec) {
@@ -798,6 +805,23 @@ var Updraft;
                 p = p.then(function () { return createIndices(transaction, schema, spec, true); });
             }
             return p;
+        };
+        Store.prototype.loadKeyValues = function (transaction) {
+            var _this = this;
+            return runQuery(transaction, this.keyValueTable, {}, undefined, undefined)
+                .then(function (rows) {
+                _this.keyValues = {};
+                rows.forEach(function (row) {
+                    _this.keyValues[row.key] = row.value;
+                });
+            });
+        };
+        Store.prototype.getValue = function (key) {
+            return this.keyValues[key];
+        };
+        Store.prototype.setValue = function (key, value) {
+            this.keyValues[key] = value;
+            return this.keyValueTable.add({ save: { key: key, value: value } });
         };
         Store.prototype.add = function (table) {
             var changes = [];
@@ -1265,7 +1289,9 @@ var Updraft;
         var columns = selectableColumns(table.spec, fields);
         var stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
         stmt += " FROM " + table.spec.name;
-        stmt += " WHERE " + conditions.join(" AND ");
+        if (conditions.length) {
+            stmt += " WHERE " + conditions.join(" AND ");
+        }
         if (opts.orderBy) {
             var col = Updraft.keyOf(opts.orderBy);
             var order = opts.orderBy[col];
