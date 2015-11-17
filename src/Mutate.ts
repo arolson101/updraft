@@ -244,21 +244,22 @@ namespace Updraft {
     }
   
     if (hasOwnProperty.call(spec, command.deleter) && (typeof value === "object") && !(value instanceof Set)) {
-      let key = spec[command.merge];
+      let keys = <any[]>spec[command.deleter];
       verify(
-        key && typeof key === "string",
-        "mutate(): %s expects a spec of type 'string'; got %s",
+        keys && Array.isArray(keys),
+        "mutate(): %s expects a spec of type 'array'; got %s",
         command.deleter,
-        key
+        keys
       );
-      if (key in value) {
-        let nextValue = <any>shallowCopy(value);
-        delete nextValue[key];
-        return nextValue;
-      }
-      else {
-        return value;
-      }
+      let nextValue = <any>shallowCopy(value);
+      changed = false;
+      keys.forEach((key: string) => {
+        if (key in value) {
+          delete nextValue[key];
+          changed = true;
+        }
+      });
+      return changed ? <any>nextValue : value;
     }
   
     if (hasOwnProperty.call(spec, command.push)) {

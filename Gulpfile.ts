@@ -13,7 +13,6 @@ var tslint = require("gulp-tslint");
 var mochaPhantomJS = require('gulp-mocha-phantomjs');
 var istanbul = require('gulp-istanbul');
 var rename = require("gulp-rename");
-var insert = require('gulp-insert');
 import mocha = require("gulp-mocha");
 
 var minify = false;
@@ -22,12 +21,11 @@ var tslintOpts = {
 		//tslint: require("tslint")
 };
 
-var tsProject = ts.createProject("tsconfig.json", {
+var tsProject = ts.createProject("src/tsconfig.json", {
 	sortOutput: true,
 	noEmit: false,
 	declaration: true,
-	out: "dist/updraft.js",
-	typescript: require("typescript")
+	out: "dist/updraft.js"
 });
 
 

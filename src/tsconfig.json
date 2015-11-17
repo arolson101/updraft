@@ -1,0 +1,31 @@
+{
+		"version": "1.6",
+		"compilerOptions": {
+				"target": "es5",
+				"noImplicitAny": true,
+				"removeComments": false,
+				"preserveConstEnums": true,
+				"suppressImplicitAnyIndexErrors": true,
+				"sourceMap": true,
+				"declaration": true,
+				"out": "../dist/updraft.js"
+		},
+		"filesGlob": [
+				"./*.ts"
+		],
+		"files": [
+				"./assign.ts",
+				"./Column.ts",
+				"./Database.ts",
+				"./index.ts",
+				"./Mutate.ts",
+				"./Query.ts",
+				"./SQLiteWrapper.ts",
+				"./Store.ts",
+				"./Table.ts",
+				"./Text.ts",
+				"./verify.ts",
+				"./websql.d.ts",
+				"./WebsqlWrapper.ts"
+		]
+}

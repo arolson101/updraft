@@ -6,27 +6,9 @@
 				"removeComments": false,
 				"preserveConstEnums": true,
 				"suppressImplicitAnyIndexErrors": true,
-				"sourceMap": true,
-				"declaration": true,
-				"out": "dist/updraft.js"
+				"noEmit": true
 		},
-		"filesGlob": [
-				"./src/**/*.ts",
-				"!./node_modules/**/*.ts"
-		],
 		"files": [
-				"./src/assign.ts",
-				"./src/Column.ts",
-				"./src/Database.ts",
-				"./src/index.ts",
-				"./src/Mutate.ts",
-				"./src/Query.ts",
-				"./src/SQLiteWrapper.ts",
-				"./src/Store.ts",
-				"./src/Table.ts",
-				"./src/Text.ts",
-				"./src/verify.ts",
-				"./src/websql.d.ts",
-				"./src/WebsqlWrapper.ts"
+				"./Gulpfile.ts"
 		]
 }

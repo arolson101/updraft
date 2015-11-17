@@ -33,7 +33,7 @@
     "enum": "^2.0.2",
     "es5-shim": "^4.3.1",
     "es6-shim": "^0.33.10",
-    "gulp": "^3.8.10",
+    "gulp": "^3.9.0",
     "gulp-concat": "^2.6.0",
     "gulp-config-sync": "0.0.1",
     "gulp-insert": "^0.5.0",
@@ -54,6 +54,6 @@
     "sqlite3": "^3.1.0",
     "ts-node": "^0.4.2",
     "tslint": "^3.0.0-dev.1",
-    "typescript": "^1.8.0-dev.20151030"
+    "typescript": "^1.8.0-dev.20151117"
   }
 }

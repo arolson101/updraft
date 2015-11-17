@@ -133,7 +133,16 @@ describe("mutate()", function() {
 			expect(base).to.deep.equal(backup);
 		});
 
-		it("$delete", function() {
+		it("$delete (object)", function() {
+			mutated = mutate(base, <TestMutator>{
+				myObject: {$delete: ["foo"]},
+			});
+
+			expect(mutated.myObject).to.not.have.key("foo");
+			expect(base).to.deep.equal(backup);
+		});
+
+		it("$delete (set)", function() {
 			mutated = mutate(base, <TestMutator>{
 				myStrSet: {$delete: ["c", "d"]},
 			});

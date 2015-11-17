@@ -1,5 +1,3 @@
-/// <reference path="../typings/tsd.d.ts" />
-/// <reference path="../src/websql.d.ts" />
 declare namespace Updraft {
     var assign: any;
 }
@@ -281,4 +279,7 @@ declare namespace Updraft {
 }
 declare namespace Updraft {
     function createWebsqlWrapper(name: string, version?: string, displayName?: string, estimatedSize?: number, traceCallback?: (trace: string) => any): DbWrapper;
+}
+declare module "updraft" {
+	export = Updraft;
 }
