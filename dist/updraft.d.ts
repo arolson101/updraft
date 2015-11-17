@@ -1,3 +1,5 @@
+/// <reference path="../typings/tsd.d.ts" />
+/// <reference path="../src/websql.d.ts" />
 declare namespace Updraft {
     var assign: any;
 }
@@ -141,11 +143,13 @@ declare namespace Updraft {
             $delete: Array<T>;
         }
         type primitive<T> = setter<T>;
+        type none = void;
         type bool = primitive<boolean>;
         type num = primitive<number> | increment;
         type str = primitive<string>;
         type date = setter<Date>;
         type obj = primitive<Object> | merge<Object> | deleter<string>;
+        type enm<T> = primitive<T>;
         type array<T> = setter<Array<T>> | push<T> | unshift<T> | splice<T> | merge<T>;
         type strArray = array<string>;
         type numArray = array<number>;
@@ -256,13 +260,14 @@ declare namespace Updraft.Query {
         $in: T[];
     }
     type primitive<T> = T | InCondition<T>;
+    type none = void;
     type bool = boolean;
     type num = primitive<number> | NumericConditions;
     type str = primitive<string> | RegExp;
     type date = primitive<Date> | DateConditions;
+    type enm<T> = primitive<T>;
     type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
     type strSet = set<string>;
-    type none = {};
 }
 declare namespace Updraft {
     interface IDatabase {
@@ -276,7 +281,4 @@ declare namespace Updraft {
 }
 declare namespace Updraft {
     function createWebsqlWrapper(name: string, version?: string, displayName?: string, estimatedSize?: number, traceCallback?: (trace: string) => any): DbWrapper;
-}
-declare module "updraft" {
-	export = Updraft;
 }

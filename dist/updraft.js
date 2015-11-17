@@ -423,8 +423,8 @@ var Updraft;
             var akeys = Object.keys(a);
             var bkeys = Object.keys(b);
             if (akeys.length == bkeys.length) {
-                for (var _i = 0; _i < akeys.length; _i++) {
-                    var key = akeys[_i];
+                for (var _i = 0, akeys_1 = akeys; _i < akeys_1.length; _i++) {
+                    var key = akeys_1[_i];
                     if (!(key in b) || a[key] != b[key]) {
                         return false;
                     }
@@ -1090,8 +1090,8 @@ var Updraft;
                             changed = true;
                         }
                     }
-                    for (var _i = 0; _i < deletedColumns.length; _i++) {
-                        var oldCol = deletedColumns[_i];
+                    for (var _i = 0, deletedColumns_1 = deletedColumns; _i < deletedColumns_1.length; _i++) {
+                        var oldCol = deletedColumns_1[_i];
                         if (oldCol in change) {
                             delete change[oldCol];
                             changed = true;
@@ -1245,8 +1245,8 @@ var Updraft;
                     else if (hasAll) {
                         var hasAllValues = spec[hasAllConditions];
                         Updraft.verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
-                        for (var _i = 0; _i < hasAllValues.length; _i++) {
-                            var hasValue = hasAllValues[_i];
+                        for (var _i = 0, hasAllValues_1 = hasAllValues; _i < hasAllValues_1.length; _i++) {
+                            var hasValue = hasAllValues_1[_i];
                             var condition = existsSetValues([hasValue], values);
                             conditions.push(condition);
                         }
@@ -1387,8 +1387,8 @@ var Updraft;
                         + "FROM " + getSetTableName(table.spec.name, col)
                         + " WHERE key=?"
                         + " AND time=?", [keyValue, time], function loadExternalsSqlCallback(tx, results) {
-                        for (var _i = 0; _i < results.length; _i++) {
-                            var row = results[_i];
+                        for (var _i = 0, results_1 = results; _i < results_1.length; _i++) {
+                            var row = results_1[_i];
                             set.add(column.element.deserialize(row.value));
                         }
                     });
@@ -1704,5 +1704,4 @@ var Updraft;
     }
     Updraft.createWebsqlWrapper = createWebsqlWrapper;
 })(Updraft || (Updraft = {}));
-
 //# sourceMappingURL=updraft.js.map
