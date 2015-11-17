@@ -44,11 +44,13 @@ namespace Updraft {
     export type primitive<T> =
       setter<T>;
     
+    export type none = void;
     export type bool = primitive<boolean>;
     export type num = primitive<number> | increment;
     export type str = primitive<string>;
     export type date = setter<Date>;
     export type obj = primitive<Object> | merge<Object> | deleter<string>;
+    export type enm<T> = primitive<T>;
     
     export type array<T> =
       setter<Array<T>> |

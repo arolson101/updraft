@@ -30,11 +30,13 @@ namespace Updraft.Query {
 	}
 	
 	export type primitive<T> = T | InCondition<T>;
+
+	export type none = void;
 	export type bool = boolean;
 	export type num = primitive<number> | NumericConditions;
 	export type str = primitive<string> | RegExp;
 	export type date = primitive<Date> | DateConditions;
+	export type enm<T> = primitive<T>;
 	export type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
 	export type strSet = set<string>;
-	export type none = {};
 }
