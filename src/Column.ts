@@ -95,7 +95,9 @@ namespace Updraft {
 	
 				case ColumnType.enum:
 					if (typeof (<EnumClass>this.enum).get === "function") {
-						return (<EnumClass>this.enum).get(value);
+						let enumValue = (<EnumClass>this.enum).get(value);
+						verify(!value || enumValue, "error getting enum value %s", value);
+						return enumValue;
 					}
 					verify(value in this.enum, "enum value %s not in %s", value, this.enum);
 					return this.enum[value];

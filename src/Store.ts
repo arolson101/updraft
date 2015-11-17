@@ -302,12 +302,12 @@ namespace Updraft {
 							let mutator = shallowCopy(change.change);
 							changeRow.key = table.keyValue(mutator);
 							delete mutator[table.key];
-							changeRow.change = toText(mutator);
+							changeRow.change = serializeChange(mutator, table.spec);
 						}
 						else {
 							// mark deleted
 							changeRow.key = change.delete;
-							changeRow.change = toText(deleteRow_action);
+							changeRow.change = serializeChange(deleteRow_action, table.spec);
 						}
 	
 						// insert into change table
@@ -640,7 +640,7 @@ namespace Updraft {
 	function resolve<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<any> {
 		return selectBaseline(transaction, table, keyValue).then(function resolveSelectBaselineCallback(baseline: BaselineInfo<Element>) {
 			return getChanges(transaction, table, baseline).then(function resolveGetChangesCallback(changes: ChangeTableRow[]) {
-				let mutation = applyChanges(baseline, changes);
+				let mutation = applyChanges(baseline, changes, table.spec);
 				let promises: Promise<any>[] = [];
 				if (!mutation.isChanged) {
 					// mark it as latest (and others as not)
@@ -922,12 +922,12 @@ namespace Updraft {
 		isChanged: boolean;
 	}
 	
-	function applyChanges<Element, Mutator>(baseline: BaselineInfo<Element>, changes: ChangeTableRow[]): MutationResult<Element> {
+	function applyChanges<Element, Mutator>(baseline: BaselineInfo<Element>, changes: ChangeTableRow[], spec: TableSpecAny): MutationResult<Element> {
 		let element: Element = baseline.element;
 		let time = baseline.time;
 		for (let i = 0; i < changes.length; i++) {
 			let row = changes[i];
-			let mutator = <Mutator>fromText(row.change);
+			let mutator = <Mutator>deserializeChange(row.change, spec);
 			element = mutate(element, mutator);
 			time = Math.max(time, row.time);
 		}
@@ -957,22 +957,49 @@ namespace Updraft {
 	
 	function serializeValue(spec: TableSpecAny, col: string, value: any): Serializable {
 		if (col in spec.columns) {
-			return spec.columns[col].serialize(value);
+			let x = spec.columns[col].serialize(value);
+			return x;
+		}
+		verify(typeof value == "number" || value, "bad value");
+		return value;
+	}
+	
+	function deserializeValue(spec: TableSpecAny, col: string, value: any) {
+		if (col in spec.columns) {
+			value = spec.columns[col].deserialize(value);
 		}
 		return value;
+	}
+	
+	let setKey = keyOf({ $set: false });
+	function serializeChange<Mutator>(change: Mutator, spec: TableSpec<any, Mutator, any>): string {
+		for (let col in change) {
+			let val = change[col];
+			if (hasOwnProperty.call(val, setKey)) {
+				change[col] = shallowCopy(change[col]);
+				change[col][setKey] = serializeValue(spec, col, change[col][setKey]);
+			}
+		}
+		return toText(change);
+	}
+	
+	function deserializeChange<Mutator>(text: string, spec: TableSpec<any, Mutator, any>): Mutator {
+		let change = fromText(text);
+		for (let col in change) {
+			let val = change[col];
+			if (hasOwnProperty.call(val, setKey)) {
+				change[col][setKey] = deserializeValue(spec, col, change[col][setKey]);
+			}
+		}
+		return change;
 	}
 	
 	function deserializeRow<T>(spec: TableSpecAny, row: any[]): T {
 		let ret: T = <any>{};
 		for (let col in row) {
-			if (row[col] == null) {
-				// don't add null/undefined entries
-			}
-			else if (col in spec.columns) {
-				ret[col] = spec.columns[col].deserialize(row[col]);
-			}
-			else {
-				ret[col] = row[col];
+			let src = row[col];
+			if (src != null) {
+				ret[col] = deserializeValue(spec, col, src);
 			}
 		}
 		return ret;

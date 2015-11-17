@@ -14,13 +14,25 @@ import M = Updraft.Mutate;
 import OrderBy = Updraft.OrderBy;
 import mutate = Updraft.mutate;
 
+let saveWebSqlValues = false;
 // TODO: lists
 // TODO: blobs
 
 
 interface Db {
 	db: Updraft.DbWrapper;
-	close: () => any;
+	close: (err?: Error) => any;
+}
+
+function clonePreservingEnums(src: Updraft.TableSpecAny): Updraft.TableSpecAny {
+	let dst = clone(src);
+	for (let col in src.columns) {
+		let column = src.columns[col];
+		if (column.type == ColumnType.enum) {
+			dst.columns[col].enum = column.enum;
+		}
+	}
+	return dst;
 }
 
 
@@ -30,7 +42,11 @@ function createDb(inMemory: boolean, trace: boolean): Db {
 		let db: any = Updraft.createWebsqlWrapper("testdb", "1.0", "updraft test database", 5 * 1024 * 1024, traceCallback);
 		return {
 			db: db,
-			close: () => db.transaction((transaction: Updraft.DbTransaction) => {
+			close: (err?: Error) => db.transaction((transaction: Updraft.DbTransaction) => {
+				if (saveWebSqlValues) {
+					// keep data around for inspection
+					return err ? Promise.reject(err) : Promise.resolve();
+				}
 				return transaction.executeSql("select name from sqlite_master where type='table'", [], (tx2: Updraft.DbTransaction, rows: any[]) => {
 					let p = Promise.resolve();
 					rows.forEach((row: any) => {
@@ -39,7 +55,7 @@ function createDb(inMemory: boolean, trace: boolean): Db {
 							p = p.then(() => tx2.executeSql("drop table " + name));
 						}
 					});
-					return p;
+					return p.then(() => err ? Promise.reject(err) : undefined);
 				});
 			})
 		};
@@ -52,7 +68,10 @@ function createDb(inMemory: boolean, trace: boolean): Db {
 		}
 		return {
 			db: Updraft.createSQLiteWrapper(db),
-			close: () => db.close()
+			close: (err?: Error) => {
+				db.close();
+				return err ? Promise.reject(err) : Promise.resolve();
+			}
 		};
 	}
 }
@@ -292,13 +311,14 @@ describe("table", function() {
 					expect(simpleNumber).to.be.a("number").and.equal(123);
 					expect(complex).to.deep.equal(complexValue);
 				})
-				.then(() => w.close());
+				.then(() => w.close(), (err) => w.close(err))
+				;
 		});
 	});
 	
 	describe("schema migrations", function() {
 		function runMigration(newFields: {[name: string]: Column}, deletedFields: string[], rename: {[old: string]: string}, debug?: boolean) {
-			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clone(todoTableSpec);
+			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clonePreservingEnums(todoTableSpec);
 			let newSchema = clone(todoTableExpectedSchema);
 			let dataCount = 10;
 			let newData = sampleTodos(dataCount);
@@ -368,11 +388,18 @@ describe("table", function() {
 				.then(() => store.open())
 				.then(() => store.readSchema())
 				.then((schema) => expect(schema).to.deep.equal(newSchema))
-				.then(() => todoTable.find({}, {orderBy: {id: Updraft.OrderBy.ASC}}))
-				.then((data: any[]) => 
-					expect(data).to.deep.equal(newData)
+				.then(() => 
+					todoTable.find({}, {orderBy: {id: Updraft.OrderBy.ASC}})
 				)
-				.then(() => w.close());
+				.then((data: any[]) => {
+					expect(data.length).to.equal(dataCount);
+					for (let i = 0; i < dataCount; i++) {
+						expect(data[i]).to.deep.equal(newData[i]);
+					}
+					expect(data).to.deep.equal(newData);
+				})
+				.then(() => w.close(), (err) => w.close(err))
+				;
 		}
 
 		it("no change", function() {
@@ -445,7 +472,8 @@ describe("table", function() {
 				})
 				.then(() => todoTable.find({}))
 				.then((results) => expect(results).to.deep.equal(expectedResults))
-				.then(() => w.close());
+				.then(() => w.close(), (err) => w.close(err))
+				;
 		}
 
 		it("simple change progression", function() {
@@ -616,7 +644,7 @@ describe("table", function() {
 			let toSave = new TodoClass({});
 			expect(toSave.constructorCalled).to.be.true;
 
-			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clone(todoTableSpec);
+			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clonePreservingEnums(todoTableSpec);
 			newSpec.clazz = TodoClass;
 
 			let w = createDb(true, false);
@@ -631,7 +659,8 @@ describe("table", function() {
 					expect(data[0]).to.haveOwnProperty("constructorCalled");
 					expect(data[0]).to.deep.equal(toSave);
 				})
-				.then(() => w.close());
+				.then(() => w.close(), (err) => w.close(err))
+				;
 		});
 		
 		it("sets", function() {

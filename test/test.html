@@ -36,15 +36,19 @@
 			module = {};
 			exports = {};
 			
+			function EnumValue(i, key) {
+				this.value = i;
+				this.key = key;
+			}
+			EnumValue.prototype.toString = function() {
+				return this.key;
+			}
+			
 			// enum-2.2.0.js isn't exposing a global Enum :()
 			function Enum(values) {
 				var _this = this;
 				values.forEach(function(value, i) {
-					_this[values[i]] = _this[i] = {
-						value: i,
-						key: values[i],
-						toString: function() { return values[i]; }
-					}
+					_this[values[i]] = _this[i] = new EnumValue(i, values[i]);
 				});
 				
 				this["get"] = function(value) {

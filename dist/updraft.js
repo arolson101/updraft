@@ -153,7 +153,9 @@ var Updraft;
                     return Updraft.fromText(value);
                 case ColumnType.enum:
                     if (typeof this.enum.get === "function") {
-                        return this.enum.get(value);
+                        var enumValue = this.enum.get(value);
+                        Updraft.verify(!value || enumValue, "error getting enum value %s", value);
+                        return enumValue;
                     }
                     Updraft.verify(value in this.enum, "enum value %s not in %s", value, this.enum);
                     return this.enum[value];
@@ -853,12 +855,12 @@ var Updraft;
                             var mutator = Updraft.shallowCopy(change.change);
                             changeRow.key = table.keyValue(mutator);
                             delete mutator[table.key];
-                            changeRow.change = Updraft.toText(mutator);
+                            changeRow.change = serializeChange(mutator, table.spec);
                         }
                         else {
                             // mark deleted
                             changeRow.key = change.delete;
-                            changeRow.change = Updraft.toText(deleteRow_action);
+                            changeRow.change = serializeChange(deleteRow_action, table.spec);
                         }
                         // insert into change table
                         var columns = Object.keys(changeRow);
@@ -1151,7 +1153,7 @@ var Updraft;
     function resolve(transaction, table, keyValue) {
         return selectBaseline(transaction, table, keyValue).then(function resolveSelectBaselineCallback(baseline) {
             return getChanges(transaction, table, baseline).then(function resolveGetChangesCallback(changes) {
-                var mutation = applyChanges(baseline, changes);
+                var mutation = applyChanges(baseline, changes, table.spec);
                 var promises = [];
                 if (!mutation.isChanged) {
                     // mark it as latest (and others as not)
@@ -1403,12 +1405,12 @@ var Updraft;
             + " WHERE key=? AND time>=?"
             + " ORDER BY time ASC", [keyValue, baseline.time]);
     }
-    function applyChanges(baseline, changes) {
+    function applyChanges(baseline, changes, spec) {
         var element = baseline.element;
         var time = baseline.time;
         for (var i = 0; i < changes.length; i++) {
             var row = changes[i];
-            var mutator = Updraft.fromText(row.change);
+            var mutator = deserializeChange(row.change, spec);
             element = Updraft.mutate(element, mutator);
             time = Math.max(time, row.time);
         }
@@ -1430,20 +1432,45 @@ var Updraft;
     }
     function serializeValue(spec, col, value) {
         if (col in spec.columns) {
-            return spec.columns[col].serialize(value);
+            var x = spec.columns[col].serialize(value);
+            return x;
+        }
+        Updraft.verify(typeof value == "number" || value, "bad value");
+        return value;
+    }
+    function deserializeValue(spec, col, value) {
+        if (col in spec.columns) {
+            value = spec.columns[col].deserialize(value);
         }
         return value;
+    }
+    var setKey = Updraft.keyOf({ $set: false });
+    function serializeChange(change, spec) {
+        for (var col in change) {
+            var val = change[col];
+            if (Updraft.hasOwnProperty.call(val, setKey)) {
+                change[col] = Updraft.shallowCopy(change[col]);
+                change[col][setKey] = serializeValue(spec, col, change[col][setKey]);
+            }
+        }
+        return Updraft.toText(change);
+    }
+    function deserializeChange(text, spec) {
+        var change = Updraft.fromText(text);
+        for (var col in change) {
+            var val = change[col];
+            if (Updraft.hasOwnProperty.call(val, setKey)) {
+                change[col][setKey] = deserializeValue(spec, col, change[col][setKey]);
+            }
+        }
+        return change;
     }
     function deserializeRow(spec, row) {
         var ret = {};
         for (var col in row) {
-            if (row[col] == null) {
-            }
-            else if (col in spec.columns) {
-                ret[col] = spec.columns[col].deserialize(row[col]);
-            }
-            else {
-                ret[col] = row[col];
+            var src = row[col];
+            if (src != null) {
+                ret[col] = deserializeValue(spec, col, src);
             }
         }
         return ret;
