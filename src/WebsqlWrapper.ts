@@ -9,6 +9,7 @@ namespace Updraft {
 	}
 	
 	
+	/* istanbul ignore next: can't test websql in node */
 	class WebsqlWrapper implements DbWrapper {
 		db: Database;
 		traceCallback: (trace: string) => any;
@@ -127,6 +128,7 @@ namespace Updraft {
 		}
 	}
 	
+	/* istanbul ignore next: can't test websql in node */
 	export function createWebsqlWrapper(name: string, version?: string, displayName?: string, estimatedSize?: number, traceCallback?: (trace: string) => any): DbWrapper {
 			return new WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback);
 	}

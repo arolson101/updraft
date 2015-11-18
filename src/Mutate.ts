@@ -72,21 +72,23 @@ namespace Updraft {
   }
   
   export function shallowCopy<T>(x: T): T {
+    /* istanbul ignore else: not sure about this one */
     if (Array.isArray(x)) {
       return (<any>x).concat();
     }
     else if (x instanceof Set) {
       return <any>new Set<T>(<any>x);
     }
-    else if (x && typeof x === "object") {
+    else if (typeof x === "object") {
       return assign(new (<any>x).constructor(), x);
     }
     else {
+      /* istanbul ignore next: correct AFAIK but unreachable */
       return x;
     }
   }
   
-  function shallowEqual<T>(a: T, b: T): boolean {
+  export function shallowEqual<T>(a: T, b: T): boolean {
     if (Array.isArray(a) && Array.isArray(b)) {
       let aa: any[] = <any>a;
       let bb: any[] = <any>b;
@@ -104,12 +106,13 @@ namespace Updraft {
       let aa: Set<any> = <any>a;
       let bb: Set<any> = <any>b;
       if (aa.size == bb.size) {
-        for (let elt in aa) {
-          if (!bb.has(elt)) {
-            return false;
+        let equal = true;
+        aa.forEach((elt) => {
+          if (equal && !bb.has(elt)) {
+            equal = false;
           }
-        }
-        return true;
+        });
+        return equal;
       }
       return false;
     }
@@ -339,7 +342,7 @@ namespace Updraft {
   
     let nextValue: any;
     for (let k in spec) {
-      if (!(command.hasOwnProperty(k) && command[k])) {
+      if (typeof value === "object" && !(command.hasOwnProperty(k))) {
         let oldValue = value[k];
         let newValue = mutate(oldValue, spec[k]);
         if (oldValue !== newValue) {

@@ -47,6 +47,13 @@ gulp.task("compile", function() {
 	
 	var js = tsResult.js;
 	
+	js = js.pipe(insert.transform(function(contents: string, file: any) {
+		contents = contents.replace(/(Updraft = {})/g, "/* istanbul ignore next */ $1");
+		contents = contents.replace(/(var _a(,|;))/g, "/* istanbul ignore next */ $1");
+		return contents;
+	}));
+	
+
 	if(minify) {
 		js = js.pipe(uglify());
 	}

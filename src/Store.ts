@@ -281,6 +281,7 @@ namespace Updraft {
 				changes.forEach((change: TableChange<Element, Mutator>) => {
 					let time = change.time || Date.now();
 					verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
+					/* istanbul ignore else */
 					if (change.save) {
 						// append internal column values
 						let element = assign(
@@ -317,6 +318,7 @@ namespace Updraft {
 						toResolve.add(changeRow.key);
 					}
 					else {
+						/* istanbul ignore next */
 						throw new Error("no operation specified for change- should be one of save, change, or delete");
 					}
 				});
@@ -725,6 +727,7 @@ namespace Updraft {
 							+ ")";
 					};
 					
+					/* istanbul ignore else */
 					if (has) {
 						let hasValue = spec[hasCondition];
 						verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
@@ -750,6 +753,7 @@ namespace Updraft {
 			}
 	
 			if (!found) {
+				/* istanbul ignore else */
 				if (column.type == ColumnType.bool) {
 					conditions.push(col + (spec ? "!=0" : "=0"));
 					found = true;

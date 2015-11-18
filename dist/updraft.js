@@ -34,7 +34,7 @@ var Updraft;
         return to;
     };
     Updraft.assign = ObjectAssign;
-})(Updraft || (Updraft = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 "use strict";
 var Updraft;
 (function (Updraft) {
@@ -55,10 +55,11 @@ var Updraft;
         return JSON.parse(text, reviver);
     }
     Updraft.fromText = fromText;
-})(Updraft || (Updraft = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 "use strict";
 var Updraft;
 (function (Updraft) {
+    /* istanbul ignore next */
     function makePrintable(x) {
         if (Array.isArray(x) || (x && typeof x === "object")) {
             return JSON.stringify(x);
@@ -79,6 +80,7 @@ var Updraft;
         for (var _i = 2; _i < arguments.length; _i++) {
             args[_i - 2] = arguments[_i];
         }
+        /* istanbul ignore next */
         if (!condition) {
             var argIndex = 0;
             var error = new Error(format.replace(/%s/g, function () { return makePrintable(args[argIndex++]); }));
@@ -87,7 +89,7 @@ var Updraft;
         }
     }
     Updraft.verify = verify;
-})(Updraft || (Updraft = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 ///<reference path="./Text"/>
 ///<reference path="./verify"/>
 "use strict";
@@ -365,7 +367,7 @@ var Updraft;
         return Column;
     })();
     Updraft.Column = Column;
-})(Updraft || (Updraft = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 // written to React"s immutability helpers spec
 // see https://facebook.github.io/react/docs/update.html
 ///<reference path="../typings/tsd.d.ts"/>
@@ -375,16 +377,18 @@ var Updraft;
 var Updraft;
 (function (Updraft) {
     function shallowCopy(x) {
+        /* istanbul ignore else: not sure about this one */
         if (Array.isArray(x)) {
             return x.concat();
         }
         else if (x instanceof Set) {
             return new Set(x);
         }
-        else if (x && typeof x === "object") {
+        else if (typeof x === "object") {
             return Updraft.assign(new x.constructor(), x);
         }
         else {
+            /* istanbul ignore next: correct AFAIK but unreachable */
             return x;
         }
     }
@@ -407,12 +411,13 @@ var Updraft;
             var aa = a;
             var bb = b;
             if (aa.size == bb.size) {
-                for (var elt in aa) {
-                    if (!bb.has(elt)) {
-                        return false;
+                var equal = true;
+                aa.forEach(function (elt) {
+                    if (equal && !bb.has(elt)) {
+                        equal = false;
                     }
-                }
-                return true;
+                });
+                return equal;
             }
             return false;
         }
@@ -435,6 +440,7 @@ var Updraft;
         }
         return a == b;
     }
+    Updraft.shallowEqual = shallowEqual;
     Updraft.hasOwnProperty = {}.hasOwnProperty;
     function keyOf(obj) { return Object.keys(obj)[0]; }
     Updraft.keyOf = keyOf;
@@ -558,7 +564,7 @@ var Updraft;
         }
         var nextValue;
         for (var k in spec) {
-            if (!(command.hasOwnProperty(k) && command[k])) {
+            if (typeof value === "object" && !(command.hasOwnProperty(k))) {
                 var oldValue = value[k];
                 var newValue = mutate(oldValue, spec[k]);
                 if (oldValue !== newValue) {
@@ -577,7 +583,7 @@ var Updraft;
         return a !== b;
     }
     Updraft.isMutated = isMutated;
-})(Updraft || (Updraft = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 ///<reference path="./Column"/>
 ///<reference path="./verify"/>
 "use strict";
@@ -614,7 +620,7 @@ var Updraft;
         return key;
     }
     Updraft.tableKey = tableKey;
-})(Updraft || (Updraft = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 ///<reference path="./Mutate"/>
 ///<reference path="./Column"/>
 ///<reference path="./Database"/>
@@ -683,7 +689,7 @@ var Updraft;
             (_a = this.tables).push.apply(_a, createInternalTableSpecs(table));
             this.tables.push(createChangeTableSpec(table));
             return table;
-            var _a;
+            /* istanbul ignore next */ var _a;
         };
         Store.prototype.open = function () {
             var _this = this;
@@ -839,6 +845,7 @@ var Updraft;
                 changes.forEach(function (change) {
                     var time = change.time || Date.now();
                     Updraft.verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
+                    /* istanbul ignore else */
                     if (change.save) {
                         // append internal column values
                         var element = Updraft.assign({}, change.save, (_a = {}, _a[internal_column_time] = time, _a));
@@ -870,9 +877,10 @@ var Updraft;
                         toResolve.add(changeRow.key);
                     }
                     else {
+                        /* istanbul ignore next */
                         throw new Error("no operation specified for change- should be one of save, change, or delete");
                     }
-                    var _a;
+                    /* istanbul ignore next */ var _a;
                 });
                 toResolve.forEach(function (keyValue) {
                     p1 = p1.then(function () { return resolve(transaction, table, keyValue); });
@@ -888,7 +896,7 @@ var Updraft;
                     _a
                 ));
                 return runQuery(transaction, table, q, opts, table.spec.clazz);
-                var _a;
+                /* istanbul ignore next */ var _a;
             });
         };
         return Store;
@@ -1173,7 +1181,7 @@ var Updraft;
                         .then(function () { return invalidateLatest(transaction, table, keyValue); })
                         .then(function () { return insertElement(transaction, table, element); });
                 }
-                var _a;
+                /* istanbul ignore next */ var _a;
             });
         });
     }
@@ -1231,6 +1239,7 @@ var Updraft;
                             + " AND time=" + table.spec.name + "." + internal_column_time
                             + ")";
                     };
+                    /* istanbul ignore else */
                     if (has) {
                         var hasValue = spec[hasCondition];
                         Updraft.verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
@@ -1256,6 +1265,7 @@ var Updraft;
                 }
             }
             if (!found) {
+                /* istanbul ignore else */
                 if (column.type == Updraft.ColumnType.bool) {
                     conditions.push(col + (spec ? "!=0" : "=0"));
                     found = true;
@@ -1330,7 +1340,7 @@ var Updraft;
                 });
             }
         });
-        var _a;
+        /* istanbul ignore next */ var _a;
     }
     function popValue(element, field) {
         var ret = verifyGetValue(element, field);
@@ -1373,7 +1383,7 @@ var Updraft;
             }
             return baseline;
         });
-        var _a, _b, _c;
+        /* istanbul ignore next */ var _a, _b, _c;
     }
     function loadExternals(transaction, table, element, fields) {
         var promises = [];
@@ -1480,10 +1490,11 @@ var Updraft;
         return new Store(params);
     }
     Updraft.createStore = createStore;
-    var _a;
-})(Updraft || (Updraft = {}));
+    /* istanbul ignore next */ var _a;
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 ///<reference path="./Store"/>
 "use strict";
+/* istanbul ignore else */
 if (typeof module !== "undefined") {
     module.exports = Updraft;
 }
@@ -1501,6 +1512,7 @@ var Updraft;
             var _this = this;
             return new Promise(function (resolve, reject) {
                 _this.db.run(sql, function (err) {
+                    /* istanbul ignore if */
                     if (err) {
                         console.log("SQLiteWrapper.run(): error executing '" + sql + "': ", err);
                         reject(err);
@@ -1515,6 +1527,7 @@ var Updraft;
             var _this = this;
             return new Promise(function (resolve, reject) {
                 _this.db.all(sql, params, function (err, rows) {
+                    /* istanbul ignore if */
                     if (err) {
                         console.log("SQLiteWrapper.all(): error executing '" + sql + "': ", err);
                         reject(err);
@@ -1535,16 +1548,16 @@ var Updraft;
             var p = undefined;
             return new Promise(function (resolve, reject) {
                 _this.db.each(sql, params, function (err, row) {
+                    /* istanbul ignore if */
                     if (err) {
                         console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
                         reject(err);
                     }
                     else {
-                        if (callback) {
-                            p = callback(tx, row);
-                        }
+                        p = callback(tx, row);
                     }
                 }, function (err, count) {
+                    /* istanbul ignore if */
                     if (err) {
                         console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
                         reject(err);
@@ -1574,7 +1587,7 @@ var Updraft;
                 .then(function (ret) { return result = ret; })
                 .then(function () { return _this.run("COMMIT TRANSACTION"); })
                 .then(function () { return result; })
-                .catch(function (err) {
+                .catch(/* istanbul ignore next */ function (err) {
                 console.log("encountered error, rolling back transaction: ", err);
                 _this.run("ROLLBACK TRANSACTION");
                 throw err;
@@ -1589,12 +1602,13 @@ var Updraft;
         return new SQLiteWrapper(db);
     }
     Updraft.createSQLiteWrapper = createSQLiteWrapper;
-})(Updraft || (Updraft = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 ///<reference path="./websql.d.ts"/>
 ///<reference path="./Database"/>
 "use strict";
 var Updraft;
 (function (Updraft) {
+    /* istanbul ignore next: can't test websql in node */
     var WebsqlWrapper = (function () {
         function WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback) {
             version = version || "1.0";
@@ -1700,10 +1714,11 @@ var Updraft;
         };
         return WebsqlWrapper;
     })();
+    /* istanbul ignore next: can't test websql in node */
     function createWebsqlWrapper(name, version, displayName, estimatedSize, traceCallback) {
         return new WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback);
     }
     Updraft.createWebsqlWrapper = createWebsqlWrapper;
-})(Updraft || (Updraft = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 
 //# sourceMappingURL=updraft.js.map

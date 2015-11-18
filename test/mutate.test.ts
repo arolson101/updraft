@@ -43,12 +43,12 @@ describe("mutate()", function() {
 
 		let backup: Test = clone(base);
 		let mutated: Test;
-
+		
 		it("$set", function() {
 			mutated = mutate(base, <TestMutator>{
 				myBool: {$set: false},
 				myString: {$set: "new string"},
-				myNumber: {$set: 234},
+				myNumber: {$set: 0},
 				myDate: {$set: new Date(2001, 11, 1, 13, 30, 1)},
 				myObject: <any>{foo: {$set: "baz"}}, // TODO: revisit <any> cast
 				myStrArray: {$set: ["d"]},
@@ -58,7 +58,7 @@ describe("mutate()", function() {
 
 			expect(mutated.myBool).to.equal(false);
 			expect(mutated.myString).to.equal("new string");
-			expect(mutated.myNumber).to.equal(234);
+			expect(mutated.myNumber).to.equal(0);
 			expect(mutated.myDate).to.equalTime(new Date(2001, 11, 1, 13, 30, 1));
 			expect(mutated.myDate).to.not.equalTime(new Date(2000, 1, 1));
 			expect(mutated.myObject).to.deep.equal({foo: "baz"});
@@ -91,6 +91,23 @@ describe("mutate()", function() {
 			expect(mutated.myStrArray).to.deep.equal(["a", "b", "c", "d"]);
 			expect(mutated.myNumArray).to.deep.equal([1, 2, 3, 4, 5, 6]);
 			expect(base).to.deep.equal(backup);
+			
+			let noArrays = <Test>{};
+			let hasArray = mutate(noArrays, <TestMutator>{
+				myStrArray: {$push: ["d"]},
+				myNumArray: {$push: [4, 5, 6]},
+			});
+
+			expect(hasArray.myStrArray).to.deep.equal(["d"]);
+			expect(hasArray.myNumArray).to.deep.equal([4, 5, 6]);
+			expect(noArrays).to.not.haveOwnProperty("myStrArray");
+			expect(noArrays).to.not.haveOwnProperty("myNumArray");
+			
+			mutated = mutate(undefined, {
+				$push: ["c"]
+			});
+
+			expect(mutated).to.deep.equal(["c"]);
 		});
 
 		it("$unshift", function() {
@@ -131,14 +148,22 @@ describe("mutate()", function() {
 
 			expect((<any>Array).from(mutated.myStrSet)).to.deep.equal(["a", "b", "c", "d", "e"]);
 			expect(base).to.deep.equal(backup);
+			
+			let noSets = <Test>{};
+			let hasSet = mutate(noSets, <TestMutator>{
+				myStrSet: {$add: ["c", "d", "e"]},
+			});
+
+			expect((<any>Array).from(hasSet.myStrSet)).to.deep.equal(["c", "d", "e"]);
 		});
 
 		it("$delete (object)", function() {
 			mutated = mutate(base, <TestMutator>{
-				myObject: {$delete: ["foo"]},
+				myObject: {$delete: ["foo", "bar"]},
 			});
 
 			expect(mutated.myObject).to.not.have.key("foo");
+			expect(mutated.myObject).to.not.have.key("bar");
 			expect(base).to.deep.equal(backup);
 		});
 
@@ -149,6 +174,20 @@ describe("mutate()", function() {
 
 			expect((<any>Array).from(mutated.myStrSet)).to.deep.equal(["a", "b"]);
 			expect(base).to.deep.equal(backup);
+		});
+		
+		it("bad arguments to mutate", function() {
+			mutated = mutate(base, <TestMutator>{
+				a: {"b": "c"}
+			});
+
+			expect(base === mutated).to.be.true;
+			
+			mutated = mutate(1, <TestMutator>{
+				myString: {$set: "c"}
+			});
+
+			expect(1 === mutated).to.be.true;
 		});
 	});
 
@@ -226,12 +265,35 @@ describe("mutate()", function() {
 			expect(mutated).to.equal(base);
 		});
 
-		it("$delete", function() {
+		it("$delete (object)", function() {
+			mutated = mutate(base, <TestMutator>{
+				myObject: {$delete: ["bar"]},
+			});
+
+			expect(mutated).to.equal(base);
+		});
+		
+		it("$delete (set)", function() {
 			mutated = mutate(base, <TestMutator>{
 				myStrSet: {$delete: ["d"]},
 			});
 
 			expect(mutated).to.equal(base);
+		});
+
+	});
+	
+	describe("coverage", function() {
+		it("shallowEqual - set", function() {
+			let set1 = new Set(["a", "b", "c"]);
+			let set2 = new Set(["a", "b", "c"]);
+			let set3 = new Set(["a", "b", "d"]);
+			let set4 = new Set(["a", "b"]);
+			let set5 = new Set(["a", "b", "c", "d"]);
+			expect(Updraft.shallowEqual(set1, set2)).to.be.true;
+			expect(Updraft.shallowEqual(set1, set3)).to.be.false;
+			expect(Updraft.shallowEqual(set1, set4)).to.be.false;
+			expect(Updraft.shallowEqual(set1, set5)).to.be.false;
 		});
 	});
 });

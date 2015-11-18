@@ -105,7 +105,7 @@ declare namespace Updraft {
     }
     interface DbTransaction {
         executeSql(sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any>;
-        each(sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any>;
+        each(sql: string, params: (string | number)[], callback: DbEachResultCallback): Promise<any>;
     }
     interface DbResultsCallback {
         (transaction: DbTransaction, results: any[]): any | Promise<any>;
@@ -156,6 +156,7 @@ declare namespace Updraft {
         type strSet = set<string>;
     }
     function shallowCopy<T>(x: T): T;
+    function shallowEqual<T>(a: T, b: T): boolean;
     let hasOwnProperty: (v: string) => boolean;
     function keyOf(obj: Object): string;
     function mutate<Element, Mutator>(value: Element, spec: Mutator): Element;

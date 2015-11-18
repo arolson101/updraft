@@ -10,7 +10,7 @@ namespace Updraft {
 	
 	export interface DbTransaction {
 		executeSql(sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any>;
-		each(sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any>;
+		each(sql: string, params: (string | number)[], callback: DbEachResultCallback): Promise<any>;
 	}
 	
 	export interface DbResultsCallback {

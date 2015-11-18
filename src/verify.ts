@@ -1,6 +1,7 @@
 "use strict";
 
 namespace Updraft {
+  /* istanbul ignore next */
   function makePrintable(x: any): string {
     if (Array.isArray(x) || (x && typeof x === "object")) {
       return JSON.stringify(x);
@@ -18,6 +19,7 @@ namespace Updraft {
   * expecting.
   */
   export function verify(condition: any, format: string, ...args: any[]) {
+    /* istanbul ignore next */
     if (!condition) {
       let argIndex = 0;
       let error = new Error(
