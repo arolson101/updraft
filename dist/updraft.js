@@ -747,10 +747,13 @@ var Updraft;
                         break;
                     }
                 }
-                var renamedColumns = spec.renamedColumns || {};
+                var renamedColumns = Updraft.shallowCopy(spec.renamedColumns) || {};
                 for (var colName in renamedColumns) {
                     if (colName in oldColumns) {
                         recreateTable = true;
+                    }
+                    else {
+                        delete renamedColumns[colName];
                     }
                 }
                 var addedColumns = {};
@@ -780,7 +783,7 @@ var Updraft;
                     p = p.then(function () { return migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns); });
                     p = p.then(function () { return createIndices(transaction, schema, spec, true); });
                 }
-                else if (Object.keys(addedColumns).length > 0) {
+                else if (!isEmpty(addedColumns)) {
                     // alter table, add columns
                     Object.keys(addedColumns).forEach(function (colName) {
                         var col = spec.columns[colName];
@@ -1062,6 +1065,7 @@ var Updraft;
         var oldTableColumns = Object.keys(oldColumns).filter(function (col) { return (col in newColumns) || (col in renamedColumns); });
         var newTableColumns = oldTableColumns.map(function (col) { return (col in renamedColumns) ? renamedColumns[col] : col; });
         var p2 = Promise.resolve();
+        /* istanbul ignore else */
         if (oldTableColumns.length && newTableColumns.length) {
             var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
             stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
@@ -1072,7 +1076,8 @@ var Updraft;
     function migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns) {
         var deletedColumns = Object.keys(oldColumns).filter(function (col) { return !(col in newColumns) && !(col in renamedColumns); });
         var p2 = Promise.resolve();
-        if (renamedColumns || deletedColumns) {
+        /* istanbul ignore else */
+        if (!isEmpty(renamedColumns) || deletedColumns) {
             p2 = p2.then(function () {
                 return transaction.each("SELECT " + ROWID + ", change"
                     + " FROM " + changeTableName, [], function (selectChangeTransaction, row) {
@@ -1094,7 +1099,7 @@ var Updraft;
                         }
                     }
                     if (changed) {
-                        if (Object.keys(change).length) {
+                        if (!isEmpty(change)) {
                             return selectChangeTransaction.executeSql("UPDATE " + changeTableName
                                 + " SET change=?"
                                 + " WHERE " + ROWID + "=?", [Updraft.toText(change), row[ROWID]]);
@@ -1472,6 +1477,12 @@ var Updraft;
             }
         }
         return ret;
+    }
+    function isEmpty(obj) {
+        for (var field in obj) {
+            return false;
+        }
+        return true;
     }
     function createStore(params) {
         return new Store(params);

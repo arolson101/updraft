@@ -192,10 +192,13 @@ namespace Updraft {
 					}
 				}
 	
-				let renamedColumns = spec.renamedColumns || {};
+				let renamedColumns = shallowCopy(spec.renamedColumns) || {};
 				for (let colName in renamedColumns) {
 					if (colName in oldColumns) {
 						recreateTable = true;
+					}
+					else {
+						delete renamedColumns[colName];
 					}
 				}
 	
@@ -228,7 +231,7 @@ namespace Updraft {
 					p = p.then(() => migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns));
 					p = p.then(() => createIndices(transaction, schema, spec, true));
 				}
-				else if (Object.keys(addedColumns).length > 0) {
+				else if (!isEmpty(addedColumns)) {
 					// alter table, add columns
 					Object.keys(addedColumns).forEach((colName) => {
 						let col: Column = spec.columns[colName];
@@ -536,6 +539,7 @@ namespace Updraft {
 		let oldTableColumns = Object.keys(oldColumns).filter(col => (col in newColumns) || (col in renamedColumns));
 		let newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
 		let p2 = Promise.resolve();
+		/* istanbul ignore else */
 		if (oldTableColumns.length && newTableColumns.length) {
 			let stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
 			stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
@@ -547,7 +551,8 @@ namespace Updraft {
 	function migrateChangeTable(transaction: DbTransaction, changeTableName: string, oldColumns: ColumnSet, newColumns: ColumnSet, renamedColumns: RenamedColumnSet) {
 		let deletedColumns = Object.keys(oldColumns).filter(col => !(col in newColumns) && !(col in renamedColumns));
 		let p2 = Promise.resolve();
-		if (renamedColumns || deletedColumns) {
+		/* istanbul ignore else */
+		if (!isEmpty(renamedColumns) || deletedColumns) {
 			p2 = p2.then(() => {
 				return transaction.each(
 					"SELECT " + ROWID + ", change"
@@ -571,7 +576,7 @@ namespace Updraft {
 							}
 						}
 						if (changed) {
-							if (Object.keys(change).length) {
+							if (!isEmpty(change)) {
 								return selectChangeTransaction.executeSql(
 									"UPDATE " + changeTableName
 									+ " SET change=?"
@@ -1009,6 +1014,12 @@ namespace Updraft {
 		return ret;
 	}
 	
+	function isEmpty(obj: any): boolean {
+		for (let field in obj) {
+			return false;
+		}
+		return true;
+	}
 	
 	export function createStore(params: CreateStoreParams): Store {
 		return new Store(params);
