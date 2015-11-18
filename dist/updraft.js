@@ -100,12 +100,11 @@ var Updraft;
         ColumnType[ColumnType["real"] = 1] = "real";
         ColumnType[ColumnType["bool"] = 2] = "bool";
         ColumnType[ColumnType["text"] = 3] = "text";
-        ColumnType[ColumnType["blob"] = 4] = "blob";
-        ColumnType[ColumnType["enum"] = 5] = "enum";
-        ColumnType[ColumnType["date"] = 6] = "date";
-        ColumnType[ColumnType["datetime"] = 7] = "datetime";
-        ColumnType[ColumnType["json"] = 8] = "json";
-        ColumnType[ColumnType["set"] = 9] = "set";
+        ColumnType[ColumnType["enum"] = 4] = "enum";
+        ColumnType[ColumnType["date"] = 5] = "date";
+        ColumnType[ColumnType["datetime"] = 6] = "datetime";
+        ColumnType[ColumnType["json"] = 7] = "json";
+        ColumnType[ColumnType["set"] = 8] = "set";
     })(Updraft.ColumnType || (Updraft.ColumnType = {}));
     var ColumnType = Updraft.ColumnType;
     /**
@@ -184,6 +183,7 @@ var Updraft;
                 case ColumnType.json:
                     return Updraft.toText(value);
                 case ColumnType.enum:
+                    /* istanbul ignore if: safe to store these in db, though it's probably an error to be anything other than a number/object */
                     if (typeof value === "string" || typeof value === undefined || value === null) {
                         return value;
                     }
@@ -222,11 +222,6 @@ var Updraft;
         /** create a column with "TEXT" affinity */
         Column.String = function () {
             return new Column(ColumnType.text);
-        };
-        /** create a column with "BLOB" affinity */
-        Column.Blob = function () {
-            var c = new Column(ColumnType.blob);
-            return c;
         };
         /** a typescript enum or javascript object with instance method "toString" and class method "get" (e.g. {@link https://github.com/adrai/enum}). */
         Column.Enum = function (enum_) {
@@ -273,9 +268,6 @@ var Updraft;
                 case ColumnType.enum:
                     stmt = "CHARACTER(20)";
                     break;
-                case ColumnType.blob:
-                    stmt = "BLOB";
-                    break;
                 case ColumnType.date:
                     stmt = "DATE";
                     break;
@@ -288,6 +280,7 @@ var Updraft;
             }
             if ("defaultValue" in val) {
                 var escape = function (x) {
+                    /* istanbul ignore else */
                     if (typeof x === "number") {
                         return x;
                     }
@@ -343,7 +336,8 @@ var Updraft;
                 match = text.match(/DEFAULT\s+(\S+)/i);
                 if (match) {
                     var val = match[1];
-                    var valnum = parseInt(val, 10);
+                    var valnum = parseFloat(val);
+                    /* istanbul ignore else: unlikely to be anything but a number */
                     if (val == valnum) {
                         val = valnum;
                     }
@@ -359,6 +353,7 @@ var Updraft;
             if ((a.defaultValue || b.defaultValue) && (a.defaultValue != b.defaultValue)) {
                 return false;
             }
+            /* istanbul ignore next: I don't think this is possible */
             if ((a.isKey || b.isKey) && (a.isKey != b.isKey)) {
                 return false;
             }
@@ -424,7 +419,7 @@ var Updraft;
         else if (a instanceof Date && b instanceof Date) {
             return a.getTime() == b.getTime();
         }
-        else if (typeof a == "object" && typeof b == "object") {
+        else if (a && typeof a == "object" && b && typeof b == "object") {
             var akeys = Object.keys(a);
             var bkeys = Object.keys(b);
             if (akeys.length == bkeys.length) {
@@ -634,12 +629,6 @@ var Updraft;
     function startsWith(str, val) {
         return str.lastIndexOf(val, 0) === 0;
     }
-    var Schema = (function () {
-        function Schema() {
-        }
-        return Schema;
-    })();
-    Updraft.Schema = Schema;
     var ROWID = "rowid";
     var COUNT = "COUNT(*)";
     var internal_prefix = "updraft_";
@@ -733,9 +722,6 @@ var Updraft;
                                         schema[row.tbl_name].indices.push(index);
                                     }
                                     break;
-                                case "trigger":
-                                    //schema[row.tbl_name].triggers[row.name] = row.sql;
-                                    break;
                             }
                         }
                     }
@@ -783,8 +769,8 @@ var Updraft;
                     };
                     var tempTableName = "temp_" + spec.name;
                     var changeTableName = getChangeTableName(spec.name);
+                    /* istanbul ignore if: yikes!  migration failed but transaction got committed? */
                     if (tempTableName in schema) {
-                        // yikes!  migration failed but transaction got committed?
                         p = p.then(function () { return dropTable(transaction, tempTableName); });
                     }
                     p = p.then(function () { return createTable(transaction, tempTableName, spec.columns); });
@@ -909,7 +895,7 @@ var Updraft;
         return internal_prefix + "set_" + tableName + "_" + col;
     }
     function buildIndices(spec) {
-        spec.indices = spec.indices || [];
+        spec.indices = Updraft.shallowCopy(spec.indices) || [];
         for (var col in spec.columns) {
             if (spec.columns[col].isIndex) {
                 spec.indices.push([col]);
@@ -960,17 +946,16 @@ var Updraft;
     function tableFromSql(name, sql) {
         var table = { name: name, columns: {}, indices: [], triggers: {} };
         var matches = sql.match(/\((.*)\)/);
+        /* istanbul ignore else */
         if (matches) {
             var pksplit = matches[1].split(/PRIMARY KEY/i);
             var fields = pksplit[0].split(",");
             for (var i = 0; i < fields.length; i++) {
-                var ignore = /^\s*(primary|foreign)\s+key/i; // ignore standalone "PRIMARY KEY xxx"
-                if (fields[i].match(ignore)) {
-                    continue;
-                }
+                Updraft.verify(!fields[i].match(/^\s*(primary|foreign)\s+key/i), "unexpected column modifier (primary or foreign key) on %s", fields[i]);
                 var quotedName = /"(.+)"\s+(.*)/;
                 var unquotedName = /(\w+)\s+(.*)/;
                 var parts = fields[i].match(quotedName);
+                /* istanbul ignore else */
                 if (!parts) {
                     parts = fields[i].match(unquotedName);
                 }
@@ -978,8 +963,10 @@ var Updraft;
                     table.columns[parts[1]] = Updraft.Column.fromSql(parts[2]);
                 }
             }
+            /* istanbul ignore else */
             if (pksplit.length > 1) {
                 var pk = pksplit[1].match(/\((.*)\)/);
+                /* istanbul ignore else */
                 if (pk) {
                     var keys = pk[1].split(",");
                     for (var i = 0; i < keys.length; i++) {
@@ -1052,7 +1039,7 @@ var Updraft;
                 }
             }
             if (drop) {
-                p = p.then(function () { return transaction.executeSql("DROP INDEX " + getIndexName(oldIndices[i])); });
+                p = p.then(function () { return transaction.executeSql("DROP INDEX IF EXISTS " + getIndexName(oldIndices[i])); });
             }
         });
         newIndices.forEach(function (value, j) {

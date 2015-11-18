@@ -9,7 +9,6 @@ namespace Updraft {
 		real,
 		bool,
 		text,
-		blob,
 		enum,
 		date,
 		datetime,
@@ -131,6 +130,7 @@ namespace Updraft {
 					return toText(value);
 	
 				case ColumnType.enum:
+					/* istanbul ignore if: safe to store these in db, though it's probably an error to be anything other than a number/object */
 					if (typeof value === "string" || typeof value === undefined || value === null) {
 						return value;
 					}
@@ -176,12 +176,6 @@ namespace Updraft {
 		/** create a column with "TEXT" affinity */
 		static String(): Column {
 			return new Column(ColumnType.text);
-		}
-	
-		/** create a column with "BLOB" affinity */
-		static Blob(): Column {
-			let c = new Column(ColumnType.blob);
-			return c;
 		}
 	
 		/** a typescript enum or javascript object with instance method "toString" and class method "get" (e.g. {@link https://github.com/adrai/enum}). */
@@ -235,9 +229,6 @@ namespace Updraft {
 				case ColumnType.enum:
 					stmt = "CHARACTER(20)";
 					break;
-				case ColumnType.blob:
-					stmt = "BLOB";
-					break;
 				case ColumnType.date:
 					stmt = "DATE";
 					break;
@@ -252,6 +243,7 @@ namespace Updraft {
 	
 			if ("defaultValue" in val) {
 				let escape = function(x: string | number | boolean): string {
+					/* istanbul ignore else */
 					if (typeof x === "number") {
 						return <any>x;
 					}
@@ -311,7 +303,8 @@ namespace Updraft {
 				match = text.match(/DEFAULT\s+(\S+)/i);
 				if (match) {
 					let val: any = match[1];
-					let valnum = parseInt(val, 10);
+					let valnum = parseFloat(val);
+					/* istanbul ignore else: unlikely to be anything but a number */
 					if (val == valnum) {
 						val = valnum;
 					}
@@ -329,6 +322,7 @@ namespace Updraft {
 			if ((a.defaultValue || b.defaultValue) && (a.defaultValue != b.defaultValue)) {
 				return false;
 			}
+			/* istanbul ignore next: I don't think this is possible */
 			if ((a.isKey || b.isKey) && (a.isKey != b.isKey)) {
 				return false;
 			}

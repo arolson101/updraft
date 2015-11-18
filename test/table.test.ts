@@ -118,19 +118,27 @@ const todoTableSpec: TodoTableSpec = {
 		created: Column.DateTime(),
 		status: Column.Enum(TodoStatus),
 		altstatus: Column.Enum(AltTodoStatus),
-		progress: Column.Real(),
+		progress: Column.Real().Default(0.1),
 		completed: Column.Bool().Index(),
 		due: Column.Date(),
 		text: Column.String(),
 		history: Column.JSON(),
 		tags: Column.Set(ColumnType.text)
+	},
+	indices: [
+		["status", "progress"]
+	],
+	renamedColumns: {
+		"neverExisted": "status"
 	}
 };
 
 const todoTableExpectedSchema = {
 	todos: {
 		name: "todos",
-		indices: <string[]>[],
+		indices: [
+			["status", "progress"]
+		],
 		triggers: {},
 		columns: {
 			id: Column.Int().Key(),
@@ -139,7 +147,7 @@ const todoTableExpectedSchema = {
 			altstatus: new Column(ColumnType.enum),
 			completed: Column.Bool().Index(),
 			due: Column.Date(),
-			progress: Column.Real(),
+			progress: Column.Real().Default(0.1),
 			text: Column.String(),
 			history: Column.JSON(),
 
@@ -206,9 +214,10 @@ function sampleTodos(count: number) {
 		let todo = {
 			id: i,
 			created: new Date(2001, 2, 14, 12, 30),
+			due: new Date(2002, 3, 15, 12, 30),
 			status: TodoStatus.NotStarted,
 			altstatus: AltTodoStatus.get("NotStarted"),
-			progress: 0,
+			progress: 0.2,
 			completed: false,
 			tags: new Set<string>(["all", (i % 2 ? "odd" : "even"), "tag" + i]),
 			text: "todo " + i,
@@ -248,6 +257,7 @@ function sampleMutators(count: number) {
 		case 3:
 			m.tags = { $add: ["foo", "bar"] };
 			m.progress = { $inc: 0.10 };
+			m.created = { $set: null };
 			break;
 
 		case 4:
@@ -317,7 +327,7 @@ describe("table", function() {
 	});
 	
 	describe("schema migrations", function() {
-		function runMigration(newFields: {[name: string]: Column}, deletedFields: string[], rename: {[old: string]: string}, debug?: boolean) {
+		function runMigration(newFields: Updraft.ColumnSet, deletedFields: string[], rename: {[old: string]: string}, newindices: string[][], debug?: boolean) {
 			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clonePreservingEnums(todoTableSpec);
 			let newSchema = clone(todoTableExpectedSchema);
 			let dataCount = 10;
@@ -325,7 +335,14 @@ describe("table", function() {
 			sampleMutators(dataCount).forEach((m) => {
 				let id = m.id;
 				delete m.id;
-				newData[id] = mutate(newData[id], m);
+				let d = mutate(newData[id], m);
+				// db won't return null keys
+				for (let field in d) {
+					if (d[field] == null) {
+						delete d[field];
+					}
+				}
+				newData[id] = d;
 			});
 
 			if (newFields) {
@@ -339,6 +356,16 @@ describe("table", function() {
 						delete newSchema.todos.columns[col].enum;
 						if (colSpec.defaultValue) {
 							newSchema.todos.columns[col].defaultValue = colSpec.enum[<number>colSpec.defaultValue];
+						}
+					}
+					// for teset changing enum to string
+					if (col in todoTableSpec.columns) {
+						if (todoTableSpec.columns[col].type == ColumnType.enum) {
+							let enm = todoTableSpec.columns[col].enum;
+							for (let i = 0; i < newData.length; i++) {
+								newData[i][col] = enm[newData[i][col]]; 
+							}
+							continue;
 						}
 					}
 					if (colSpec.type == ColumnType.set) {
@@ -379,6 +406,19 @@ describe("table", function() {
 				}
 			}
 
+			if (newFields || deletedFields || rename) {
+				// just remove all indices because they might reference removed rows and I'm lazy
+				newSpec.indices = [];
+				newSchema.todos.indices = [];
+			}
+			
+			if (newindices) {
+				newSpec.indices = newindices;
+				newSchema.todos.indices = newindices;
+			}
+			
+			let savedNewSchema = clone(newSchema);
+
 			let w = createDb(true, debug);
 			let store = Updraft.createStore({ db: w.db });
 			let todoTable: TodoTable = store.createTable(newSpec);
@@ -387,7 +427,10 @@ describe("table", function() {
 				.then(() => populateData(w.db, dataCount))
 				.then(() => store.open())
 				.then(() => store.readSchema())
-				.then((schema) => expect(schema).to.deep.equal(newSchema))
+				.then((schema) => {
+					expect(savedNewSchema).to.deep.equal(newSchema);
+					expect(schema).to.deep.equal(newSchema);
+				})
 				.then(() => 
 					todoTable.find({}, {orderBy: {id: Updraft.OrderBy.ASC}})
 				)
@@ -403,7 +446,7 @@ describe("table", function() {
 		}
 
 		it("no change", function() {
-			return runMigration(null, null, null);
+			return runMigration(null, null, null, null);
 		});
 
 		it("add columns (simple migration)", function() {
@@ -412,24 +455,48 @@ describe("table", function() {
 				Value2,
 				DefaultValue
 			}
-			let newFields = {
+			let newFields: Updraft.ColumnSet = {
 				newIntField: Column.Int().Default(10),
 				newTextField: Column.Text().Default("test single (') and double (\") and double single ('') quote marks"),
 				newEnumField: Column.Enum(NewEnum).Default(NewEnum.DefaultValue)
 			};
-			return runMigration(<any>newFields, null, null);
+			return runMigration(newFields, null, null, null);
 		});
 
 		it("change column default", function() {
-			let newFields = {
+			let newFields: Updraft.ColumnSet = {
 				completed: Column.Bool().Default(true),
 			};
-			return runMigration(<any>newFields, null, null);
+			return runMigration(newFields, null, null, null);
 		});
 
+		it("change column type", function() {
+			let newFields: Updraft.ColumnSet = {
+				status: Column.Text(),
+			};
+			return runMigration(newFields, null, null, null);
+		});
+
+		it("change indices", function() {
+			let newindices: string[][] = [
+				["progress", "status"]
+			];
+			return runMigration(null, null, null, newindices);
+		});
+		
 		it("remove columns", function() {
-			let deletedFields = [ "completed" ];
-			return runMigration(null, deletedFields, null);
+			let deletedFields = [ 
+				"created",
+				"status",
+				"altstatus",
+				"progress",
+				"completed",
+				"due",
+				"text",
+				"tags",
+				"history",
+			];
+			return runMigration(null, deletedFields, null, null);
 		});
 
 		it("rename columns", function() {
@@ -437,18 +504,18 @@ describe("table", function() {
 				text: "description",
 				completed: "done"
 			};
-			return runMigration(null, null, <any>rename);
+			return runMigration(null, null, <any>rename, null);
 		});
 
 		it("simultaneously added, renamed, and removed columns", function() {
-			let newFields = {
+			let newFields: Updraft.ColumnSet = {
 				newIntField: Column.Int().Default(-10),
 			};
 			let deletedFields = [ "completed" ];
 			let rename = {
 				text: "description",
 			};
-			return runMigration(<any>newFields, deletedFields, <any>rename);
+			return runMigration(newFields, deletedFields, <any>rename, null);
 		});
 	});
 
@@ -516,6 +583,7 @@ describe("table", function() {
 				created: new Date(2005),
 				status: TodoStatus.InProgress,
 				completed: true,
+				progress: 0.1,
 				tags: new Set<string>(["asdf"])
 			}]);
 		});
@@ -557,6 +625,41 @@ describe("table", function() {
 				text: "base text 2",
 				created: new Date(2005),
 				completed: true,
+				progress: 0.1,
+				tags: new Set<string>()
+			}]);
+		});
+		
+		it("no baseline", function() {
+			let changes: TodoChange[] = [
+				{ time: 1,
+					change: {
+						id: 1,
+						text: { $set: "modified at time 2" }
+					}
+				},
+				{ time: 2,
+					save: {
+						id: 1,
+						text: "base text 2",
+						created: new Date(2005),
+						completed: false
+					},
+				},
+				{ time: 3,
+					change: {
+						id: 1,
+						completed: { $set: true }
+					}
+				},
+			];
+
+			return runChanges(changes, [{
+				id: 1,
+				text: "base text 2",
+				created: new Date(2005),
+				completed: true,
+				progress: 0.1,
 				tags: new Set<string>()
 			}]);
 		});
@@ -598,6 +701,7 @@ describe("table", function() {
 				text: "modified at time 3",
 				created: new Date(2005),
 				completed: true,
+				progress: 0.1,
 				tags: new Set<string>()
 			}]);
 		});
@@ -668,6 +772,7 @@ describe("table", function() {
 				id: 1,
 				text: "todo 1",
 				completed: false,
+				progress: 0.1,
 				tags: new Set<string>(["a", "b", "c"])
 			};
 			

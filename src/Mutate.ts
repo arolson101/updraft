@@ -119,7 +119,7 @@ namespace Updraft {
     else if (a instanceof Date && b instanceof Date) {
       return (<Date><any>a).getTime() == (<Date><any>b).getTime();
     }
-    else if (typeof a == "object" && typeof b == "object") {
+    else if (a && typeof a == "object" && b && typeof b == "object") {
       let akeys = Object.keys(a);
       let bkeys = Object.keys(b);
       if (akeys.length == bkeys.length) {

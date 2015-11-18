@@ -21,12 +21,11 @@ declare namespace Updraft {
         real = 1,
         bool = 2,
         text = 3,
-        blob = 4,
-        enum = 5,
-        date = 6,
-        datetime = 7,
-        json = 8,
-        set = 9,
+        enum = 4,
+        date = 5,
+        datetime = 6,
+        json = 7,
+        set = 8,
     }
     /** A typescript enum class will have string keys resolving to the enum values */
     interface TypeScriptEnum {
@@ -75,8 +74,6 @@ declare namespace Updraft {
         static Text(): Column;
         /** create a column with "TEXT" affinity */
         static String(): Column;
-        /** create a column with "BLOB" affinity */
-        static Blob(): Column;
         /** a typescript enum or javascript object with instance method "toString" and class method "get" (e.g. {@link https://github.com/adrai/enum}). */
         static Enum(enum_: EnumClass | TypeScriptEnum): Column;
         /** a javascript Date objct, stored in db as seconds since Unix epoch (time_t) [note: precision is seconds] */
@@ -213,7 +210,7 @@ declare namespace Updraft {
     interface CreateStoreParams {
         db: DbWrapper;
     }
-    class Schema {
+    interface Schema {
         [table: string]: TableSpecAny;
     }
     class Store {

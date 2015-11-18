@@ -20,7 +20,7 @@ namespace Updraft {
 		db: DbWrapper;
 	}
 	
-	export class Schema {
+	export interface Schema {
 		[table: string]: TableSpecAny;
 	}
 	
@@ -160,9 +160,8 @@ namespace Updraft {
 										schema[row.tbl_name].indices.push(index);
 									}
 									break;
-								case "trigger":
-									//schema[row.tbl_name].triggers[row.name] = row.sql;
-									break;
+								// case "trigger":
+								// 	break;
 							}
 						}
 					}
@@ -218,8 +217,8 @@ namespace Updraft {
 					let tempTableName = "temp_" + spec.name;
 					let changeTableName = getChangeTableName(spec.name);
 	
+					/* istanbul ignore if: yikes!  migration failed but transaction got committed? */
 					if (tempTableName in schema) {
-						// yikes!  migration failed but transaction got committed?
 						p = p.then(() => dropTable(transaction, tempTableName));
 					}
 					p = p.then(() => createTable(transaction, tempTableName, spec.columns));
@@ -351,7 +350,7 @@ namespace Updraft {
 	}
 	
 	function buildIndices(spec: TableSpecAny) {
-		spec.indices = spec.indices || [];
+		spec.indices = shallowCopy(spec.indices) || [];
 		for (let col in spec.columns) {
 			if (spec.columns[col].isIndex) {
 				spec.indices.push([col]);
@@ -407,17 +406,16 @@ namespace Updraft {
 	function tableFromSql(name: string, sql: string): TableSpecAny {
 		let table = <TableSpecAny>{ name: name, columns: {}, indices: [], triggers: {} };
 		let matches = sql.match(/\((.*)\)/);
+		/* istanbul ignore else */
 		if (matches) {
 			let pksplit: string[] = matches[1].split(/PRIMARY KEY/i);
 			let fields = pksplit[0].split(",");
 			for (let i = 0; i < fields.length; i++) {
-				let ignore = /^\s*(primary|foreign)\s+key/i;  // ignore standalone "PRIMARY KEY xxx"
-				if (fields[i].match(ignore)) {
-					continue;
-				}
+				verify(!fields[i].match(/^\s*(primary|foreign)\s+key/i), "unexpected column modifier (primary or foreign key) on %s", fields[i]);
 				let quotedName = /"(.+)"\s+(.*)/;
 				let unquotedName = /(\w+)\s+(.*)/;
 				let parts = fields[i].match(quotedName);
+				/* istanbul ignore else */
 				if (!parts) {
 					parts = fields[i].match(unquotedName);
 				}
@@ -425,9 +423,11 @@ namespace Updraft {
 					table.columns[parts[1]] = Column.fromSql(parts[2]);
 				}
 			}
-	
+
+			/* istanbul ignore else */
 			if (pksplit.length > 1) {
 				let pk = pksplit[1].match(/\((.*)\)/);
+				/* istanbul ignore else */
 				if (pk) {
 					let keys = pk[1].split(",");
 					for (let i = 0; i < keys.length; i++) {
@@ -508,7 +508,7 @@ namespace Updraft {
 			}
 	
 			if (drop) {
-				p = p.then(() => transaction.executeSql("DROP INDEX " + getIndexName(oldIndices[i])));
+				p = p.then(() => transaction.executeSql("DROP INDEX IF EXISTS " + getIndexName(oldIndices[i])));
 			}
 		});
 	
