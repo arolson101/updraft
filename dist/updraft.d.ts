@@ -93,22 +93,33 @@ declare namespace Updraft {
     }
 }
 declare namespace Updraft {
+    interface Rejector {
+        (err: Error): void;
+    }
+    interface DbStatement {
+        sql: string;
+        params?: (string | number)[];
+    }
+    function DbExecuteSequence(transaction: DbTransaction, statements: DbStatement[], nextCallback: DbTransactionCallback): void;
     interface DbWrapper {
-        transaction(callback: DbTransactionCallback): Promise<any>;
-        readTransaction(callback: DbTransactionCallback): Promise<any>;
+        transaction(callback: DbTransactionCallback): void;
+        readTransaction(callback: DbTransactionCallback): void;
     }
     interface DbTransactionCallback {
-        (transaction: DbTransaction): Promise<any>;
+        (transaction: DbTransaction): void;
     }
     interface DbTransaction {
-        executeSql(sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any>;
-        each(sql: string, params: (string | number)[], callback: DbEachResultCallback): Promise<any>;
+        executeSql(sql: string, params: (string | number)[], callback: DbResultsCallback): void;
+        each(sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void;
     }
     interface DbResultsCallback {
-        (transaction: DbTransaction, results: any[]): any | Promise<any>;
+        (transaction: DbTransaction, results: any[]): void;
     }
     interface DbEachResultCallback {
-        (transaction: DbTransaction, result: any): any | Promise<any>;
+        (transaction: DbTransaction, result: any): void;
+    }
+    interface DbCallback<Result> {
+        (transaction: DbTransaction, result: Result): void;
     }
 }
 declare namespace Updraft {
@@ -223,8 +234,8 @@ declare namespace Updraft {
         createTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query>;
         open(): Promise<any>;
         readSchema(): Promise<Schema>;
-        private syncTable(transaction, schema, spec);
-        private loadKeyValues(transaction);
+        private syncTable(transaction, schema, spec, nextCallback);
+        private loadKeyValues(transaction, nextCallback);
         getValue(key: string): any;
         setValue(key: string, value: any): Promise<any>;
         add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any>;

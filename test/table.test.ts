@@ -35,29 +35,39 @@ function clonePreservingEnums(src: Updraft.TableSpecAny): Updraft.TableSpecAny {
 	return dst;
 }
 
+function purgeDb(db: Updraft.DbWrapper): Promise<any> {
+	return new Promise((resolve, reject) => {
+		db.transaction((transaction: Updraft.DbTransaction): void => {
+			transaction.executeSql("select name from sqlite_master where type='table'", [], (tx2: Updraft.DbTransaction, rows: any[]) => {
+				let stmts: Updraft.DbStatement[] = [];
+				rows.forEach((row: any) => {
+					let name = row.name;
+					if (name[0] != "_") {
+						stmts.push({sql: "drop table " + name});
+					}
+				});
+				Updraft.DbExecuteSequence(tx2, stmts, resolve);
+			});
+		})
+	});
+}
+
 
 function createDb(inMemory: boolean, trace: boolean): Db {
 	if (typeof window != "undefined") {
 		let traceCallback = trace ? (str: string) => console.log(str) : null;
-		let db: any = Updraft.createWebsqlWrapper("testdb", "1.0", "updraft test database", 5 * 1024 * 1024, traceCallback);
+		let db = Updraft.createWebsqlWrapper("testdb", "1.0", "updraft test database", 5 * 1024 * 1024, traceCallback);
 		return {
 			db: db,
-			close: (err?: Error) => db.transaction((transaction: Updraft.DbTransaction) => {
+			close: (err?: Error) => {
 				if (saveWebSqlValues) {
 					// keep data around for inspection
-					return err ? Promise.reject(err) : Promise.resolve();
+					if (err) {
+						throw err;
+					}
 				}
-				return transaction.executeSql("select name from sqlite_master where type='table'", [], (tx2: Updraft.DbTransaction, rows: any[]) => {
-					let p = Promise.resolve();
-					rows.forEach((row: any) => {
-						let name = row.name;
-						if (name[0] != "_") {
-							p = p.then(() => tx2.executeSql("drop table " + name));
-						}
-					});
-					return p.then(() => err ? Promise.reject(err) : undefined);
-				});
-			})
+				return purgeDb(db); 
+			}
 		};
 	}
 	else {
@@ -279,7 +289,9 @@ function sampleMutators(count: number) {
 function populateData(db: Updraft.DbWrapper, count: number) {
 	let store = Updraft.createStore({ db: db });
 	let todoTable: TodoTable = store.createTable(todoTableSpec);
-	let p = store.open();
+	let p = Promise.resolve(); 
+	//p = p.then(() => purgeDb(db));
+	p = p.then(() => store.open());
 	p = p.then(() => todoTable.add(...sampleTodos(count).map(todo => <TodoChange>{ time: 1, save: todo })));
 	p = p.then(() => todoTable.add(...sampleMutators(count).map(m => <TodoChange>{ time: 2, change: m })));
 	return p;
@@ -287,7 +299,7 @@ function populateData(db: Updraft.DbWrapper, count: number) {
 
 
 describe("table", function() {
-	this.timeout(0);
+	//this.timeout(0);
 	
 	describe("key/value store", function() {
 		it("saves and restores values", function() {

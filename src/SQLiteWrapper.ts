@@ -20,99 +20,78 @@ namespace Updraft {
 			this.db = db;
 		}
 	
-		run(sql: string): Promise<any> {
-			return new Promise((resolve, reject) => {
-				this.db.run(sql, (err: Error) => {
-					/* istanbul ignore if */
-					if (err) {
-						console.log("SQLiteWrapper.run(): error executing '" + sql + "': ", err);
-						reject(err);
-					}
-					else {
-						resolve();
-					}
-				});
-			});
-		}
-	
-		all(tx: DbTransaction, sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
-			return new Promise((resolve, reject) => {
-				this.db.all(sql, params, (err: Error, rows: any[]) => {
-					/* istanbul ignore if */
-					if (err) {
-						console.log("SQLiteWrapper.all(): error executing '" + sql + "': ", err);
-						reject(err);
-					}
-					else {
-						if (callback) {
-							resolve(callback(tx, rows));
-						} else {
-							resolve(rows);
-						}
-					}
-				});
-			});
-		}
-	
-		each(tx: DbTransaction, sql: string, params: (string | number)[], callback: DbEachResultCallback): Promise<any> {
-			let p: any = undefined;
-			return new Promise((resolve, reject) => {
-				this.db.each(sql, params, (err: Error, row: any) => {
-					/* istanbul ignore if */
-					if (err) {
-						console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
-						reject(err);
-					}
-					else {
-						p = callback(tx, row);
-					}
-				},
-				(err: Error, count: number) => {
-					/* istanbul ignore if */
-					if (err) {
-						console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
-						reject(err);
-					}
-					else {
-						resolve(p);
-					}
-				});
-			});
-		}
-	
-		transaction(callback: DbTransactionCallback): Promise<any> {
-			let result: any = undefined;
-			return Promise.resolve()
-				.then(() => this.run("BEGIN TRANSACTION"))
-				.then(() => {
-					let tx: DbTransaction = {
-						executeSql: (sql: string, params?: (string | number)[], resultsCb?: DbResultsCallback): Promise<any> => {
-							return this.all(tx, sql, params, resultsCb);
-						},
-						each: (sql: string, params?: (string | number)[], resultsCb?: DbEachResultCallback): Promise<any> => {
-							return this.each(tx, sql, params, resultsCb);
-						}
-					};
-					return callback(tx);
-				})
-				.then((ret) => result = ret)
-				.then(() => this.run("COMMIT TRANSACTION"))
-				.then(() => result)
-				.catch(/* istanbul ignore next */ (err: Error) => {
-					console.log("encountered error, rolling back transaction: ", err);
-					this.run("ROLLBACK TRANSACTION");
+		run(sql: string): void {
+			this.db.run(sql, (err: Error) => {
+				/* istanbul ignore if */
+				if (err) {
+					console.log("SQLiteWrapper.run(): error executing '" + sql + "': ", err);
 					throw err;
-				})
-			;
+				}
+			});
 		}
 	
-		readTransaction(callback: DbTransactionCallback): Promise<any> {
-			return this.transaction(callback);
+		executeSql(tx: DbTransaction, sql: string, params: (string | number)[], callback: DbResultsCallback): void {
+			this.db.all(sql, params, (err: Error, rows: any[]) => {
+				/* istanbul ignore if */
+				if (err) {
+					console.log("SQLiteWrapper.all(): error executing '" + sql + "': ", err);
+					throw err;
+				}
+				else {
+					callback(tx, rows);
+				}
+			});
+		}
+			
+		each(tx: DbTransaction, sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void {
+			this.db.each(sql, params, (err: Error, row: any) => {
+				/* istanbul ignore if */
+				if (err) {
+					console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
+				}
+				else {
+					callback(tx, row);
+				}
+			},
+			(err: Error, count: number) => {
+				/* istanbul ignore if */
+				if (err) {
+					console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
+					//reject(err);
+				}
+				else {
+					final(tx);
+				}
+			});
+		}
+	
+		transaction(callback: DbTransactionCallback): void {
+			let result: any = undefined;
+			this.run("BEGIN TRANSACTION");
+			let tx: DbTransaction = {
+				executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
+					this.executeSql(tx, sql, params, resultsCb);
+				},
+				each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
+					this.each(tx, sql, params, resultsCb, final);
+				}
+			};
+			callback(tx);
+			this.run("COMMIT TRANSACTION");
+				// .catch(/* istanbul ignore next */ (err: Error) => {
+				// 	console.log("encountered error, rolling back transaction: ", err);
+				// 	this.run("ROLLBACK TRANSACTION");
+				// 	throw err;
+				// })
+		}
+	
+		readTransaction(callback: DbTransactionCallback): void {
+			this.transaction(callback);
 		}
 	}
 	
 	
 	export function createSQLiteWrapper(db: IDatabase): DbWrapper {
-			return new SQLiteWrapper(db);
+		return new SQLiteWrapper(db);
 	}
 }

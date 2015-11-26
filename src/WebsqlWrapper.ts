@@ -42,10 +42,10 @@ namespace Updraft {
 			});
 			return escapedString;
 		}
-	
-		all(tx: WebsqlTransaction, sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> {
-			return new Promise((resolve, reject) => {
-				this.trace(sql, params);
+		
+		all(tx: WebsqlTransaction, sql: string, params: (string | number)[], callback: DbResultsCallback): void {
+			this.trace(sql, params);
+			try {
 				tx.realTransaction.executeSql(sql, params,
 					(transaction: SQLTransaction, resultSet: SQLResultSet) => {
 						let results: any[] = [];
@@ -54,82 +54,74 @@ namespace Updraft {
 							results.push(row);
 						}
 	
-						if (callback) {
-							resolve(callback(this.wrapTransaction(transaction), results));
-						}
-						else {
-							resolve(results);
-						}
+						callback(this.wrapTransaction(transaction), results);
 					},
 					(transaction: SQLTransaction, error: SQLError) => {
 						console.error("error executing '" + this.stringify(sql, params) + "': ", error);
-						reject(error);
+						throw error;
 						return true;
 					}
 				);
-			});
+			}
+			catch(error) {
+				console.error("error executing '" + this.stringify(sql, params) + "': ", error);
+				throw error;
+			}
 		}
 	
-		each(tx: WebsqlTransaction, sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> {
-			return new Promise((resolve, reject) => {
-				this.trace(sql, params);
-				tx.realTransaction.executeSql(sql, params,
-					(transaction: SQLTransaction, resultSet: SQLResultSet) => {
-						let p = Promise.resolve();
-						for (let i = 0; i < resultSet.rows.length; i++) {
-							let row = resultSet.rows.item(i);
-							if (callback) {
-								(function(row: any) {
-									p = p.then(() => callback(tx, row));
-								})(row);
-							}
+		each(tx: WebsqlTransaction, sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback) {
+			this.trace(sql, params);
+			tx.realTransaction.executeSql(sql, params,
+				(transaction: SQLTransaction, resultSet: SQLResultSet) => {
+					for (let i = 0; i < resultSet.rows.length; i++) {
+						let row = resultSet.rows.item(i);
+						if (callback) {
+							(function(row: any) {
+								callback(tx, row);
+							})(row);
 						}
-	
-						resolve(p);
-					},
-					(transaction: SQLTransaction, error: SQLError) => {
-						console.error("error executing '" + this.stringify(sql, params) + "': ", error);
-						reject(error);
-						return true;
 					}
-				);
-			});
+
+					final(this.wrapTransaction(transaction));
+				},
+				(transaction: SQLTransaction, error: SQLError) => {
+					console.error("error executing '" + this.stringify(sql, params) + "': ", error);
+					throw error;
+					return true;
+				}
+			);
 		}
 	
 		private wrapTransaction(transaction: SQLTransaction): WebsqlTransaction {
 			let tx: WebsqlTransaction = {
 				realTransaction: transaction,
-				executeSql: (sql: string, params?: (string | number)[], callback?: DbResultsCallback): Promise<any> => {
-					return this.all(tx, sql, params, callback);
+				executeSql: (sql: string, params?: (string | number)[], callback?: DbResultsCallback): void => {
+					this.all(tx, sql, params, callback);
 				},
-				each: (sql: string, params?: (string | number)[], callback?: DbEachResultCallback): Promise<any> => {
-					return this.each(tx, sql, params, callback);
+				each: (sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void => {
+					this.each(tx, sql, params, callback, final);
 				}
 			};
 			return tx;
 		}
 	
-		transaction(callback: DbTransactionCallback): Promise<any> {
-			return new Promise((resolve, reject) => {
-				this.db.transaction((transaction: SQLTransaction) => {
-					let tx = this.wrapTransaction(transaction);
-					resolve(callback(tx));
-				});
+		transaction(callback: DbTransactionCallback): void {
+			this.db.transaction((transaction: SQLTransaction) => {
+				let tx = this.wrapTransaction(transaction);
+				callback(tx);
 			});
 		}
 	
-		readTransaction(callback: DbTransactionCallback): Promise<any> {
-			return new Promise((resolve, reject) => {
-				this.db.readTransaction((transaction: SQLTransaction) => {
-					let tx = this.wrapTransaction(transaction);
-					resolve(callback(tx));
-				});
+		readTransaction(callback: DbTransactionCallback): void {
+			this.db.readTransaction((transaction: SQLTransaction) => {
+				let tx = this.wrapTransaction(transaction);
+				callback(tx);
 			});
 		}
 	}
 	
 	/* istanbul ignore next: can't test websql in node */
 	export function createWebsqlWrapper(name: string, version?: string, displayName?: string, estimatedSize?: number, traceCallback?: (trace: string) => any): DbWrapper {
-			return new WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback);
+		return new WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback);
 	}
 }

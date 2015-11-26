@@ -24,6 +24,10 @@ namespace Updraft {
 		[table: string]: TableSpecAny;
 	}
 	
+	interface Resolver<T> {
+		(param: T): void;
+	}
+	
 	interface SqliteMasterRow {
 		type: string;
 		name: string;
@@ -121,15 +125,19 @@ namespace Updraft {
 			return Promise.resolve()
 				.then(() => this.readSchema())
 				.then((schema) => {
-					return this.db.transaction((transaction: DbTransaction) => {
-						let p = Promise.resolve();
-						this.tables.forEach(
-							(table: TableSpecAny) => {
-								p = p.then(() => this.syncTable(transaction, schema, table));
+					return new Promise((resolve) => {
+						let i = 0;
+						let act = (transaction: DbTransaction) => {
+							if (i < this.tables.length) {
+								let table = this.tables[i];
+								i++;
+								this.syncTable(transaction, schema, table, act);
 							}
-						);
-						p = p.then(() => this.loadKeyValues(transaction));
-						return p;
+							else {
+								this.loadKeyValues(transaction, resolve);
+							}
+						};
+						this.db.transaction(act);
 					});
 				})
 				;
@@ -137,42 +145,43 @@ namespace Updraft {
 	
 		readSchema(): Promise<Schema> {
 			verify(this.db, "readSchema(): not opened");
-	
-			return this.db.readTransaction((transaction: DbTransaction) => {
-				return transaction.executeSql("SELECT name, tbl_name, type, sql FROM sqlite_master", [], (tx: DbTransaction, resultSet: any[]) => {
-					let schema: Schema = {};
-					for (let i = 0; i < resultSet.length; i++) {
-						let row = <SqliteMasterRow>resultSet[i];
-						if (row.name[0] != "_" && !startsWith(row.name, "sqlite")) {
-							switch (row.type) {
-								case "table":
-									schema[row.name] = tableFromSql(row.name, row.sql);
-									break;
-								case "index":
-									let index = indexFromSql(row.sql);
-									if (index.length == 1) {
-										let col = index[0];
-										verify(row.tbl_name in schema, "table %s used by index %s should have been returned first", row.tbl_name, row.name);
-										verify(col in schema[row.tbl_name].columns, "table %s does not have column %s used by index %s", row.tbl_name, col, row.name);
-										schema[row.tbl_name].columns[col].isIndex = true;
-									}
-									else {
-										schema[row.tbl_name].indices.push(index);
-									}
-									break;
-								// case "trigger":
-								// 	break;
+			
+			return new Promise((resolve: Resolver<Schema>) => {
+				this.db.readTransaction((transaction: DbTransaction) => {
+					return transaction.executeSql("SELECT name, tbl_name, type, sql FROM sqlite_master", [], (tx: DbTransaction, resultSet: any[]) => {
+						let schema: Schema = {};
+						for (let i = 0; i < resultSet.length; i++) {
+							let row = <SqliteMasterRow>resultSet[i];
+							if (row.name[0] != "_" && !startsWith(row.name, "sqlite")) {
+								switch (row.type) {
+									case "table":
+										schema[row.name] = tableFromSql(row.name, row.sql);
+										break;
+									case "index":
+										let index = indexFromSql(row.sql);
+										if (index.length == 1) {
+											let col = index[0];
+											verify(row.tbl_name in schema, "table %s used by index %s should have been returned first", row.tbl_name, row.name);
+											verify(col in schema[row.tbl_name].columns, "table %s does not have column %s used by index %s", row.tbl_name, col, row.name);
+											schema[row.tbl_name].columns[col].isIndex = true;
+										}
+										else {
+											schema[row.tbl_name].indices.push(index);
+										}
+										break;
+									// case "trigger":
+									// 	break;
+								}
 							}
 						}
-					}
-	
-					return schema;
+		
+						resolve(schema);
+					});
 				});
 			});
 		}
 
-		private syncTable(transaction: DbTransaction, schema: Schema, spec: TableSpecAny): Promise<any> {
-			let p = Promise.resolve();
+		private syncTable(transaction: DbTransaction, schema: Schema, spec: TableSpecAny, nextCallback: DbTransactionCallback): void {
 			if (spec.name in schema) {
 				let oldColumns = schema[spec.name].columns;
 				let newColumns = spec.columns;
@@ -213,55 +222,61 @@ namespace Updraft {
 	
 				if (recreateTable) {
 					// recreate and migrate data
-					let renameTable = function(oldName: string, newName: string): Promise<any> {
-						return transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName);
+					let renameTable = function(transaction: DbTransaction, oldName: string, newName: string, nextCallback: DbTransactionCallback): void {
+						transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName, [], nextCallback);
 					};
 	
 					let tempTableName = "temp_" + spec.name;
 					let changeTableName = getChangeTableName(spec.name);
 	
-					/* istanbul ignore if: yikes!  migration failed but transaction got committed? */
-					if (tempTableName in schema) {
-						p = p.then(() => dropTable(transaction, tempTableName));
-					}
-					p = p.then(() => createTable(transaction, tempTableName, spec.columns));
-					p = p.then(() => copyData(transaction, spec.name, tempTableName, oldColumns, newColumns, renamedColumns));
-					p = p.then(() => dropTable(transaction, spec.name));
-					p = p.then(() => renameTable(tempTableName, spec.name));
-					p = p.then(() => migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns));
-					p = p.then(() => createIndices(transaction, schema, spec, true));
+					dropTable(transaction, tempTableName, (transaction: DbTransaction) => {
+						createTable(transaction, tempTableName, spec.columns, (transaction: DbTransaction) => {
+							copyData(transaction, spec.name, tempTableName, oldColumns, newColumns, renamedColumns, (transaction: DbTransaction) => {
+								dropTable(transaction, spec.name, (transaction: DbTransaction) => {
+									renameTable(transaction, tempTableName, spec.name, (transaction: DbTransaction) => {
+										migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns, (transaction: DbTransaction) => {
+											createIndices(transaction, schema, spec, true, nextCallback);
+										});
+									});
+								});
+							});
+						});
+					});
 				}
 				else if (!isEmpty(addedColumns)) {
 					// alter table, add columns
+					let stmts: DbStatement[] = [];
 					Object.keys(addedColumns).forEach((colName) => {
 						let col: Column = spec.columns[colName];
 						let columnDecl = colName + " " + Column.sql(col);
-						p = p.then(() => transaction.executeSql("ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl));
+						stmts.push({sql: "ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl});
 					});
-					p = p.then(() => createIndices(transaction, schema, spec));
+					
+					DbExecuteSequence(transaction, stmts, (transaction: DbTransaction) => {
+						createIndices(transaction, schema, spec, false, nextCallback);
+					});
 				}
 				else {
 					// no table modification is required
-					p = p.then(() => createIndices(transaction, schema, spec));
+					createIndices(transaction, schema, spec, false, nextCallback);
 				}
 			}
 			else {
 				// create new table
-				p = p.then(() => createTable(transaction, spec.name, spec.columns));
-				p = p.then(() => createIndices(transaction, schema, spec, true));
+				createTable(transaction, spec.name, spec.columns, (transaction: DbTransaction) => {
+					createIndices(transaction, schema, spec, true, nextCallback);
+				});
 			}
-	
-			return p;
 		}
 		
-		private loadKeyValues(transaction: DbTransaction): Promise<any> {
-			return runQuery(transaction, this.keyValueTable, {}, undefined, undefined)
-				.then((rows: KeyValue[]) => {
-					this.keyValues = {};
-					rows.forEach((row: KeyValue) => {
-						this.keyValues[row.key] = row.value;
-					});
+		private loadKeyValues(transaction: DbTransaction, nextCallback: DbTransactionCallback): void {
+			return runQuery(transaction, this.keyValueTable, {}, undefined, undefined, (transaction: DbTransaction, rows: KeyValue[]) => {
+				this.keyValues = {};
+				rows.forEach((row: KeyValue) => {
+					this.keyValues[row.key] = row.value;
 				});
+				nextCallback(transaction);
+			});
 		}
 
 		getValue(key: string): any {
@@ -276,70 +291,98 @@ namespace Updraft {
 		add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
 			verify(this.db, "apply(): not opened");
 			let changeTable = getChangeTableName(table.spec.name);
-	
-			return this.db.transaction((transaction: DbTransaction): Promise<any> => {
-				let p1 = Promise.resolve();
+
+			return new Promise((promiseResolve) => {
+				let i = 0;
 				let toResolve = new Set<KeyType>();
-				changes.forEach((change: TableChange<Element, Mutator>) => {
-					let time = change.time || Date.now();
-					verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
-					/* istanbul ignore else */
-					if (change.save) {
-						// append internal column values
-						let element = assign(
-							{},
-							change.save,
-							{ [internal_column_time]: time }
-						);
-						p1 = p1.then(() => insertElement(transaction, table, element));
-						toResolve.add(table.keyValue(element));
-					}
-					else if (change.change || change.delete) {
-						let changeRow: ChangeTableRow = {
-							key: null,
-							time: time,
-							change: null
-						};
-						if (change.change) {
-							// store changes
-							let mutator = shallowCopy(change.change);
-							changeRow.key = table.keyValue(mutator);
-							delete mutator[table.key];
-							changeRow.change = serializeChange(mutator, table.spec);
+				let insertNextChange: DbTransactionCallback = null;
+				let resolveChanges: DbTransactionCallback = null;
+
+				insertNextChange = (transaction: DbTransaction) => {
+					if (i < changes.length) {
+						let change = changes[i];
+						i++;
+						let time = change.time || Date.now();
+						verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
+						/* istanbul ignore else */
+						if (change.save) {
+							// append internal column values
+							let element = assign(
+								{},
+								change.save,
+								{ [internal_column_time]: time }
+							);
+							toResolve.add(table.keyValue(element));
+							insertElement(transaction, table, element, insertNextChange);
+						}
+						else if (change.change || change.delete) {
+							let changeRow: ChangeTableRow = {
+								key: null,
+								time: time,
+								change: null
+							};
+							if (change.change) {
+								// store changes
+								let mutator = shallowCopy(change.change);
+								changeRow.key = table.keyValue(mutator);
+								delete mutator[table.key];
+								changeRow.change = serializeChange(mutator, table.spec);
+							}
+							else {
+								// mark deleted
+								changeRow.key = change.delete;
+								changeRow.change = serializeChange(deleteRow_action, table.spec);
+							}
+		
+							// insert into change table
+							let columns = Object.keys(changeRow);
+							let values: any[] = columns.map(k => changeRow[k]);
+							toResolve.add(changeRow.key);
+							insert(transaction, changeTable, columns, values, insertNextChange);
 						}
 						else {
-							// mark deleted
-							changeRow.key = change.delete;
-							changeRow.change = serializeChange(deleteRow_action, table.spec);
+							/* istanbul ignore next */
+							throw new Error("no operation specified for change- should be one of save, change, or delete");
 						}
-	
-						// insert into change table
-						let columns = Object.keys(changeRow);
-						let values: any[] = columns.map(k => changeRow[k]);
-						p1 = p1.then(() => insert(transaction, changeTable, columns, values));
-						toResolve.add(changeRow.key);
 					}
 					else {
-						/* istanbul ignore next */
-						throw new Error("no operation specified for change- should be one of save, change, or delete");
+						resolveChanges(transaction);
 					}
-				});
+				};
 				
-				toResolve.forEach((keyValue: KeyType) => {
-					p1 = p1.then(() => resolve(transaction, table, keyValue));
-				});
-				
-				return p1;
+				resolveChanges = (transaction: DbTransaction) => {
+					let j = 0;
+					let toResolveArray: KeyType[] = [];
+					toResolve.forEach((keyValue: KeyType) => toResolveArray.push(keyValue));
+					let resolveNextChange = (transaction: DbTransaction) => {
+						if (j < toResolveArray.length) {
+							let keyValue = toResolveArray[j];
+							j++;
+							resolve(transaction, table, keyValue, resolveNextChange);
+						}
+						else {
+							promiseResolve();
+						}
+					};
+					
+					resolveNextChange(transaction);
+				};
+			
+				this.db.transaction(insertNextChange);
 			});
 		}
 	
 		find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]> {
-			return this.db.readTransaction((transaction: DbTransaction): Promise<any> => {
-				let q = assign({}, query, {
-					[internal_column_deleted]: false,
-					[internal_column_latest]: true,
+			return new Promise((resolve: Resolver<Element[]>) => {
+				this.db.readTransaction((transaction: DbTransaction) => {
+					let q = assign({}, query, {
+						[internal_column_deleted]: false,
+						[internal_column_latest]: true,
+					});
+					runQuery(transaction, table, q, opts, table.spec.clazz, (transaction: DbTransaction, results: Element[]) => {
+						resolve(results);
+					});
 				});
-				return runQuery(transaction, table, q, opts, table.spec.clazz);
 			});
 		}
 	}
@@ -450,7 +493,7 @@ namespace Updraft {
 		return matches[1].split(",").map((x: string) => x.trim());
 	}
 	
-	function createTable(transaction: DbTransaction, name: string, columns: ColumnSet): Promise<any> {
+	function createTable(transaction: DbTransaction, name: string, columns: ColumnSet, nextCallback: DbTransactionCallback): void {
 		let cols: string[] = [];
 		let pk: string[] = [];
 		for (let col in columns) {
@@ -473,14 +516,14 @@ namespace Updraft {
 		}
 		verify(pk.length, "table %s has no keys", name);
 		cols.push("PRIMARY KEY(" + pk.join(", ")  + ")");
-		return transaction.executeSql("CREATE TABLE " + name + " (" + cols.join(", ") + ")");
+		transaction.executeSql("CREATE TABLE " + name + " (" + cols.join(", ") + ")", [], nextCallback);
 	}
 	
-	function dropTable(transaction: DbTransaction, name: string): Promise<any> {
-		return transaction.executeSql("DROP TABLE " + name);
+	function dropTable(transaction: DbTransaction, name: string, nextCallback: DbTransactionCallback): void {
+		transaction.executeSql("DROP TABLE IF EXISTS " + name, [], nextCallback);
 	}
 	
-	function createIndices(transaction: DbTransaction, schema: Schema, spec: TableSpecAny, force: boolean = false): Promise<any> {
+	function createIndices(transaction: DbTransaction, schema: Schema, spec: TableSpecAny, force: boolean, nextCallback: DbTransactionCallback): void {
 		let indicesEqual = function(a: string[], b: string[]) {
 			if (a.length != b.length) {
 				return false;
@@ -492,14 +535,14 @@ namespace Updraft {
 			}
 			return true;
 		};
-	
-		let p = Promise.resolve();
+
 		let oldIndices = (spec.name in schema) ? schema[spec.name].indices : [];
 		let newIndices = spec.indices;
 		let getIndexName = function(indices: string[]): string {
 				return "index_" + spec.name + "__" + indices.join("_");
 		};
-	
+
+		let stmts: DbStatement[] = [];
 		oldIndices.forEach((value: string[], i: number) => {
 			let drop = true;
 	
@@ -511,10 +554,10 @@ namespace Updraft {
 			}
 	
 			if (drop) {
-				p = p.then(() => transaction.executeSql("DROP INDEX IF EXISTS " + getIndexName(oldIndices[i])));
+				stmts.push({ sql: "DROP INDEX IF EXISTS " + getIndexName(oldIndices[i]) });
 			}
 		});
-	
+
 		newIndices.forEach((value: string[], j: number) => {
 			let create = true;
 	
@@ -527,76 +570,75 @@ namespace Updraft {
 	
 			if (create || force) {
 				let index = newIndices[j];
-				let sql = "CREATE INDEX IF NOT EXISTS " + getIndexName(index) + " ON " + spec.name + " (" + index.join(", ") + ")";
-				p = p.then(() => transaction.executeSql(sql));
+				stmts.push({ sql: "CREATE INDEX IF NOT EXISTS " + getIndexName(index) + " ON " + spec.name + " (" + index.join(", ") + ")" });
 			}
 		});
-	
-		return p;
+
+		DbExecuteSequence(transaction, stmts, nextCallback);
 	}
 	
-	function copyData(transaction: DbTransaction, oldName: string, newName: string, oldColumns: ColumnSet, newColumns: ColumnSet, renamedColumns: RenamedColumnSet): Promise<any> {
+	function copyData(transaction: DbTransaction, oldName: string, newName: string, oldColumns: ColumnSet, newColumns: ColumnSet, renamedColumns: RenamedColumnSet, nextCallback: DbTransactionCallback): void {
 		let oldTableColumns = Object.keys(oldColumns).filter(col => (col in newColumns) || (col in renamedColumns));
 		let newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
-		let p2 = Promise.resolve();
 		/* istanbul ignore else */
 		if (oldTableColumns.length && newTableColumns.length) {
 			let stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
 			stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
-			p2 = transaction.executeSql(stmt);
+			transaction.executeSql(stmt, [], nextCallback);
 		}
-		return p2;
+		else {
+			nextCallback(transaction);
+		}
 	}
 	
-	function migrateChangeTable(transaction: DbTransaction, changeTableName: string, oldColumns: ColumnSet, newColumns: ColumnSet, renamedColumns: RenamedColumnSet) {
+	function migrateChangeTable(transaction: DbTransaction, changeTableName: string, oldColumns: ColumnSet, newColumns: ColumnSet, renamedColumns: RenamedColumnSet, nextCallback: DbTransactionCallback): void {
 		let deletedColumns = Object.keys(oldColumns).filter(col => !(col in newColumns) && !(col in renamedColumns));
-		let p2 = Promise.resolve();
 		/* istanbul ignore else */
 		if (!isEmpty(renamedColumns) || deletedColumns) {
-			p2 = p2.then(() => {
-				return transaction.each(
-					"SELECT " + ROWID + ", change"
-					+ " FROM " + changeTableName,
-					[],
-					(selectChangeTransaction: DbTransaction, row: any) => {
-						let change = fromText(row.change);
-						let changed = false;
-						for (let oldCol in renamedColumns) {
-							let newCol = renamedColumns[oldCol];
-							if (oldCol in change) {
-								change[newCol] = change[oldCol];
-								delete change[oldCol];
-								changed = true;
-							}
-						}
-						for (let oldCol of deletedColumns) {
-							if (oldCol in change) {
-								delete change[oldCol];
-								changed = true;
-							}
-						}
-						if (changed) {
-							if (!isEmpty(change)) {
-								return selectChangeTransaction.executeSql(
-									"UPDATE " + changeTableName
-									+ " SET change=?"
-									+ " WHERE " + ROWID + "=?",
-									[toText(change), row[ROWID]]
-								);
-							}
-							else {
-								return selectChangeTransaction.executeSql(
-									"DELETE FROM " + changeTableName
-									+ " WHERE " + ROWID + "=?",
-									[row[ROWID]]
-								);
-							}
+			transaction.each(
+				"SELECT " + ROWID + ", change"
+				+ " FROM " + changeTableName,
+				[],
+				(selectChangeTransaction: DbTransaction, row: any) => {
+					let change = fromText(row.change);
+					let changed = false;
+					for (let oldCol in renamedColumns) {
+						let newCol = renamedColumns[oldCol];
+						if (oldCol in change) {
+							change[newCol] = change[oldCol];
+							delete change[oldCol];
+							changed = true;
 						}
 					}
-				);
-			});
+					for (let oldCol of deletedColumns) {
+						if (oldCol in change) {
+							delete change[oldCol];
+							changed = true;
+						}
+					}
+					if (changed) {
+						if (!isEmpty(change)) {
+							selectChangeTransaction.executeSql(
+								"UPDATE " + changeTableName
+								+ " SET change=?"
+								+ " WHERE " + ROWID + "=?",
+								[toText(change), row[ROWID]],
+								() => {}
+							);
+						}
+						else {
+							selectChangeTransaction.executeSql(
+								"DELETE FROM " + changeTableName
+								+ " WHERE " + ROWID + "=?",
+								[row[ROWID]],
+								() => {}
+							);
+						}
+					}
+				},
+				nextCallback
+			);
 		}
-		return p2;
 	}
 	
 	function verifyGetValue(element: any, field: string | number): any {
@@ -604,54 +646,54 @@ namespace Updraft {
 		return element[field];
 	}
 	
-	function insert(transaction: DbTransaction, tableName: string, columns: string[], values: any[]): Promise<any> {
+	function insert(transaction: DbTransaction, tableName: string, columns: string[], values: any[], nextCallback: DbTransactionCallback): void {
 		let questionMarks = values.map(v => "?");
 		verify(columns.indexOf(ROWID) == -1, "should not insert with rowid column");
-		return transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values);
+		transaction.executeSql("INSERT OR REPLACE INTO " + tableName + " (" + columns.join(", ") + ") VALUES (" + questionMarks.join(", ") + ")", values, nextCallback);
 	}
 	
-	function insertElement<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: Element): Promise<any> {
+	function insertElement<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: Element, nextCallback: DbTransactionCallback): void {
 		let keyValue = table.keyValue(element);
 		let columns = selectableColumns(table.spec, element);
 		let values: any[] = columns.map(col => serializeValue(table.spec, col, element[col]));
 		let time = verifyGetValue(element, internal_column_time);
 		
-		let promises: Promise<any>[] = [];
-		promises.push(insert(transaction, table.spec.name, columns, values));
-		
-		// insert set values
-		Object.keys(table.spec.columns).forEach(function insertElementEachColumn(col: string) {
-			let column = table.spec.columns[col];
-			if (column.type == ColumnType.set && (col in element)) {
-				let set: Set<any> = element[col];
-				if (set.size) {
-					let setValues: any[] = [];
-					let placeholders: string[] = [];
-					set.forEach((value: any) => {
-						placeholders.push("(?, ?, ?)");
-						setValues.push(time, table.keyValue(element), column.element.serialize(value));
-					});
-					let p = transaction.executeSql(
-						"INSERT INTO " + getSetTableName(table.spec.name, col)
-						+ " (time, key, value)"
-						+ " VALUES " + placeholders.join(", ")
-						, setValues);
-					promises.push(p);
+		insert(transaction, table.spec.name, columns, values, (transaction: DbTransaction) => {
+			// insert set values
+			let stmts: DbStatement[] = [];
+			Object.keys(table.spec.columns).forEach(function insertElementEachColumn(col: string) {
+				let column = table.spec.columns[col];
+				if (column.type == ColumnType.set && (col in element)) {
+					let set: Set<any> = element[col];
+					if (set.size) {
+						let setValues: any[] = [];
+						let placeholders: string[] = [];
+						set.forEach((value: any) => {
+							placeholders.push("(?, ?, ?)");
+							setValues.push(time, table.keyValue(element), column.element.serialize(value));
+						});
+						stmts.push({
+							sql: "INSERT INTO " + getSetTableName(table.spec.name, col)
+								+ " (time, key, value)"
+								+ " VALUES " + placeholders.join(", "),
+							params: setValues
+						});
+					}
 				}
-			}
+			});
+			
+			DbExecuteSequence(transaction, stmts, nextCallback);
 		});
-		
-		return Promise.all(promises);
 	}
 	
-	function resolve<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<any> {
-		return selectBaseline(transaction, table, keyValue).then(function resolveSelectBaselineCallback(baseline: BaselineInfo<Element>) {
-			return getChanges(transaction, table, baseline).then(function resolveGetChangesCallback(changes: ChangeTableRow[]) {
+	function resolve<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, nextCallback: DbTransactionCallback): void {
+		selectBaseline(transaction, table, keyValue, (transaction: DbTransaction, baseline: BaselineInfo<Element>) => {
+			getChanges(transaction, table, baseline, (transaction: DbTransaction, changes: ChangeTableRow[]) => {
 				let mutation = applyChanges(baseline, changes, table.spec);
 				let promises: Promise<any>[] = [];
 				if (!mutation.isChanged) {
 					// mark it as latest (and others as not)
-					return setLatest(transaction, table, keyValue, baseline.rowid);
+					setLatest(transaction, table, keyValue, baseline.rowid, nextCallback);
 				}
 				else {
 					// invalidate old latest rows
@@ -662,15 +704,15 @@ namespace Updraft {
 						[internal_column_composed]: {$set: true}
 					});
 					
-					return Promise.resolve()
-						.then(() => invalidateLatest(transaction, table, keyValue))
-						.then(() => insertElement(transaction, table, element));
+					invalidateLatest(transaction, table, keyValue, (transaction: DbTransaction) => {
+						insertElement(transaction, table, element, nextCallback);
+					});
 				}
 			});
 		});
 	}
 	
-	function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Element, any, Query>, query: Query, opts: FindOpts, clazz: new (props: Element) => Element): Promise<Element[]> {
+	function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Element, any, Query>, query: Query, opts: FindOpts, clazz: new (props: Element) => Element, resultCallback: DbCallback<number | Element[]>): void {
 		opts = opts || {};
 	
 		const numericConditions = {
@@ -815,28 +857,26 @@ namespace Updraft {
 			stmt += " OFFSET " + opts.offset;
 		}
 	
-		return transaction.executeSql(stmt, values, (tx2: DbTransaction, rows: any[]) => {
+		transaction.executeSql(stmt, values, (tx2: DbTransaction, rows: any[]) => {
 			if (opts.count) {
 				let count = parseInt(rows[0][COUNT], 10);
-				return count;
+				resultCallback(transaction, count);
 			}
 			else {
-				let promises = rows.map((element: Element) => loadExternals(transaction, table, element, opts.fields));
-				return Promise.all(promises)
-					.then(() => {
-						let results: Element[] = [];
-						for (let i = 0; i < rows.length; i++) {
-							let row = deserializeRow<Element>(table.spec, rows[i]);
-							for (let col in internalColumn) {
-								if (!opts.fields || !(col in opts.fields)) {
-									delete row[col];
-								}
+				loadAllExternals(transaction, rows, table, opts.fields, (transaction: DbTransaction) => {
+					let results: Element[] = [];
+					for (let i = 0; i < rows.length; i++) {
+						let row = deserializeRow<Element>(table.spec, rows[i]);
+						for (let col in internalColumn) {
+							if (!opts.fields || !(col in opts.fields)) {
+								delete row[col];
 							}
-							let obj = clazz ? new clazz(row) : row;
-							results.push(obj);
 						}
-						return results;
-					});
+						let obj = clazz ? new clazz(row) : row;
+						results.push(obj);
+					}
+					resultCallback(transaction, results);
+				});
 			}
 		});
 	}
@@ -847,7 +887,7 @@ namespace Updraft {
 		return ret;
 	}
 	
-	function selectBaseline<Element, Query>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<BaselineInfo<Element>> {
+	function selectBaseline<Element, Query>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, resultCallback: DbCallback<BaselineInfo<Element>>): void {
 		let fieldSpec = <FieldSpec>{
 			[ROWID]: true,
 			[internal_column_time]: true,
@@ -866,31 +906,48 @@ namespace Updraft {
 			limit: 1
 		};
 	
-		return runQuery(transaction, table, query, opts, null)
-			.then((baselineResults: any[]) => {
-				let baseline: BaselineInfo<Element> = {
-					element: <Element>{},
-					time: 0,
-					rowid: -1
-				};
-				if (baselineResults.length) {
-					let element = <Element>baselineResults[0];
-					baseline.element = element;
-					baseline.time = popValue(element, internal_column_time);
-					baseline.rowid = popValue(element, ROWID);
-				}
-				else {
-					baseline.element[table.key] = keyValue;
-				}
-				
-				return baseline;
-			});
+		runQuery(transaction, table, query, opts, null, (transaction: DbTransaction, baselineResults: any[]) => {
+			let baseline: BaselineInfo<Element> = {
+				element: <Element>{},
+				time: 0,
+				rowid: -1
+			};
+			if (baselineResults.length) {
+				let element = <Element>baselineResults[0];
+				baseline.element = element;
+				baseline.time = popValue(element, internal_column_time);
+				baseline.rowid = popValue(element, ROWID);
+			}
+			else {
+				baseline.element[table.key] = keyValue;
+			}
+			resultCallback(transaction, baseline);
+		});
 	}
 	
-	function loadExternals<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: any, fields: FieldSpec): Promise<any> {
-		let promises: Promise<any>[] = [];
-		Object.keys(table.spec.columns).forEach(function loadExternalsForEach(col: string) {
-			if (!fields || (col in fields && fields[col])) {
+	function loadAllExternals<Element>(transaction: DbTransaction, elements: Element[], table: Table<Element, any, any>, fields: FieldSpec, nextCallback: DbTransactionCallback) {
+		let i = 0;
+		let loadNextElement = (transaction: DbTransaction) => {
+			if (i < elements.length) {
+				let element = elements[i];
+				i++;
+				loadExternals(transaction, table, element, fields, loadNextElement);
+			}
+			else {
+				nextCallback(transaction);
+			}
+		};
+		
+		loadNextElement(transaction);
+	};
+	
+	function loadExternals<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: any, fields: FieldSpec, nextCallback: DbTransactionCallback) {
+		let cols: string[] = Object.keys(table.spec.columns).filter(col => !fields || (col in fields && fields[col]));
+		let i = 0;
+		let loadNextField = (transaction: DbTransaction) => {
+			if (i < cols.length) {
+				let col: string = cols[i];
+				i++;
 				let column = table.spec.columns[col];
 				if (column.type == ColumnType.set) {
 					let set: Set<any> = element[col] = element[col] || new Set<any>();
@@ -902,27 +959,33 @@ namespace Updraft {
 						+ " WHERE key=?"
 						+ " AND time=?",
 						[keyValue, time],
-						function loadExternalsSqlCallback(tx: DbTransaction, results: SetTableRow[]) {
+						(tx: DbTransaction, results: SetTableRow[]) => {
 							for (let row of results) {
 								set.add(column.element.deserialize(row.value));
 							}
+							loadNextField(transaction);
 						}
 					);
-					promises.push(p);
+				} else {
+					loadNextField(transaction);
 				}
 			}
-		});
-		return Promise.all(promises);
+			else {
+				nextCallback(transaction);
+			}
+		};
+		loadNextField(transaction);
 	}
 	
-	function getChanges<Element>(transaction: DbTransaction, table: Table<Element, any, any>, baseline: BaselineInfo<Element>): Promise<ChangeTableRow[]> {
+	function getChanges<Element>(transaction: DbTransaction, table: Table<Element, any, any>, baseline: BaselineInfo<Element>, resultCallback: DbCallback<ChangeTableRow[]>): void {
 		let keyValue = verifyGetValue(baseline.element, table.key);
-		return transaction.executeSql(
+		transaction.executeSql(
 			"SELECT key, time, change"
 			+ " FROM " + getChangeTableName(table.spec.name)
 			+ " WHERE key=? AND time>=?"
 			+ " ORDER BY time ASC",
-			[keyValue, baseline.time]);
+			[keyValue, baseline.time],
+			resultCallback);
 	}
 	
 	interface MutationResult<Element> {
@@ -944,20 +1007,22 @@ namespace Updraft {
 		return { element, time, isChanged };
 	}
 	
-	function setLatest<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, rowid: number): Promise<any> {
-		return transaction.executeSql(
+	function setLatest<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, rowid: number, nextCallback: DbTransactionCallback): void {
+		transaction.executeSql(
 			"UPDATE " + table.spec.name
 			+ " SET " + internal_column_latest + "=(" + ROWID + "=" + rowid + ")"
 			+ " WHERE " + table.key + "=?",
-			[keyValue]);
+			[keyValue],
+			nextCallback);
 	}
 	
-	function invalidateLatest<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType): Promise<any> {
-		return transaction.executeSql(
+	function invalidateLatest<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, nextCallback: DbTransactionCallback): void {
+		transaction.executeSql(
 			"UPDATE " + table.spec.name
 			+ " SET " + internal_column_latest + "=0"
 			+ " WHERE " + table.key + "=?",
-			[keyValue]);
+			[keyValue],
+			nextCallback);
 	}
 	
 	function selectableColumns(spec: TableSpecAny, cols: { [key: string]: any }): string[] {
