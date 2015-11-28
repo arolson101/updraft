@@ -109,7 +109,7 @@ gulp.task("lint", function () {
 });
 
 
-gulp.task("test", ["test-node"/*, "test-phantomjs"*/]);
+gulp.task("test", ["test-node", "test-phantomjs"]);
 
 
 gulp.task("test-node", ["compile"], function () {
@@ -119,8 +119,23 @@ gulp.task("test-node", ["compile"], function () {
 
 
 gulp.task('test-phantomjs', ["compile"], function() {
-     return gulp.src('./test/test.html')
-        .pipe(mochaPhantomJS({ 'webSecurityEnabled': false, "outputEncoding": "utf8", "localToRemoteUrlAccessEnabled": true }));
+	return gulp.src('./test/test.html')
+		.pipe(mochaPhantomJS({
+			"webSecurityEnabled": false,
+			"outputEncoding": "utf8",
+			"localToRemoteUrlAccessEnabled": true
+		}));
+});
+
+
+gulp.task('test-phantomjs-quiet', ["compile"], function() {
+	return gulp.src('./test/test.html')
+		.pipe(mochaPhantomJS({
+			"reporter": "dot",
+			"webSecurityEnabled": false,
+			"outputEncoding": "utf8",
+			"localToRemoteUrlAccessEnabled": true
+		}));
 });
 
 
@@ -131,4 +146,4 @@ gulp.task("sync", function() {
 });
 
 
-gulp.task("default", ["compile", "coverage", "lint", "typedoc", "sync"]);
+gulp.task("default", ["compile", "coverage", "test-phantomjs-quiet", "lint", "typedoc", "sync"]);

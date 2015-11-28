@@ -12,6 +12,10 @@ namespace Updraft {
 		parallelize(callback?: () => void): void;
 	}
 	
+	interface SQLiteTransaction extends DbTransaction {
+		errorCallback: DbErrorCallback;
+	}
+	
 	
 	class SQLiteWrapper implements DbWrapper {
 		private db: IDatabase;
@@ -30,12 +34,17 @@ namespace Updraft {
 			});
 		}
 	
-		executeSql(tx: DbTransaction, sql: string, params: (string | number)[], callback: DbResultsCallback): void {
+		executeSql(tx: SQLiteTransaction, sql: string, params: (string | number)[], callback: DbResultsCallback): void {
 			this.db.all(sql, params, (err: Error, rows: any[]) => {
 				/* istanbul ignore if */
 				if (err) {
 					console.log("SQLiteWrapper.all(): error executing '" + sql + "': ", err);
-					throw err;
+					if (tx.errorCallback) {
+						tx.errorCallback(err);
+					}
+					else {
+						throw err;
+					}
 				}
 				else {
 					callback(tx, rows);
@@ -43,11 +52,17 @@ namespace Updraft {
 			});
 		}
 			
-		each(tx: DbTransaction, sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void {
+		each(tx: SQLiteTransaction, sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void {
 			this.db.each(sql, params, (err: Error, row: any) => {
 				/* istanbul ignore if */
 				if (err) {
 					console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
+					if (tx.errorCallback) {
+						tx.errorCallback(err);
+					}
+					else {
+						throw err;
+					}
 				}
 				else {
 					callback(tx, row);
@@ -57,7 +72,12 @@ namespace Updraft {
 				/* istanbul ignore if */
 				if (err) {
 					console.log("SQLiteWrapper.each(): error executing '" + sql + "': ", err);
-					//reject(err);
+					if (tx.errorCallback) {
+						tx.errorCallback(err);
+					}
+					else {
+						throw err;
+					}
 				}
 				else {
 					final(tx);
@@ -65,10 +85,11 @@ namespace Updraft {
 			});
 		}
 	
-		transaction(callback: DbTransactionCallback): void {
+		transaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
 			let result: any = undefined;
 			this.run("BEGIN TRANSACTION");
-			let tx: DbTransaction = {
+			let tx: SQLiteTransaction = {
+				errorCallback: errorCallback,
 				executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
 					this.executeSql(tx, sql, params, resultsCb);
 				},
@@ -85,8 +106,8 @@ namespace Updraft {
 				// })
 		}
 	
-		readTransaction(callback: DbTransactionCallback): void {
-			this.transaction(callback);
+		readTransaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
+			this.transaction(callback, errorCallback);
 		}
 	}
 	

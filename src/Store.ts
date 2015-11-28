@@ -125,7 +125,7 @@ namespace Updraft {
 			return Promise.resolve()
 				.then(() => this.readSchema())
 				.then((schema) => {
-					return new Promise((resolve) => {
+					return new Promise((resolve, reject) => {
 						let i = 0;
 						let act = (transaction: DbTransaction) => {
 							if (i < this.tables.length) {
@@ -137,7 +137,7 @@ namespace Updraft {
 								this.loadKeyValues(transaction, resolve);
 							}
 						};
-						this.db.transaction(act);
+						this.db.transaction(act, reject);
 					});
 				})
 				;
@@ -146,7 +146,7 @@ namespace Updraft {
 		readSchema(): Promise<Schema> {
 			verify(this.db, "readSchema(): not opened");
 			
-			return new Promise((resolve: Resolver<Schema>) => {
+			return new Promise((resolve: Resolver<Schema>, reject: DbErrorCallback) => {
 				this.db.readTransaction((transaction: DbTransaction) => {
 					return transaction.executeSql("SELECT name, tbl_name, type, sql FROM sqlite_master", [], (tx: DbTransaction, resultSet: any[]) => {
 						let schema: Schema = {};
@@ -177,7 +177,7 @@ namespace Updraft {
 		
 						resolve(schema);
 					});
-				});
+				}, reject);
 			});
 		}
 
@@ -222,20 +222,17 @@ namespace Updraft {
 	
 				if (recreateTable) {
 					// recreate and migrate data
-					let renameTable = function(transaction: DbTransaction, oldName: string, newName: string, nextCallback: DbTransactionCallback): void {
-						transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName, [], nextCallback);
-					};
 	
 					let tempTableName = "temp_" + spec.name;
 					let changeTableName = getChangeTableName(spec.name);
 	
-					dropTable(transaction, tempTableName, (transaction: DbTransaction) => {
-						createTable(transaction, tempTableName, spec.columns, (transaction: DbTransaction) => {
-							copyData(transaction, spec.name, tempTableName, oldColumns, newColumns, renamedColumns, (transaction: DbTransaction) => {
-								dropTable(transaction, spec.name, (transaction: DbTransaction) => {
-									renameTable(transaction, tempTableName, spec.name, (transaction: DbTransaction) => {
-										migrateChangeTable(transaction, changeTableName, oldColumns, newColumns, renamedColumns, (transaction: DbTransaction) => {
-											createIndices(transaction, schema, spec, true, nextCallback);
+					dropTable(transaction, tempTableName, (tx2: DbTransaction) => {
+						createTable(tx2, tempTableName, spec.columns, (tx3: DbTransaction) => {
+							copyData(tx3, spec.name, tempTableName, oldColumns, newColumns, renamedColumns, (tx4: DbTransaction) => {
+								dropTable(tx4, spec.name, (tx5: DbTransaction) => {
+									renameTable(tx5, tempTableName, spec.name, (tx6: DbTransaction) => {
+										migrateChangeTable(tx6, changeTableName, oldColumns, newColumns, renamedColumns, (tx7: DbTransaction) => {
+											createIndices(tx7, schema, spec, true, nextCallback);
 										});
 									});
 								});
@@ -252,8 +249,8 @@ namespace Updraft {
 						stmts.push({sql: "ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl});
 					});
 					
-					DbExecuteSequence(transaction, stmts, (transaction: DbTransaction) => {
-						createIndices(transaction, schema, spec, false, nextCallback);
+					DbExecuteSequence(transaction, stmts, (tx2: DbTransaction) => {
+						createIndices(tx2, schema, spec, false, nextCallback);
 					});
 				}
 				else {
@@ -263,19 +260,19 @@ namespace Updraft {
 			}
 			else {
 				// create new table
-				createTable(transaction, spec.name, spec.columns, (transaction: DbTransaction) => {
-					createIndices(transaction, schema, spec, true, nextCallback);
+				createTable(transaction, spec.name, spec.columns, (tx2: DbTransaction) => {
+					createIndices(tx2, schema, spec, true, nextCallback);
 				});
 			}
 		}
 		
 		private loadKeyValues(transaction: DbTransaction, nextCallback: DbTransactionCallback): void {
-			return runQuery(transaction, this.keyValueTable, {}, undefined, undefined, (transaction: DbTransaction, rows: KeyValue[]) => {
+			return runQuery(transaction, this.keyValueTable, {}, undefined, undefined, (tx2: DbTransaction, rows: KeyValue[]) => {
 				this.keyValues = {};
 				rows.forEach((row: KeyValue) => {
 					this.keyValues[row.key] = row.value;
 				});
-				nextCallback(transaction);
+				nextCallback(tx2);
 			});
 		}
 
@@ -292,7 +289,7 @@ namespace Updraft {
 			verify(this.db, "apply(): not opened");
 			let changeTable = getChangeTableName(table.spec.name);
 
-			return new Promise((promiseResolve) => {
+			return new Promise((promiseResolve, reject) => {
 				let i = 0;
 				let toResolve = new Set<KeyType>();
 				let insertNextChange: DbTransactionCallback = null;
@@ -354,11 +351,11 @@ namespace Updraft {
 					let j = 0;
 					let toResolveArray: KeyType[] = [];
 					toResolve.forEach((keyValue: KeyType) => toResolveArray.push(keyValue));
-					let resolveNextChange = (transaction: DbTransaction) => {
+					let resolveNextChange = (tx2: DbTransaction) => {
 						if (j < toResolveArray.length) {
 							let keyValue = toResolveArray[j];
 							j++;
-							resolve(transaction, table, keyValue, resolveNextChange);
+							resolve(tx2, table, keyValue, resolveNextChange);
 						}
 						else {
 							promiseResolve();
@@ -368,21 +365,21 @@ namespace Updraft {
 					resolveNextChange(transaction);
 				};
 			
-				this.db.transaction(insertNextChange);
+				this.db.transaction(insertNextChange, reject);
 			});
 		}
 	
 		find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]> {
-			return new Promise((resolve: Resolver<Element[]>) => {
+			return new Promise((resolve: Resolver<Element[]>, reject: DbErrorCallback) => {
 				this.db.readTransaction((transaction: DbTransaction) => {
 					let q = assign({}, query, {
 						[internal_column_deleted]: false,
 						[internal_column_latest]: true,
 					});
-					runQuery(transaction, table, q, opts, table.spec.clazz, (transaction: DbTransaction, results: Element[]) => {
+					runQuery(transaction, table, q, opts, table.spec.clazz, (tx2: DbTransaction, results: Element[]) => {
 						resolve(results);
 					});
-				});
+				}, reject);
 			});
 		}
 	}
@@ -519,6 +516,10 @@ namespace Updraft {
 		transaction.executeSql("CREATE TABLE " + name + " (" + cols.join(", ") + ")", [], nextCallback);
 	}
 	
+	function renameTable(transaction: DbTransaction, oldName: string, newName: string, nextCallback: DbTransactionCallback): void {
+		transaction.executeSql("ALTER TABLE " + oldName + " RENAME TO " + newName, [], nextCallback);
+	}
+
 	function dropTable(transaction: DbTransaction, name: string, nextCallback: DbTransactionCallback): void {
 		transaction.executeSql("DROP TABLE IF EXISTS " + name, [], nextCallback);
 	}
@@ -658,7 +659,7 @@ namespace Updraft {
 		let values: any[] = columns.map(col => serializeValue(table.spec, col, element[col]));
 		let time = verifyGetValue(element, internal_column_time);
 		
-		insert(transaction, table.spec.name, columns, values, (transaction: DbTransaction) => {
+		insert(transaction, table.spec.name, columns, values, (tx2: DbTransaction) => {
 			// insert set values
 			let stmts: DbStatement[] = [];
 			Object.keys(table.spec.columns).forEach(function insertElementEachColumn(col: string) {
@@ -666,34 +667,30 @@ namespace Updraft {
 				if (column.type == ColumnType.set && (col in element)) {
 					let set: Set<any> = element[col];
 					if (set.size) {
-						let setValues: any[] = [];
-						let placeholders: string[] = [];
 						set.forEach((value: any) => {
-							placeholders.push("(?, ?, ?)");
-							setValues.push(time, table.keyValue(element), column.element.serialize(value));
-						});
-						stmts.push({
-							sql: "INSERT INTO " + getSetTableName(table.spec.name, col)
-								+ " (time, key, value)"
-								+ " VALUES " + placeholders.join(", "),
-							params: setValues
+							stmts.push({
+								sql: "INSERT INTO " + getSetTableName(table.spec.name, col)
+									+ " (time, key, value)"
+									+ " VALUES (?, ?, ?)",
+								params: [time, table.keyValue(element), column.element.serialize(value)]
+							});
 						});
 					}
 				}
 			});
 			
-			DbExecuteSequence(transaction, stmts, nextCallback);
+			DbExecuteSequence(tx2, stmts, nextCallback);
 		});
 	}
 	
 	function resolve<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, nextCallback: DbTransactionCallback): void {
-		selectBaseline(transaction, table, keyValue, (transaction: DbTransaction, baseline: BaselineInfo<Element>) => {
-			getChanges(transaction, table, baseline, (transaction: DbTransaction, changes: ChangeTableRow[]) => {
+		selectBaseline(transaction, table, keyValue, (tx2: DbTransaction, baseline: BaselineInfo<Element>) => {
+			getChanges(tx2, table, baseline, (tx3: DbTransaction, changes: ChangeTableRow[]) => {
 				let mutation = applyChanges(baseline, changes, table.spec);
 				let promises: Promise<any>[] = [];
 				if (!mutation.isChanged) {
 					// mark it as latest (and others as not)
-					setLatest(transaction, table, keyValue, baseline.rowid, nextCallback);
+					setLatest(tx3, table, keyValue, baseline.rowid, nextCallback);
 				}
 				else {
 					// invalidate old latest rows
@@ -704,8 +701,8 @@ namespace Updraft {
 						[internal_column_composed]: {$set: true}
 					});
 					
-					invalidateLatest(transaction, table, keyValue, (transaction: DbTransaction) => {
-						insertElement(transaction, table, element, nextCallback);
+					invalidateLatest(tx3, table, keyValue, (tx4: DbTransaction) => {
+						insertElement(tx4, table, element, nextCallback);
 					});
 				}
 			});
@@ -863,7 +860,7 @@ namespace Updraft {
 				resultCallback(transaction, count);
 			}
 			else {
-				loadAllExternals(transaction, rows, table, opts.fields, (transaction: DbTransaction) => {
+				loadAllExternals(transaction, rows, table, opts.fields, (tx3: DbTransaction) => {
 					let results: Element[] = [];
 					for (let i = 0; i < rows.length; i++) {
 						let row = deserializeRow<Element>(table.spec, rows[i]);
@@ -875,7 +872,7 @@ namespace Updraft {
 						let obj = clazz ? new clazz(row) : row;
 						results.push(obj);
 					}
-					resultCallback(transaction, results);
+					resultCallback(tx3, results);
 				});
 			}
 		});
@@ -906,7 +903,7 @@ namespace Updraft {
 			limit: 1
 		};
 	
-		runQuery(transaction, table, query, opts, null, (transaction: DbTransaction, baselineResults: any[]) => {
+		runQuery(transaction, table, query, opts, null, (tx2: DbTransaction, baselineResults: any[]) => {
 			let baseline: BaselineInfo<Element> = {
 				element: <Element>{},
 				time: 0,
@@ -921,20 +918,20 @@ namespace Updraft {
 			else {
 				baseline.element[table.key] = keyValue;
 			}
-			resultCallback(transaction, baseline);
+			resultCallback(tx2, baseline);
 		});
 	}
 	
 	function loadAllExternals<Element>(transaction: DbTransaction, elements: Element[], table: Table<Element, any, any>, fields: FieldSpec, nextCallback: DbTransactionCallback) {
 		let i = 0;
-		let loadNextElement = (transaction: DbTransaction) => {
+		let loadNextElement = (tx2: DbTransaction) => {
 			if (i < elements.length) {
 				let element = elements[i];
 				i++;
-				loadExternals(transaction, table, element, fields, loadNextElement);
+				loadExternals(tx2, table, element, fields, loadNextElement);
 			}
 			else {
-				nextCallback(transaction);
+				nextCallback(tx2);
 			}
 		};
 		
@@ -944,7 +941,7 @@ namespace Updraft {
 	function loadExternals<Element>(transaction: DbTransaction, table: Table<Element, any, any>, element: any, fields: FieldSpec, nextCallback: DbTransactionCallback) {
 		let cols: string[] = Object.keys(table.spec.columns).filter(col => !fields || (col in fields && fields[col]));
 		let i = 0;
-		let loadNextField = (transaction: DbTransaction) => {
+		let loadNextField = (tx2: DbTransaction) => {
 			if (i < cols.length) {
 				let col: string = cols[i];
 				i++;
@@ -953,7 +950,7 @@ namespace Updraft {
 					let set: Set<any> = element[col] = element[col] || new Set<any>();
 					let keyValue = verifyGetValue(element, table.key);
 					let time = verifyGetValue(element, internal_column_time);
-					let p = transaction.executeSql(
+					let p = tx2.executeSql(
 						"SELECT value "
 						+ "FROM " + getSetTableName(table.spec.name, col)
 						+ " WHERE key=?"
@@ -963,15 +960,15 @@ namespace Updraft {
 							for (let row of results) {
 								set.add(column.element.deserialize(row.value));
 							}
-							loadNextField(transaction);
+							loadNextField(tx2);
 						}
 					);
 				} else {
-					loadNextField(transaction);
+					loadNextField(tx2);
 				}
 			}
 			else {
-				nextCallback(transaction);
+				nextCallback(tx2);
 			}
 		};
 		loadNextField(transaction);

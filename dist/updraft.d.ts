@@ -101,9 +101,12 @@ declare namespace Updraft {
         params?: (string | number)[];
     }
     function DbExecuteSequence(transaction: DbTransaction, statements: DbStatement[], nextCallback: DbTransactionCallback): void;
+    interface DbErrorCallback {
+        (error: Error): void;
+    }
     interface DbWrapper {
-        transaction(callback: DbTransactionCallback): void;
-        readTransaction(callback: DbTransactionCallback): void;
+        transaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void;
+        readTransaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void;
     }
     interface DbTransactionCallback {
         (transaction: DbTransaction): void;

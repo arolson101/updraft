@@ -71,4 +71,5 @@ interface SQLError {
   TIMEOUT_ERR?: number;
   code?: number;
   message: string;
+  name: string; // not in spec, but for compatibility with Error
 }

@@ -6,6 +6,7 @@ namespace Updraft {
 
 	interface WebsqlTransaction extends DbTransaction {
 		realTransaction: SQLTransaction;
+		errorCallback: DbErrorCallback;
 	}
 	
 	
@@ -54,18 +55,28 @@ namespace Updraft {
 							results.push(row);
 						}
 	
-						callback(this.wrapTransaction(transaction), results);
+						callback(this.wrapTransaction(transaction, tx.errorCallback), results);
 					},
 					(transaction: SQLTransaction, error: SQLError) => {
 						console.error("error executing '" + this.stringify(sql, params) + "': ", error);
-						throw error;
+						if (tx.errorCallback) {
+							tx.errorCallback(error);
+						}
+						else {
+							throw error;
+						}
 						return true;
 					}
 				);
 			}
-			catch(error) {
+			catch (error) {
 				console.error("error executing '" + this.stringify(sql, params) + "': ", error);
-				throw error;
+				if (tx.errorCallback) {
+					tx.errorCallback(error);
+				}
+				else {
+					throw error;
+				}
 			}
 		}
 	
@@ -82,19 +93,25 @@ namespace Updraft {
 						}
 					}
 
-					final(this.wrapTransaction(transaction));
+					final(this.wrapTransaction(transaction, tx.errorCallback));
 				},
 				(transaction: SQLTransaction, error: SQLError) => {
 					console.error("error executing '" + this.stringify(sql, params) + "': ", error);
-					throw error;
+					if (tx.errorCallback) {
+						tx.errorCallback(error);
+					}
+					else {
+						throw error;
+					}
 					return true;
 				}
 			);
 		}
 	
-		private wrapTransaction(transaction: SQLTransaction): WebsqlTransaction {
+		private wrapTransaction(transaction: SQLTransaction, errorCallback: DbErrorCallback): WebsqlTransaction {
 			let tx: WebsqlTransaction = {
 				realTransaction: transaction,
+				errorCallback: errorCallback,
 				executeSql: (sql: string, params?: (string | number)[], callback?: DbResultsCallback): void => {
 					this.all(tx, sql, params, callback);
 				},
@@ -105,16 +122,16 @@ namespace Updraft {
 			return tx;
 		}
 	
-		transaction(callback: DbTransactionCallback): void {
+		transaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
 			this.db.transaction((transaction: SQLTransaction) => {
-				let tx = this.wrapTransaction(transaction);
+				let tx = this.wrapTransaction(transaction, errorCallback);
 				callback(tx);
 			});
 		}
 	
-		readTransaction(callback: DbTransactionCallback): void {
+		readTransaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
 			this.db.readTransaction((transaction: SQLTransaction) => {
-				let tx = this.wrapTransaction(transaction);
+				let tx = this.wrapTransaction(transaction, errorCallback);
 				callback(tx);
 			});
 		}

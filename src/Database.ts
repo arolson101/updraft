@@ -23,9 +23,13 @@ namespace Updraft {
 		act(transaction);
 	}
 	
+	export interface DbErrorCallback {
+		(error: Error): void;
+	}
+	
 	export interface DbWrapper {
-		transaction(callback: DbTransactionCallback): void;
-		readTransaction(callback: DbTransactionCallback): void;
+		transaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void;
+		readTransaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void;
 	}
 	
 	export interface DbTransactionCallback {

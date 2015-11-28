@@ -48,7 +48,7 @@ function purgeDb(db: Updraft.DbWrapper): Promise<any> {
 				});
 				Updraft.DbExecuteSequence(tx2, stmts, resolve);
 			});
-		})
+		}, reject);
 	});
 }
 
@@ -290,7 +290,7 @@ function populateData(db: Updraft.DbWrapper, count: number) {
 	let store = Updraft.createStore({ db: db });
 	let todoTable: TodoTable = store.createTable(todoTableSpec);
 	let p = Promise.resolve(); 
-	//p = p.then(() => purgeDb(db));
+	p = p.then(() => purgeDb(db));
 	p = p.then(() => store.open());
 	p = p.then(() => todoTable.add(...sampleTodos(count).map(todo => <TodoChange>{ time: 1, save: todo })));
 	p = p.then(() => todoTable.add(...sampleMutators(count).map(m => <TodoChange>{ time: 2, change: m })));
@@ -300,6 +300,7 @@ function populateData(db: Updraft.DbWrapper, count: number) {
 
 describe("table", function() {
 	//this.timeout(0);
+	this.slow(10000);
 	
 	describe("key/value store", function() {
 		it("saves and restores values", function() {
