@@ -6,6 +6,7 @@ namespace Updraft {
 	export type KeyType = string | number;
 	
 	export interface TableChange<Element, Mutator> {
+		table?: Table<Element, Mutator, any>;
 		time?: number;
 		delete?: KeyType;
 		change?: Mutator;

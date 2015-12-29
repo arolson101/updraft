@@ -690,9 +690,12 @@ var Updraft;
                 for (var _i = 0; _i < arguments.length; _i++) {
                     changes[_i - 0] = arguments[_i];
                 }
-                return _this.add.apply(_this, [table].concat(changes));
+                changes.forEach(function (change) { return change.table = table; });
+                return _this.add.apply(_this, changes);
             };
-            table.find = function (query, opts) { return _this.find(table, query, opts); };
+            table.find = function (query, opts) {
+                return _this.find(table, query, opts);
+            };
             (_a = this.tables).push.apply(_a, createInternalTableSpecs(table));
             this.tables.push(createChangeTableSpec(table));
             return table;
@@ -850,14 +853,14 @@ var Updraft;
             this.keyValues[key] = value;
             return this.keyValueTable.add({ save: { key: key, value: value } });
         };
-        Store.prototype.add = function (table) {
+        Store.prototype.add = function () {
             var _this = this;
             var changes = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                changes[_i - 1] = arguments[_i];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                changes[_i - 0] = arguments[_i];
             }
             Updraft.verify(this.db, "apply(): not opened");
-            var changeTable = getChangeTableName(table.spec.name);
+            ;
             return new Promise(function (promiseResolve, reject) {
                 var i = 0;
                 var toResolve = new Set();
@@ -867,13 +870,16 @@ var Updraft;
                     if (i < changes.length) {
                         var change = changes[i];
                         i++;
+                        var table = change.table;
+                        Updraft.verify(table, "change must specify table");
+                        var changeTable = getChangeTableName(table.spec.name);
                         var time = change.time || Date.now();
                         Updraft.verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
                         /* istanbul ignore else */
                         if (change.save) {
                             // append internal column values
                             var element = Updraft.assign({}, change.save, (_a = {}, _a[internal_column_time] = time, _a));
-                            toResolve.add(table.keyValue(element));
+                            toResolve.add({ table: table, key: table.keyValue(element) });
                             insertElement(transaction, table, element, insertNextChange);
                         }
                         else if (change.change || change.delete) {
@@ -897,7 +903,7 @@ var Updraft;
                             // insert into change table
                             var columns = Object.keys(changeRow);
                             var values = columns.map(function (k) { return changeRow[k]; });
-                            toResolve.add(changeRow.key);
+                            toResolve.add({ table: table, key: changeRow.key });
                             insert(transaction, changeTable, columns, values, insertNextChange);
                         }
                         else {
@@ -918,7 +924,7 @@ var Updraft;
                         if (j < toResolveArray.length) {
                             var keyValue = toResolveArray[j];
                             j++;
-                            resolve(tx2, table, keyValue, resolveNextChange);
+                            resolve(tx2, keyValue.table, keyValue.key, resolveNextChange);
                         }
                         else {
                             promiseResolve();

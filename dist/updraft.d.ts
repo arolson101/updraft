@@ -176,6 +176,7 @@ declare namespace Updraft {
 declare namespace Updraft {
     type KeyType = string | number;
     interface TableChange<Element, Mutator> {
+        table?: Table<Element, Mutator, any>;
         time?: number;
         delete?: KeyType;
         change?: Mutator;
@@ -241,7 +242,7 @@ declare namespace Updraft {
         private loadKeyValues(transaction, nextCallback);
         getValue(key: string): any;
         setValue(key: string, value: any): Promise<any>;
-        add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any>;
+        add(...changes: TableChange<any, any>[]): Promise<any>;
         find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]>;
     }
     function createStore(params: CreateStoreParams): Store;

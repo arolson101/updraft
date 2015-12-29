@@ -109,8 +109,13 @@ namespace Updraft {
 				verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
 			}
 			let table = new Table<Element, Mutator, Query>(tableSpec);
-			table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => this.add(table, ...changes);
-			table.find = (query: Query, opts?: FindOpts): Promise<Element[]> => this.find(table, query, opts);
+			table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => {
+				changes.forEach(change => change.table = table);
+				return this.add(...changes);
+			};
+			table.find = (query: Query, opts?: FindOpts): Promise<Element[]> => {
+				return this.find(table, query, opts);
+			};
 			this.tables.push(...createInternalTableSpecs(table));
 			this.tables.push(createChangeTableSpec(table));
 			return table;
@@ -285,13 +290,17 @@ namespace Updraft {
 			return this.keyValueTable.add({save: {key, value}});
 		}
 	
-		add<Element, Mutator>(table: Table<Element, Mutator, any>, ...changes: TableChange<Element, Mutator>[]): Promise<any> {
+		add(...changes: TableChange<any, any>[]): Promise<any> {
 			verify(this.db, "apply(): not opened");
-			let changeTable = getChangeTableName(table.spec.name);
+			
+			interface ResolveKey {
+				table: TableAny;
+				key: KeyType;
+			};
 
 			return new Promise((promiseResolve, reject) => {
 				let i = 0;
-				let toResolve = new Set<KeyType>();
+				let toResolve = new Set<ResolveKey>();
 				let insertNextChange: DbTransactionCallback = null;
 				let resolveChanges: DbTransactionCallback = null;
 
@@ -299,6 +308,9 @@ namespace Updraft {
 					if (i < changes.length) {
 						let change = changes[i];
 						i++;
+						const table = change.table;
+						verify(table, "change must specify table");
+						let changeTable = getChangeTableName(table.spec.name);
 						let time = change.time || Date.now();
 						verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
 						/* istanbul ignore else */
@@ -309,7 +321,7 @@ namespace Updraft {
 								change.save,
 								{ [internal_column_time]: time }
 							);
-							toResolve.add(table.keyValue(element));
+							toResolve.add({table, key: table.keyValue(element)});
 							insertElement(transaction, table, element, insertNextChange);
 						}
 						else if (change.change || change.delete) {
@@ -334,7 +346,7 @@ namespace Updraft {
 							// insert into change table
 							let columns = Object.keys(changeRow);
 							let values: any[] = columns.map(k => changeRow[k]);
-							toResolve.add(changeRow.key);
+							toResolve.add({table, key: changeRow.key});
 							insert(transaction, changeTable, columns, values, insertNextChange);
 						}
 						else {
@@ -349,13 +361,13 @@ namespace Updraft {
 				
 				resolveChanges = (transaction: DbTransaction) => {
 					let j = 0;
-					let toResolveArray: KeyType[] = [];
-					toResolve.forEach((keyValue: KeyType) => toResolveArray.push(keyValue));
+					let toResolveArray: ResolveKey[] = [];
+					toResolve.forEach((keyValue: ResolveKey) => toResolveArray.push(keyValue));
 					let resolveNextChange = (tx2: DbTransaction) => {
 						if (j < toResolveArray.length) {
 							let keyValue = toResolveArray[j];
 							j++;
-							resolve(tx2, table, keyValue, resolveNextChange);
+							resolve(tx2, keyValue.table, keyValue.key, resolveNextChange);
 						}
 						else {
 							promiseResolve();

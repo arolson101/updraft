@@ -1,6 +1,6 @@
 {
   "name": "updraft",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "main": "dist/updraft.min.js",
   "ignore": [
     "**/.*",
@@ -24,5 +24,9 @@
     "iCloud",
     "CloudKit"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/arolson101/updraft.git"
+  }
 }
