@@ -246,6 +246,9 @@ declare namespace Updraft {
         find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]>;
     }
     function createStore(params: CreateStoreParams): Store;
+    function makeSave<Element>(table: Updraft.Table<Element, any, any>, time: number): (save: Element) => TableChange<Element, any>;
+    function makeChange<Mutator>(table: Updraft.Table<any, Mutator, any>, time: number): (change: Mutator) => TableChange<any, Mutator>;
+    function makeDelete(table: Updraft.TableAny, time: number): (id: string | number) => TableChange<any, any>;
 }
 declare namespace Updraft.Query {
     interface NumericConditions {

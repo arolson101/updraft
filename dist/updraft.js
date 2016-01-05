@@ -1569,6 +1569,30 @@ var Updraft;
         return new Store(params);
     }
     Updraft.createStore = createStore;
+    function makeSave(table, time) {
+        return function (save) { return ({
+            table: table,
+            time: time,
+            save: save
+        }); };
+    }
+    Updraft.makeSave = makeSave;
+    function makeChange(table, time) {
+        return function (change) { return ({
+            table: table,
+            time: time,
+            change: change
+        }); };
+    }
+    Updraft.makeChange = makeChange;
+    function makeDelete(table, time) {
+        return function (id) { return ({
+            table: table,
+            time: time,
+            delete: id
+        }); };
+    }
+    Updraft.makeDelete = makeDelete;
     /* istanbul ignore next */ var _a;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
 ///<reference path="./Store"/>

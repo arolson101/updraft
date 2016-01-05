@@ -1098,4 +1098,30 @@ namespace Updraft {
 	export function createStore(params: CreateStoreParams): Store {
 		return new Store(params);
 	}
+	
+	
+	export function makeSave<Element>(table: Updraft.Table<Element, any, any>, time: number) {
+		return (save: Element) => ({
+			table,
+			time,
+			save
+		} as Updraft.TableChange<Element, any>);
+	}
+
+	export function makeChange<Mutator>(table: Updraft.Table<any, Mutator, any>, time: number) {
+		return (change: Mutator) => ({
+			table,
+			time,
+			change
+		} as Updraft.TableChange<any, Mutator>);
+	}
+
+	export function makeDelete(table: Updraft.TableAny, time: number) {
+		return (id: KeyType) => ({
+			table,
+			time,
+			delete: id
+		} as Updraft.TableChange<any, any>);
+	}
+
 }
