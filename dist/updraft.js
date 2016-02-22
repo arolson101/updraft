@@ -1569,6 +1569,7 @@ var Updraft;
         return new Store(params);
     }
     Updraft.createStore = createStore;
+    /* istanbul ignore next */
     function makeSave(table, time) {
         return function (save) { return ({
             table: table,
@@ -1577,6 +1578,7 @@ var Updraft;
         }); };
     }
     Updraft.makeSave = makeSave;
+    /* istanbul ignore next */
     function makeChange(table, time) {
         return function (change) { return ({
             table: table,
@@ -1585,6 +1587,7 @@ var Updraft;
         }); };
     }
     Updraft.makeChange = makeChange;
+    /* istanbul ignore next */
     function makeDelete(table, time) {
         return function (id) { return ({
             table: table,
@@ -1670,24 +1673,20 @@ var Updraft;
         };
         SQLiteWrapper.prototype.transaction = function (callback, errorCallback) {
             var _this = this;
-            var result = undefined;
-            this.run("BEGIN TRANSACTION");
-            var tx = {
-                errorCallback: errorCallback,
-                executeSql: function (sql, params, resultsCb) {
-                    _this.executeSql(tx, sql, params, resultsCb);
-                },
-                each: function (sql, params, resultsCb, final) {
-                    _this.each(tx, sql, params, resultsCb, final);
-                }
-            };
-            callback(tx);
-            this.run("COMMIT TRANSACTION");
-            // .catch(/* istanbul ignore next */ (err: Error) => {
-            // 	console.log("encountered error, rolling back transaction: ", err);
-            // 	this.run("ROLLBACK TRANSACTION");
-            // 	throw err;
-            // })
+            this.db.serialize(function () {
+                _this.run("BEGIN TRANSACTION");
+                var tx = {
+                    errorCallback: errorCallback,
+                    executeSql: function (sql, params, resultsCb) {
+                        _this.executeSql(tx, sql, params, resultsCb);
+                    },
+                    each: function (sql, params, resultsCb, final) {
+                        _this.each(tx, sql, params, resultsCb, final);
+                    }
+                };
+                callback(tx);
+                _this.run("COMMIT TRANSACTION");
+            });
         };
         SQLiteWrapper.prototype.readTransaction = function (callback, errorCallback) {
             this.transaction(callback, errorCallback);

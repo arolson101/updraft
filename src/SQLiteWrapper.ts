@@ -84,28 +84,24 @@ namespace Updraft {
 				}
 			});
 		}
-	
+
 		transaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
-			let result: any = undefined;
-			this.run("BEGIN TRANSACTION");
-			let tx: SQLiteTransaction = {
-				errorCallback: errorCallback,
-				executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
-					this.executeSql(tx, sql, params, resultsCb);
-				},
-				each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
-					this.each(tx, sql, params, resultsCb, final);
-				}
-			};
-			callback(tx);
-			this.run("COMMIT TRANSACTION");
-				// .catch(/* istanbul ignore next */ (err: Error) => {
-				// 	console.log("encountered error, rolling back transaction: ", err);
-				// 	this.run("ROLLBACK TRANSACTION");
-				// 	throw err;
-				// })
+      this.db.serialize(() => {
+        this.run("BEGIN TRANSACTION");
+        let tx: SQLiteTransaction = {
+          errorCallback: errorCallback,
+          executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
+            this.executeSql(tx, sql, params, resultsCb);
+          },
+          each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
+            this.each(tx, sql, params, resultsCb, final);
+          }
+        };
+        callback(tx);
+        this.run("COMMIT TRANSACTION");
+      });
 		}
-	
+
 		readTransaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
 			this.transaction(callback, errorCallback);
 		}
