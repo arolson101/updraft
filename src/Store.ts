@@ -1094,7 +1094,7 @@ namespace Updraft {
 		return new Store(params);
 	}
 	
-	
+	/* istanbul ignore next */
 	export function makeSave<Element>(table: Updraft.Table<Element, any, any>, time: number) {
 		return (save: Element) => ({
 			table,
@@ -1103,6 +1103,7 @@ namespace Updraft {
 		} as Updraft.TableChange<Element, any>);
 	}
 
+	/* istanbul ignore next */
 	export function makeChange<Mutator>(table: Updraft.Table<any, Mutator, any>, time: number) {
 		return (change: Mutator) => ({
 			table,
@@ -1111,6 +1112,7 @@ namespace Updraft {
 		} as Updraft.TableChange<any, Mutator>);
 	}
 
+	/* istanbul ignore next */
 	export function makeDelete(table: Updraft.TableAny, time: number) {
 		return (id: KeyType) => ({
 			table,
