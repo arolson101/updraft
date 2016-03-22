@@ -647,6 +647,7 @@ var Updraft;
     function startsWith(str, val) {
         return str.lastIndexOf(val, 0) === 0;
     }
+    var MAX_VARIABLES = 999;
     var ROWID = "rowid";
     var COUNT = "COUNT(*)";
     var internal_prefix = "updraft_";
@@ -871,14 +872,24 @@ var Updraft;
                         var duplicateKeys = null;
                         for (var j = 0; j < tableKeySet.length; j++) {
                             if (tableKeySet[j].table === change.table) {
-                                keys = tableKeySet[j].keys;
+                                for (var k = 0; k < tableKeySet[j].keysArray.length; k++) {
+                                    var kk = tableKeySet[j].keysArray[k];
+                                    if (kk.size < MAX_VARIABLES) {
+                                        keys = kk;
+                                        break;
+                                    }
+                                }
+                                if (!keys) {
+                                    keys = new Set();
+                                    tableKeySet[j].keysArray.push(keys);
+                                }
                                 break;
                             }
                         }
                         if (keys == null) {
                             keys = new Set();
                             duplicateKeys = new Set();
-                            tableKeySet.push({ table: change.table, keys: keys, duplicateKeys: duplicateKeys, existingKeys: new Set() });
+                            tableKeySet.push({ table: change.table, keysArray: [keys], duplicateKeys: duplicateKeys, existingKeys: new Set() });
                         }
                         if (keys.has(key)) {
                             duplicateKeys.add(key);
@@ -887,6 +898,7 @@ var Updraft;
                     }
                 });
                 var findIdx = 0;
+                var findBatchIdx = 0;
                 var changeIdx = 0;
                 var toResolve = new Set();
                 var findExistingIds = null;
@@ -895,12 +907,11 @@ var Updraft;
                 findExistingIds = function (transaction) {
                     if (findIdx < tableKeySet.length) {
                         var table_1 = tableKeySet[findIdx].table;
-                        var keys = tableKeySet[findIdx].keys;
+                        var keysArray_1 = tableKeySet[findIdx].keysArray;
                         var duplicateKeys_1 = tableKeySet[findIdx].duplicateKeys;
                         var existingKeys_1 = tableKeySet[findIdx].existingKeys;
-                        findIdx++;
                         var notDuplicatedValues_1 = [];
-                        keys.forEach(function (key) {
+                        keysArray_1[findBatchIdx].forEach(function (key) {
                             if (!duplicateKeys_1.has(key)) {
                                 notDuplicatedValues_1.push(key);
                             }
@@ -911,6 +922,11 @@ var Updraft;
                             for (var _i = 0, rows_1 = rows; _i < rows_1.length; _i++) {
                                 var row = rows_1[_i];
                                 existingKeys_1.add(row[table_1.key]);
+                            }
+                            findBatchIdx++;
+                            if (findBatchIdx >= keysArray_1.length) {
+                                findIdx++;
+                                findBatchIdx = 0;
                             }
                             findExistingIds(transaction);
                         });

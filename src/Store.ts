@@ -62,6 +62,7 @@ namespace Updraft {
 		[key: string]: any;
 	}
 
+  const MAX_VARIABLES = 999;
 	const ROWID = "rowid";
 	const COUNT = "COUNT(*)";
 	const internal_prefix = "updraft_";
@@ -302,7 +303,7 @@ namespace Updraft {
 
       interface TableKeySet {
         table: TableAny;
-        keys: Set<KeyType>;
+        keysArray: Set<KeyType>[];
         duplicateKeys: Set<KeyType>;
         existingKeys: Set<KeyType>;
       }
@@ -316,14 +317,24 @@ namespace Updraft {
             let duplicateKeys: Set<KeyType> = null;
             for (let j = 0; j < tableKeySet.length; j++) {
               if (tableKeySet[j].table === change.table) {
-                keys = tableKeySet[j].keys;
+                for (let k = 0; k < tableKeySet[j].keysArray.length; k++) {
+                  let kk = tableKeySet[j].keysArray[k];
+                  if (kk.size < MAX_VARIABLES) {
+                    keys = kk;
+                    break;
+                  }
+                }
+                if (!keys) {
+                  keys = new Set<KeyType>();
+                  tableKeySet[j].keysArray.push(keys);
+                }
                 break;
               }
             }
             if (keys == null) {
               keys = new Set<KeyType>();
               duplicateKeys = new Set<KeyType>();
-              tableKeySet.push({ table: change.table, keys, duplicateKeys, existingKeys: new Set<KeyType>() });
+              tableKeySet.push({ table: change.table, keysArray: [keys], duplicateKeys, existingKeys: new Set<KeyType>() });
             }
             if (keys.has(key)) {
               duplicateKeys.add(key);
@@ -332,6 +343,7 @@ namespace Updraft {
           }
         });
         let findIdx = 0;
+        let findBatchIdx = 0;
  				let changeIdx = 0;
 				let toResolve = new Set<ResolveKey>();
         let findExistingIds: DbTransactionCallback = null;
@@ -341,12 +353,11 @@ namespace Updraft {
         findExistingIds = (transaction: DbTransaction) => {
           if (findIdx < tableKeySet.length) {
             const table = tableKeySet[findIdx].table;
-            const keys = tableKeySet[findIdx].keys;
+            const keysArray = tableKeySet[findIdx].keysArray;
             const duplicateKeys = tableKeySet[findIdx].duplicateKeys;
             const existingKeys = tableKeySet[findIdx].existingKeys;
-            findIdx++;
             const notDuplicatedValues: KeyValue[] = [];
-            keys.forEach(key => {
+            keysArray[findBatchIdx].forEach(key => {
               if (!duplicateKeys.has(key)) {
                 notDuplicatedValues.push(key);
               }
@@ -356,6 +367,12 @@ namespace Updraft {
             runQuery(transaction, table, query, opts, null, (tx: DbTransaction, rows: any[]) => {
               for (let row of rows) {
                 existingKeys.add(row[table.key]);
+              }
+
+              findBatchIdx++;
+              if (findBatchIdx >= keysArray.length) {
+                findIdx++;
+                findBatchIdx = 0;
               }
               findExistingIds(transaction);
             });
