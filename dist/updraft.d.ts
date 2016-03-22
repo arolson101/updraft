@@ -273,15 +273,22 @@ declare namespace Updraft.Query {
     interface InCondition<T> {
         $in: T[];
     }
+    interface LikeCondition {
+        $like: string;
+    }
+    interface NotLikeCondition {
+        $notLike: string;
+    }
     type primitive<T> = T | InCondition<T>;
     type none = void;
     type bool = boolean;
     type num = primitive<number> | NumericConditions;
-    type str = primitive<string> | RegExp;
+    type str = primitive<string> | LikeCondition | NotLikeCondition;
     type date = primitive<Date> | DateConditions;
     type enm<T> = primitive<T>;
     type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
     type strSet = set<string>;
+    function escape(str: string): string;
 }
 declare namespace Updraft {
     interface IDatabase {

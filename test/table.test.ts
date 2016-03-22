@@ -852,12 +852,12 @@ describe("table", function() {
 
 			it("regex", function() {
 				return Promise.resolve()
-					.then(() => todoTable.find({text: /todo 1/}).then((results) => expect(results).to.deep.equal([todos[1], todos[10], todos[11]])))
-					.then(() => todoTable.find({text: /todo 1$/}).then((results) => expect(results).to.deep.equal([todos[1]])))
-					.then(() => todoTable.find({text: /^todo 1$/}).then((results) => expect(results).to.deep.equal([todos[1]])))
-					.then(() => todoTable.find({text: /^odo/}).then((results) => expect(results).to.deep.equal([])))
-					.then(() => todoTable.find({text: /11/}).then((results) => expect(results).to.deep.equal([todos[11]])))
-					.then(() => todoTable.find({text: /t.*0/}).then((results) => expect(results).to.deep.equal([todos[0], todos[10]])))
+					.then(() => todoTable.find({text: {$like: "%todo 1%"}}).then((results) => expect(results).to.deep.equal([todos[1], todos[10], todos[11]])))
+					.then(() => todoTable.find({text: {$like: "%todo 1"}}).then((results) => expect(results).to.deep.equal([todos[1]])))
+					.then(() => todoTable.find({text: {$like: "todo 1"}}).then((results) => expect(results).to.deep.equal([todos[1]])))
+					.then(() => todoTable.find({text: {$like: "odo%"}}).then((results) => expect(results).to.deep.equal([])))
+					.then(() => todoTable.find({text: {$like: "%11%"}}).then((results) => expect(results).to.deep.equal([todos[11]])))
+					.then(() => todoTable.find({text: {$like: "%t%0%"}}).then((results) => expect(results).to.deep.equal([todos[0], todos[10]])))
 					;
 			});
 
@@ -917,7 +917,7 @@ describe("table", function() {
 			it("count", function() {
 				return Promise.resolve()
 					.then(() => todoTable.find({}, {count: true}).then((results) => expect(results).to.equal(12)))
-					.then(() => todoTable.find({text: /todo 1/}, {count: true}).then((results) => expect(results).to.equal(3)))
+					.then(() => todoTable.find({text: {$like: "%todo 1%"}}, {count: true}).then((results) => expect(results).to.equal(3)))
 					;
 			});
 		});

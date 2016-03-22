@@ -28,15 +28,27 @@ namespace Updraft.Query {
 	export interface InCondition<T> {
 		$in: T[];
 	}
+  
+  export interface LikeCondition {
+    $like: string;
+  }
+
+  export interface NotLikeCondition {
+    $notLike: string;
+  }
 	
 	export type primitive<T> = T | InCondition<T>;
 
 	export type none = void;
 	export type bool = boolean;
 	export type num = primitive<number> | NumericConditions;
-	export type str = primitive<string> | RegExp;
+	export type str = primitive<string> | LikeCondition | NotLikeCondition;
 	export type date = primitive<Date> | DateConditions;
 	export type enm<T> = primitive<T>;
 	export type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
 	export type strSet = set<string>;
+  
+  export function escape(str: string): string {
+    return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
+  }
 }

@@ -819,26 +819,21 @@ namespace Updraft {
 					values.push(spec);
 					found = true;
 				}
-				else if (spec instanceof RegExp) {
-					let rx: RegExp = spec;
-					let arg = rx.source.replace(/\.\*/g, "%").replace(/\./g, "_");
-					if (arg[0] == "^") {
-						arg = arg.substring(1);
-					}
-					else {
-						arg = "%" + arg;
-					}
-					if (arg[arg.length - 1] == "$") {
-						arg = arg.substring(0, arg.length - 1);
-					}
-					else {
-						arg = arg + "%";
-					}
-					verify(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
-					conditions.push("(" + col + " LIKE ?)");
-					values.push(arg);
-					found = true;
-				}
+        else if (typeof spec === "object") {
+          const likeKey = keyOf({ $like: false });
+          const notLikeKey = keyOf({ $notLike: false });
+  				/* istanbul ignore else */
+          if (hasOwnProperty.call(spec, likeKey)) {
+            conditions.push("(" + col + " LIKE ? ESCAPE '\\')");
+            values.push(spec[likeKey]);
+            found = true;
+          }
+          else if (hasOwnProperty.call(spec, notLikeKey)) {
+            conditions.push("(" + col + " NOT LIKE ? ESCAPE '\\')");
+            values.push(spec[notLikeKey]);
+            found = true;
+          }
+        }
 	
 				verify(found, "unknown query condition for %s: %s", col, spec);
 			}

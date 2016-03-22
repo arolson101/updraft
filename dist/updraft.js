@@ -1327,25 +1327,20 @@ var Updraft;
                     values.push(spec);
                     found = true;
                 }
-                else if (spec instanceof RegExp) {
-                    var rx = spec;
-                    var arg = rx.source.replace(/\.\*/g, "%").replace(/\./g, "_");
-                    if (arg[0] == "^") {
-                        arg = arg.substring(1);
+                else if (typeof spec === "object") {
+                    var likeKey = Updraft.keyOf({ $like: false });
+                    var notLikeKey = Updraft.keyOf({ $notLike: false });
+                    /* istanbul ignore else */
+                    if (Updraft.hasOwnProperty.call(spec, likeKey)) {
+                        conditions.push("(" + col + " LIKE ? ESCAPE '\\')");
+                        values.push(spec[likeKey]);
+                        found = true;
                     }
-                    else {
-                        arg = "%" + arg;
+                    else if (Updraft.hasOwnProperty.call(spec, notLikeKey)) {
+                        conditions.push("(" + col + " NOT LIKE ? ESCAPE '\\')");
+                        values.push(spec[notLikeKey]);
+                        found = true;
                     }
-                    if (arg[arg.length - 1] == "$") {
-                        arg = arg.substring(0, arg.length - 1);
-                    }
-                    else {
-                        arg = arg + "%";
-                    }
-                    Updraft.verify(!arg.match(/(\$|\^|\*|\.|\(|\)|\[|\]|\?)/), "RegExp search only supports simple wildcards (.* and .): %s", arg);
-                    conditions.push("(" + col + " LIKE ?)");
-                    values.push(arg);
-                    found = true;
                 }
                 Updraft.verify(found, "unknown query condition for %s: %s", col, spec);
             }
@@ -1602,6 +1597,16 @@ if (typeof module !== "undefined") {
     module.exports = Updraft;
 }
 "use strict";
+var Updraft;
+(function (Updraft) {
+    var Query;
+    (function (Query) {
+        function escape(str) {
+            return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
+        }
+        Query.escape = escape;
+    })(Query = Updraft.Query || (Updraft.Query = {}));
+})(Updraft || (/* istanbul ignore next */ Updraft = {}));
 ///<reference path="../typings/tsd.d.ts"/>
 ///<reference path="./Database"/>
 "use strict";
@@ -1690,7 +1695,18 @@ var Updraft;
             // })
         };
         SQLiteWrapper.prototype.readTransaction = function (callback, errorCallback) {
-            this.transaction(callback, errorCallback);
+            var _this = this;
+            var result = undefined;
+            var tx = {
+                errorCallback: errorCallback,
+                executeSql: function (sql, params, resultsCb) {
+                    _this.executeSql(tx, sql, params, resultsCb);
+                },
+                each: function (sql, params, resultsCb, final) {
+                    _this.each(tx, sql, params, resultsCb, final);
+                }
+            };
+            callback(tx);
         };
         return SQLiteWrapper;
     })();
