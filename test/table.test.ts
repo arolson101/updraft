@@ -52,10 +52,18 @@ function purgeDb(db: Updraft.DbWrapper): Promise<any> {
 	});
 }
 
-
-function createDb(inMemory: boolean, trace: boolean): Db {
+type TraceFcn = (str: string) => any;
+function createDb(inMemory: boolean, trace: boolean | TraceFcn): Db {
+  let traceCallback: TraceFcn = null;
+  if (trace) {
+    if (typeof trace === "function") {
+      traceCallback = trace as TraceFcn;
+    }
+    else if (trace) {
+      traceCallback = (sql: string) => console.log(sql);
+    }
+  }
 	if (typeof window != "undefined") {
-		let traceCallback = trace ? (str: string) => console.log(str) : null;
 		let db = Updraft.createWebsqlWrapper("testdb", "1.0", "updraft test database", 5 * 1024 * 1024, traceCallback);
 		return {
 			db: db,
@@ -73,8 +81,8 @@ function createDb(inMemory: boolean, trace: boolean): Db {
 	else {
 		let sqlite3 = require("sqlite3");
 		let db = new sqlite3.Database(inMemory ? ":memory:" : "test.db");
-		if (trace) {
-			db.on("trace", (sql: string) => console.log(sql));
+		if (traceCallback) {
+			db.on("trace", traceCallback);
 		}
 		return {
 			db: Updraft.createSQLiteWrapper(db),
@@ -532,6 +540,60 @@ describe("table", function() {
 		});
 	});
 
+  it("sqlite: transactions are atomic", function() {
+    if (typeof window != "undefined") {
+      return;
+    }
+
+    let todoTable: TodoTable;
+    const debug = false;
+    const statements: string[] = [];
+    const logger = (sql: string) => {
+      statements.push(sql);
+      if (debug) {
+        console.log(sql);
+      }
+    };
+
+    let w = createDb(true, logger);
+
+    let store = Updraft.createStore({ db: w.db });
+    todoTable = store.createTable(todoTableSpec);
+
+    let changes: Todo[] = [
+      {
+        id: 1,
+        text: "base text 1",
+        created: undefined,
+        completed: false,
+        tags: new Set<string>()
+      },
+      {
+        id: 2,
+        text: "base text 2",
+        created: undefined,
+        completed: false,
+        status: TodoStatus.InProgress,
+        tags: new Set<string>()
+      },
+    ];
+
+    return Promise.resolve()
+      .then(() => store.open())
+      .then(() => {
+        statements.length = 0; // clear array
+        return store.add(...changes.map(Updraft.makeSave(todoTable, 100)));
+      })
+      .then(() => {
+        //console.log("statements: ", statements);
+        expect(statements).to.have.length(5); // 2 for begin/commit, 1 check for existing ids, 2 inserts
+        expect(statements[0]).to.match(/BEGIN TRANSACTION/i);
+        expect(statements[statements.length - 1]).to.match(/COMMIT TRANSACTION/i);
+      })
+      .then(() => w.close(), (err) => w.close(err))
+      ;
+  });
+
 	describe("merge changes", function() {
 		function runChanges(changes: TodoChange[], expectedResults: Todo[], debug?: boolean) {
 			let todoTable: TodoTable;
@@ -598,6 +660,37 @@ describe("table", function() {
 				completed: true,
 				progress: 0.1,
 				tags: new Set<string>(["asdf"])
+			}]);
+		});
+
+		it("conflicting adds", function() {
+			let changes: TodoChange[] = [
+				{ time: 1,
+					save: {
+						id: 1,
+						text: "base text 1",
+						created: undefined,
+						completed: true,
+						tags: new Set<string>()
+					},
+				},
+				{ time: 2,
+					save: {
+						id: 1,
+						text: "base text 2",
+						created: undefined,
+						completed: false,
+						tags: new Set<string>()
+					},
+				},
+      ];
+
+			return runChanges(changes, [{
+				id: 1,
+				text: "base text 2",
+        completed: false,
+        progress: 0.1,
+        tags: new Set<string>()
 			}]);
 		});
 

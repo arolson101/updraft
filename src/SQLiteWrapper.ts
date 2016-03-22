@@ -24,13 +24,16 @@ namespace Updraft {
 			this.db = db;
 		}
 	
-		run(sql: string): void {
+		run(sql: string, callback: () => void): void {
 			this.db.run(sql, (err: Error) => {
 				/* istanbul ignore if */
 				if (err) {
 					console.log("SQLiteWrapper.run(): error executing '" + sql + "': ", err);
 					throw err;
 				}
+        else {
+          callback();
+        }
 			});
 		}
 	
@@ -86,8 +89,7 @@ namespace Updraft {
 		}
 
 		transaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
-      this.db.serialize(() => {
-        this.run("BEGIN TRANSACTION");
+      this.db.run("BEGIN TRANSACTION", () => {
         let tx: SQLiteTransaction = {
           errorCallback: errorCallback,
           executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
@@ -95,10 +97,12 @@ namespace Updraft {
           },
           each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
             this.each(tx, sql, params, resultsCb, final);
+          },
+          commit: (cb: DbCommitCallback) => {
+            this.run("COMMIT TRANSACTION", cb);
           }
         };
         callback(tx);
-        this.run("COMMIT TRANSACTION");
       });
 		}
 
@@ -111,7 +115,10 @@ namespace Updraft {
 				},
 				each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
 					this.each(tx, sql, params, resultsCb, final);
-				}
+				},
+        commit: (cb: DbCommitCallback) => {
+          cb();
+        }
 			};
 			callback(tx);
 		}

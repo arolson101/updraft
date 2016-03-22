@@ -139,7 +139,9 @@ namespace Updraft {
 								this.syncTable(transaction, schema, table, act);
 							}
 							else {
-								this.loadKeyValues(transaction, resolve);
+								this.loadKeyValues(transaction, () => {
+                  transaction.commit(resolve);
+                });
 							}
 						};
 						this.db.transaction(act, reject);
@@ -180,7 +182,7 @@ namespace Updraft {
 							}
 						}
 		
-						resolve(schema);
+						transaction.commit(() => resolve(schema));
 					});
 				}, reject);
 			});
@@ -301,6 +303,7 @@ namespace Updraft {
       interface TableKeySet {
         table: TableAny;
         keys: Set<KeyType>;
+        duplicateKeys: Set<KeyType>;
         existingKeys: Set<KeyType>;
       }
 
@@ -310,6 +313,7 @@ namespace Updraft {
           if (change.save) {
             const key = change.table.keyValue(change.save);
             let keys: Set<KeyType> = null;
+            let duplicateKeys: Set<KeyType> = null;
             for (let j = 0; j < tableKeySet.length; j++) {
               if (tableKeySet[j].table === change.table) {
                 keys = tableKeySet[j].keys;
@@ -318,7 +322,11 @@ namespace Updraft {
             }
             if (keys == null) {
               keys = new Set<KeyType>();
-              tableKeySet.push({ table: change.table, keys, existingKeys: new Set<KeyType>() });
+              duplicateKeys = new Set<KeyType>();
+              tableKeySet.push({ table: change.table, keys, duplicateKeys, existingKeys: new Set<KeyType>() });
+            }
+            if (keys.has(key)) {
+              duplicateKeys.add(key);
             }
             keys.add(key);
           }
@@ -334,14 +342,21 @@ namespace Updraft {
           if (findIdx < tableKeySet.length) {
             const table = tableKeySet[findIdx].table;
             const keys = tableKeySet[findIdx].keys;
+            const duplicateKeys = tableKeySet[findIdx].duplicateKeys;
             const existingKeys = tableKeySet[findIdx].existingKeys;
             findIdx++;
-            const values: KeyValue[] = [];
-            keys.forEach(key => values.push(key));
-            const query: any = { [table.key]: { $in: values } };
+            const notDuplicatedValues: KeyValue[] = [];
+            keys.forEach(key => {
+              if (!duplicateKeys.has(key)) {
+                notDuplicatedValues.push(key);
+              }
+            });
+            const query: any = { [table.key]: { $in: notDuplicatedValues } };
             const opts: FindOpts = { fields: { [table.key]: true } };
-            runQuery(transaction, table, query, opts, null, (row) => {
-              existingKeys.add(row[table.key]);
+            runQuery(transaction, table, query, opts, null, (tx: DbTransaction, rows: any[]) => {
+              for (let row of rows) {
+                existingKeys.add(row[table.key]);
+              }
               findExistingIds(transaction);
             });
           }
@@ -366,6 +381,7 @@ namespace Updraft {
                 return true;
               }
               else {
+                /* istanbul ignore next */
                 return false;
               }
             });
@@ -434,7 +450,7 @@ namespace Updraft {
 							resolve(tx2, keyValue.table, keyValue.key, resolveNextChange);
 						}
 						else {
-							promiseResolve();
+							tx2.commit(promiseResolve);
 						}
 					};
 					
@@ -453,7 +469,7 @@ namespace Updraft {
 						[internal_column_latest]: true,
 					});
 					runQuery(transaction, table, q, opts, table.spec.clazz, (tx2: DbTransaction, results: Element[]) => {
-						resolve(results);
+            tx2.commit(() => resolve(results));
 					});
 				}, reject);
 			});

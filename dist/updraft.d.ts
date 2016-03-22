@@ -111,9 +111,13 @@ declare namespace Updraft {
     interface DbTransactionCallback {
         (transaction: DbTransaction): void;
     }
+    interface DbCommitCallback {
+        (): void;
+    }
     interface DbTransaction {
         executeSql(sql: string, params: (string | number)[], callback: DbResultsCallback): void;
         each(sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void;
+        commit(callback: DbCommitCallback): void;
     }
     interface DbResultsCallback {
         (transaction: DbTransaction, results: any[]): void;
