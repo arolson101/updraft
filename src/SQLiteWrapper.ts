@@ -87,6 +87,7 @@ namespace Updraft {
 	
 		transaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
 			let result: any = undefined;
+      //console.log("begin 1");
 			this.run("BEGIN TRANSACTION");
 			let tx: SQLiteTransaction = {
 				errorCallback: errorCallback,
@@ -95,19 +96,20 @@ namespace Updraft {
 				},
 				each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
 					this.each(tx, sql, params, resultsCb, final);
-				}
+				},
+        commit: (cb: Function) => {
+          //console.log("commit 1");
+          this.executeSql(tx, "COMMIT TRANSACTION", [], () => {
+            cb();
+          });
+        }
 			};
 			callback(tx);
-			this.run("COMMIT TRANSACTION");
-				// .catch(/* istanbul ignore next */ (err: Error) => {
-				// 	console.log("encountered error, rolling back transaction: ", err);
-				// 	this.run("ROLLBACK TRANSACTION");
-				// 	throw err;
-				// })
 		}
 	
 		readTransaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
 			let result: any = undefined;
+      //console.log("begin 2");
 			let tx: SQLiteTransaction = {
 				errorCallback: errorCallback,
 				executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
@@ -115,7 +117,11 @@ namespace Updraft {
 				},
 				each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
 					this.each(tx, sql, params, resultsCb, final);
-				}
+				},
+        commit: (cb: Function) => {
+          //console.log("commit 2");
+          cb();
+        }
 			};
 			callback(tx);
 		}

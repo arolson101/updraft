@@ -458,8 +458,8 @@ describe("table", function() {
 				;
 		}
 
-		it("no change", function() {
-			return runMigration(null, null, null, null);
+		it.only("no change", function() {
+			return runMigration(null, null, null, null, true);
 		});
 
 		it("add columns (simple migration)", function() {
