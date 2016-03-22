@@ -218,7 +218,7 @@ declare namespace Updraft {
         key: KeyType;
         constructor(spec: TableSpec<Element, Mutator, Query>);
         keyValue(element: Element | Mutator): KeyType;
-        find: (query: Query, opts?: FindOpts) => Promise<Element[]>;
+        find: (query: Query, opts?: FindOpts) => Promise<Element[] | number>;
         add: (...changes: TableChange<Element, Mutator>[]) => Promise<any>;
     }
     function tableKey(spec: TableSpec<any, any, any>): KeyType;
@@ -247,7 +247,7 @@ declare namespace Updraft {
         getValue(key: string): any;
         setValue(key: string, value: any): Promise<any>;
         add(...changes: TableChange<any, any>[]): Promise<any>;
-        find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]>;
+        find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[] | number>;
     }
     function createStore(params: CreateStoreParams): Store;
     function makeSave<Element>(table: Updraft.Table<Element, any, any>, time: number): (save: Element) => TableChange<Element, any>;

@@ -48,6 +48,7 @@ namespace Updraft.Query {
 	export type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
 	export type strSet = set<string>;
   
+  /* istanbul ignore next */
   export function escape(str: string): string {
     return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
   }

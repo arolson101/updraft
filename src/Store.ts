@@ -114,7 +114,7 @@ namespace Updraft {
 				changes.forEach(change => change.table = table);
 				return this.add(...changes);
 			};
-			table.find = (query: Query, opts?: FindOpts): Promise<Element[]> => {
+			table.find = (query: Query, opts?: FindOpts): Promise<Element[] | number> => {
 				return this.find(table, query, opts);
 			};
 			this.tables.push(...createInternalTableSpecs(table));
@@ -304,6 +304,7 @@ namespace Updraft {
       interface TableKeySet {
         table: TableAny;
         keysArray: Set<KeyType>[];
+        allKeys: Set<KeyType>;
         duplicateKeys: Set<KeyType>;
         existingKeys: Set<KeyType>;
       }
@@ -315,8 +316,12 @@ namespace Updraft {
             const key = change.table.keyValue(change.save);
             let keys: Set<KeyType> = null;
             let duplicateKeys: Set<KeyType> = null;
+            let allKeys: Set<KeyType> = null;
             for (let j = 0; j < tableKeySet.length; j++) {
+              /* istanbul ignore else */
               if (tableKeySet[j].table === change.table) {
+                duplicateKeys = tableKeySet[j].duplicateKeys;
+                allKeys = tableKeySet[j].allKeys;
                 for (let k = 0; k < tableKeySet[j].keysArray.length; k++) {
                   let kk = tableKeySet[j].keysArray[k];
                   if (kk.size < MAX_VARIABLES) {
@@ -334,11 +339,13 @@ namespace Updraft {
             if (keys == null) {
               keys = new Set<KeyType>();
               duplicateKeys = new Set<KeyType>();
-              tableKeySet.push({ table: change.table, keysArray: [keys], duplicateKeys, existingKeys: new Set<KeyType>() });
+              allKeys = new Set<KeyType>();
+              tableKeySet.push({ table: change.table, keysArray: [keys], allKeys, duplicateKeys, existingKeys: new Set<KeyType>() });
             }
-            if (keys.has(key)) {
+            if (allKeys.has(key)) {
               duplicateKeys.add(key);
             }
+            allKeys.add(key);
             keys.add(key);
           }
         });
@@ -393,12 +400,12 @@ namespace Updraft {
 						verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
             let existingKeys: Set<KeyType> = null;
             tableKeySet.some((tk): boolean => {
+                /* istanbul ignore else */
               if (tk.table === table) {
                 existingKeys = tk.existingKeys;
                 return true;
               }
               else {
-                /* istanbul ignore next */
                 return false;
               }
             });
@@ -478,14 +485,14 @@ namespace Updraft {
 			});
 		}
 	
-		find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[]> {
-			return new Promise((resolve: Resolver<Element[]>, reject: DbErrorCallback) => {
+		find<Element, Query>(table: Table<Element, any, Query>, query: Query, opts?: FindOpts): Promise<Element[] | number> {
+			return new Promise((resolve: Resolver<Element[] | number>, reject: DbErrorCallback) => {
 				this.db.readTransaction((transaction: DbTransaction) => {
 					let q = assign({}, query, {
 						[internal_column_deleted]: false,
 						[internal_column_latest]: true,
 					});
-					runQuery(transaction, table, q, opts, table.spec.clazz, (tx2: DbTransaction, results: Element[]) => {
+					runQuery(transaction, table, q, opts, table.spec.clazz, (tx2: DbTransaction, results: Element[] | number) => {
             tx2.commit(() => resolve(results));
 					});
 				}, reject);

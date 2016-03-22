@@ -895,6 +895,35 @@ describe("table", function() {
 				})
 				.then(() => w.close());
 		});
+
+		it("large transactions", function() {
+      this.timeout(10 * 1000);
+      function makeRecords(start: number, end: number): Todo[] {
+			let ret: Todo[] = [];
+        for (let i = start; i < end; i++) {
+        let elt = <Todo>{
+            id: i,
+            text: "todo " + i
+          };
+          ret.push(elt);
+        }
+        return ret;
+      }
+			
+			let w = createDb(true, false);
+			let store = Updraft.createStore({ db: w.db });
+			let todoTable: TodoTable = store.createTable(todoTableSpec);
+
+			return Promise.resolve()
+				.then(() => store.open())
+				.then(() => todoTable.add(...(makeRecords(0, 2000).concat(makeRecords(10, 20))).map(Updraft.makeSave(todoTable, 1))))
+				.then(() => todoTable.add(...makeRecords(1000, 4000).map(Updraft.makeSave(todoTable, 2))))
+				.then(() => todoTable.find({}, {count: true}))
+				.then((dataCount: number) => {
+					expect(dataCount).to.equal(4000);
+				})
+				.then(() => w.close());
+		});
 	});
 
 	describe("find()", function() {

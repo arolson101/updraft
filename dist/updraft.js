@@ -870,8 +870,12 @@ var Updraft;
                         var key = change.table.keyValue(change.save);
                         var keys = null;
                         var duplicateKeys = null;
+                        var allKeys = null;
                         for (var j = 0; j < tableKeySet.length; j++) {
+                            /* istanbul ignore else */
                             if (tableKeySet[j].table === change.table) {
+                                duplicateKeys = tableKeySet[j].duplicateKeys;
+                                allKeys = tableKeySet[j].allKeys;
                                 for (var k = 0; k < tableKeySet[j].keysArray.length; k++) {
                                     var kk = tableKeySet[j].keysArray[k];
                                     if (kk.size < MAX_VARIABLES) {
@@ -889,11 +893,13 @@ var Updraft;
                         if (keys == null) {
                             keys = new Set();
                             duplicateKeys = new Set();
-                            tableKeySet.push({ table: change.table, keysArray: [keys], duplicateKeys: duplicateKeys, existingKeys: new Set() });
+                            allKeys = new Set();
+                            tableKeySet.push({ table: change.table, keysArray: [keys], allKeys: allKeys, duplicateKeys: duplicateKeys, existingKeys: new Set() });
                         }
-                        if (keys.has(key)) {
+                        if (allKeys.has(key)) {
                             duplicateKeys.add(key);
                         }
+                        allKeys.add(key);
                         keys.add(key);
                     }
                 });
@@ -947,12 +953,12 @@ var Updraft;
                         Updraft.verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
                         var existingKeys_2 = null;
                         tableKeySet.some(function (tk) {
+                            /* istanbul ignore else */
                             if (tk.table === table_2) {
                                 existingKeys_2 = tk.existingKeys;
                                 return true;
                             }
                             else {
-                                /* istanbul ignore next */
                                 return false;
                             }
                         });
@@ -1692,6 +1698,7 @@ var Updraft;
 (function (Updraft) {
     var Query;
     (function (Query) {
+        /* istanbul ignore next */
         function escape(str) {
             return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
         }
@@ -1793,7 +1800,7 @@ var Updraft;
                 executeSql: function (sql, params, resultsCb) {
                     _this.executeSql(tx, sql, params, resultsCb);
                 },
-                each: function (sql, params, resultsCb, final) {
+                each: /* istanbul ignore next */ function (sql, params, resultsCb, final) {
                     _this.each(tx, sql, params, resultsCb, final);
                 },
                 commit: function (cb) {

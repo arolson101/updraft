@@ -113,7 +113,7 @@ namespace Updraft {
 				executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
 					this.executeSql(tx, sql, params, resultsCb);
 				},
-				each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
+				each: /* istanbul ignore next */ (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
 					this.each(tx, sql, params, resultsCb, final);
 				},
         commit: (cb: DbCommitCallback) => {
