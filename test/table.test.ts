@@ -972,7 +972,7 @@ describe("table", function() {
 					;
 			});
 
-			it("regex", function() {
+			it("$like", function() {
 				return Promise.resolve()
 					.then(() => todoTable.find({text: {$like: "%todo 1%"}}).then((results) => expect(results).to.deep.equal([todos[1], todos[10], todos[11]])))
 					.then(() => todoTable.find({text: {$like: "%todo 1"}}).then((results) => expect(results).to.deep.equal([todos[1]])))
@@ -1003,6 +1003,12 @@ describe("table", function() {
 					.then(() => todoTable.find({tags: {$hasAll: ["tag1", "tag2"]}}).then((results) => expect(results).to.deep.equal([])))
 					.then(() => todoTable.find({tags: {$hasAll: ["all", "tag2"]}}).then((results) => expect(results).to.deep.equal([todos[2]])))
 					.then(() => todoTable.find({tags: {$hasAll: ["all", "even"]}}).then((results) => expect(results).to.deep.equal(evens)))
+					;
+			});
+      
+			it("compound conditionals (OR)", function() {
+				return Promise.resolve()
+					.then(() => todoTable.find([{text: {$like: "todo 1"}}, {text: {$like: "todo 2"}}]).then((results) => expect(results).to.deep.equal([todos[1], todos[2]])))
 					;
 			});
 		});

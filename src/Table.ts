@@ -60,7 +60,7 @@ namespace Updraft {
 			return element[this.key];
 		}
 	
-		find: (query: Query, opts?: FindOpts) => Promise<Element[] | number>;
+		find: (query: Query | Query[], opts?: FindOpts) => Promise<Element[] | number>;
 		add: (...changes: TableChange<Element, Mutator>[]) => Promise<any>;
 	}
 	
