@@ -107,7 +107,17 @@ namespace Updraft {
 		}
 	
 		readTransaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
-			this.transaction(callback, errorCallback);
+			let result: any = undefined;
+			let tx: SQLiteTransaction = {
+				errorCallback: errorCallback,
+				executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
+					this.executeSql(tx, sql, params, resultsCb);
+				},
+				each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
+					this.each(tx, sql, params, resultsCb, final);
+				}
+			};
+			callback(tx);
 		}
 	}
 	
