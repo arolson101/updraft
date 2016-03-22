@@ -117,10 +117,7 @@ namespace Updraft {
 				},
 				each: (sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void => {
 					this.each(tx, sql, params, callback, final);
-				},
-        commit: (cb: Function) => {
-          cb();
-        }
+				}
 			};
 			return tx;
 		}

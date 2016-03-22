@@ -39,7 +39,6 @@ namespace Updraft {
 	export interface DbTransaction {
 		executeSql(sql: string, params: (string | number)[], callback: DbResultsCallback): void;
 		each(sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void;
-    commit(callback: Function): void;
 	}
 	
 	export interface DbResultsCallback {

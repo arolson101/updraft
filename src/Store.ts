@@ -139,9 +139,7 @@ namespace Updraft {
 								this.syncTable(transaction, schema, table, act);
 							}
 							else {
-								this.loadKeyValues(transaction, () => {
-                  transaction.commit(resolve);
-                });
+								this.loadKeyValues(transaction, resolve);
 							}
 						};
 						this.db.transaction(act, reject);
@@ -181,8 +179,8 @@ namespace Updraft {
 								}
 							}
 						}
-
-            transaction.commit(() => resolve(schema));
+		
+						resolve(schema);
 					});
 				}, reject);
 			});
@@ -298,75 +296,23 @@ namespace Updraft {
 			interface ResolveKey {
 				table: TableAny;
 				key: KeyType;
-			}
-
-      interface TableKeySet {
-        table: TableAny;
-        keys: Set<KeyType>;
-        existingKeys: Set<KeyType>;
-      }
+			};
 
 			return new Promise((promiseResolve, reject) => {
-        const tableKeySet: TableKeySet[] = [];
-        changes.forEach(change => {
-          if (change.save) {
-            const key = change.table.keyValue(change.save);
-            let keys: Set<KeyType> = null;
-            for (let j = 0; j < tableKeySet.length; j++) {
-              if (tableKeySet[j].table === change.table) {
-                keys = tableKeySet[j].keys;
-                break;
-              }
-            }
-            if (keys == null) {
-              keys = new Set<KeyType>();
-              tableKeySet.push({ table: change.table, keys, existingKeys: new Set<KeyType>() });
-            }
-            keys.add(key);
-          }
-        });
-        let findIdx = 0;
-				let changeIdx = 0;
+				let i = 0;
 				let toResolve = new Set<ResolveKey>();
-				let findExistingIds: DbTransactionCallback = null;
 				let insertNextChange: DbTransactionCallback = null;
 				let resolveChanges: DbTransactionCallback = null;
-        
-        findExistingIds = (transaction: DbTransaction) => {
-          if (findIdx < tableKeySet.length) {
-            const table = tableKeySet[findIdx].table;
-            const keys = tableKeySet[findIdx].keys;
-            const existingKeys = tableKeySet[findIdx].existingKeys;
-            const values: KeyValue[] = [];
-            keys.forEach(key => values.push(key));
-            const query: any = { [table.key]: { $in: values } };
-            const opts: FindOpts = { fields: { [table.key]: true } };
-            runQuery(transaction, table, query, opts, null, (row) => { existingKeys.add(row[table.key]); });
-          }
-          else {
-            insertNextChange(transaction);
-          }
-        };
 
 				insertNextChange = (transaction: DbTransaction) => {
-					if (changeIdx < changes.length) {
-						let change = changes[changeIdx];
-						changeIdx++;
+					if (i < changes.length) {
+						let change = changes[i];
+						i++;
 						const table = change.table;
 						verify(table, "change must specify table");
 						let changeTable = getChangeTableName(table.spec.name);
 						let time = change.time || Date.now();
 						verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
-            let existingKeys: Set<KeyType> = null;
-            tableKeySet.some((tk): boolean => {
-              if (tk.table === table) {
-                existingKeys = tk.existingKeys;
-                return true;
-              }
-              else {
-                return false;
-              }
-            });
 						/* istanbul ignore else */
 						if (change.save) {
 							// append internal column values
@@ -375,13 +321,7 @@ namespace Updraft {
 								change.save,
 								{ [internal_column_time]: time }
 							);
-              const key = table.keyValue(element);
-              if (existingKeys.has(key)) {
-                toResolve.add({ table, key });
-              }
-              else {
-                element[internal_column_latest] = true;
-              }
+							toResolve.add({table, key: table.keyValue(element)});
 							insertElement(transaction, table, element, insertNextChange);
 						}
 						else if (change.change || change.delete) {
@@ -430,7 +370,7 @@ namespace Updraft {
 							resolve(tx2, keyValue.table, keyValue.key, resolveNextChange);
 						}
 						else {
-              transaction.commit(promiseResolve);
+							promiseResolve();
 						}
 					};
 					
@@ -449,7 +389,7 @@ namespace Updraft {
 						[internal_column_latest]: true,
 					});
 					runQuery(transaction, table, q, opts, table.spec.clazz, (tx2: DbTransaction, results: Element[]) => {
-            transaction.commit(() => resolve(results));
+						resolve(results);
 					});
 				}, reject);
 			});
