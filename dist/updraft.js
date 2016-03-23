@@ -1422,8 +1422,27 @@ var Updraft;
                         conditions.push(col + (spec ? "!=0" : "=0"));
                         found = true;
                     }
+                    else if (column.type == Updraft.ColumnType.date || column.type == Updraft.ColumnType.datetime) {
+                        var $before = Updraft.keyOf({ $before: true });
+                        var $after = Updraft.keyOf({ $after: true });
+                        if (Updraft.hasOwnProperty.call(spec, $before)) {
+                            conditions.push(col + "<=?");
+                            values.push(column.serialize(spec[$before]));
+                            found = true;
+                        }
+                        if (Updraft.hasOwnProperty.call(spec, $after)) {
+                            conditions.push(col + ">=?");
+                            values.push(column.serialize(spec[$after]));
+                            found = true;
+                        }
+                        if (!found) {
+                            conditions.push(col + "=?");
+                            values.push(column.serialize(spec));
+                            found = true;
+                        }
+                    }
                     else if (typeof spec === "number" || typeof spec === "string") {
-                        conditions.push("(" + col + "=?)");
+                        conditions.push(col + "=?");
                         values.push(spec);
                         found = true;
                     }

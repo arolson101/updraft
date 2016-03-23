@@ -924,8 +924,29 @@ namespace Updraft {
             conditions.push(col + (spec ? "!=0" : "=0"));
             found = true;
           }
+          else if (column.type == ColumnType.date || column.type == ColumnType.datetime) {
+            const $before = keyOf({$before: true});
+            const $after = keyOf({$after: true});
+            if (hasOwnProperty.call(spec, $before)) {
+              conditions.push(col + "<=?");
+              values.push(column.serialize(spec[$before]));
+              found = true;
+            }
+            
+            if (hasOwnProperty.call(spec, $after)) {
+              conditions.push(col + ">=?");
+              values.push(column.serialize(spec[$after]));
+              found = true;
+            }
+            
+            if (!found) {
+              conditions.push(col + "=?");
+              values.push(column.serialize(spec));
+              found = true;
+            }
+          }
           else if (typeof spec === "number" || typeof spec === "string") {
-            conditions.push("(" + col + "=?)");
+            conditions.push(col + "=?");
             values.push(spec);
             found = true;
           }
