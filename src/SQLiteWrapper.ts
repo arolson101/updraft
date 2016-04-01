@@ -10,6 +10,7 @@ namespace Updraft {
 		each(sql: string, params?: any[], callback?: (err: Error, row: any) => void, complete?: (err: Error, count: number) => void): IDatabase;
 		serialize(callback?: () => void): void;
 		parallelize(callback?: () => void): void;
+		wait(callback?: () => void): void;
 	}
 	
 	interface SQLiteTransaction extends DbTransaction {
@@ -19,25 +20,49 @@ namespace Updraft {
 	
 	class SQLiteWrapper implements DbWrapper {
 		private db: IDatabase;
-	
-		constructor(db: IDatabase) {
+		traceCallback: (trace: string) => any;
+
+		constructor(db: IDatabase, traceCallback?: (trace: string) => any) {
 			this.db = db;
+			this.traceCallback = traceCallback;
 		}
-	
+			
+		trace(sql: string, params?: (string | number)[]) {
+			if (this.traceCallback) {
+				let escapedString = this.stringify(sql, params);
+				this.traceCallback(escapedString);
+			}
+		}
+		
+		stringify(sql: string, params?: (string | number)[]): string {
+			let idx: number = 0;
+			let escapedString = sql.replace(/\?/g, () => {
+				let x = params[idx++];
+				if (typeof x == "number") {
+					return <string>x;
+				} else {
+					return "'" + x + "'";
+				}
+			});
+			return escapedString;
+		}
+
 		run(sql: string, callback: () => void): void {
+			this.trace(sql);
 			this.db.run(sql, (err: Error) => {
 				/* istanbul ignore if */
 				if (err) {
 					console.log("SQLiteWrapper.run(): error executing '" + sql + "': ", err);
 					throw err;
 				}
-        else {
-          callback();
-        }
+				else {
+					callback();
+				}
 			});
 		}
 	
 		executeSql(tx: SQLiteTransaction, sql: string, params: (string | number)[], callback: DbResultsCallback): void {
+			this.trace(sql, params);
 			this.db.all(sql, params, (err: Error, rows: any[]) => {
 				/* istanbul ignore if */
 				if (err) {
@@ -56,6 +81,7 @@ namespace Updraft {
 		}
 			
 		each(tx: SQLiteTransaction, sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void {
+			this.trace(sql, params);
 			this.db.each(sql, params, (err: Error, row: any) => {
 				/* istanbul ignore if */
 				if (err) {
@@ -89,21 +115,23 @@ namespace Updraft {
 		}
 
 		transaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
-      this.db.run("BEGIN TRANSACTION", () => {
-        let tx: SQLiteTransaction = {
-          errorCallback: errorCallback,
-          executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
-            this.executeSql(tx, sql, params, resultsCb);
-          },
-          each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
-            this.each(tx, sql, params, resultsCb, final);
-          },
-          commit: (cb: DbCommitCallback) => {
-            this.run("COMMIT TRANSACTION", cb);
-          }
-        };
-        callback(tx);
-      });
+			this.run("BEGIN TRANSACTION", () => {
+				let tx: SQLiteTransaction = {
+					errorCallback: errorCallback,
+					executeSql: (sql: string, params: (string | number)[], resultsCb: DbResultsCallback): void => {
+						this.executeSql(tx, sql, params, resultsCb);
+					},
+					each: (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
+						this.each(tx, sql, params, resultsCb, final);
+					},
+					commit: (cb: DbCommitCallback) => {
+						this.run("COMMIT TRANSACTION", () => {
+							cb();
+						});
+					}
+				};
+				callback(tx);
+			});
 		}
 
 		readTransaction(callback: DbTransactionCallback, errorCallback: DbErrorCallback): void {
@@ -116,16 +144,16 @@ namespace Updraft {
 				each: /* istanbul ignore next */ (sql: string, params: (string | number)[], resultsCb: DbEachResultCallback, final: DbTransactionCallback): void => {
 					this.each(tx, sql, params, resultsCb, final);
 				},
-        commit: (cb: DbCommitCallback) => {
-          cb();
-        }
+				commit: (cb: DbCommitCallback) => {
+					cb();
+				}
 			};
 			callback(tx);
 		}
 	}
 	
 	
-	export function createSQLiteWrapper(db: IDatabase): DbWrapper {
-		return new SQLiteWrapper(db);
+	export function createSQLiteWrapper(db: IDatabase, traceCallback?: (trace: string) => any): DbWrapper {
+		return new SQLiteWrapper(db, traceCallback);
 	}
 }

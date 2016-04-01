@@ -46,7 +46,9 @@ function purgeDb(db: Updraft.DbWrapper): Promise<any> {
 						stmts.push({sql: "drop table " + name});
 					}
 				});
-				Updraft.DbExecuteSequence(tx2, stmts, resolve);
+				Updraft.DbExecuteSequence(tx2, stmts, () => {
+          transaction.commit(resolve);
+        });
 			});
 		}, reject);
 	});
@@ -81,11 +83,11 @@ function createDb(inMemory: boolean, trace: boolean | TraceFcn): Db {
 	else {
 		let sqlite3 = require("sqlite3");
 		let db = new sqlite3.Database(inMemory ? ":memory:" : "test.db");
-		if (traceCallback) {
-			db.on("trace", traceCallback);
-		}
+		// if (traceCallback) {
+		// 	db.on("trace", traceCallback);
+		// }
 		return {
-			db: Updraft.createSQLiteWrapper(db),
+			db: Updraft.createSQLiteWrapper(db, traceCallback),
 			close: (err?: Error) => {
 				db.close();
 				return err ? Promise.reject(err) : Promise.resolve();

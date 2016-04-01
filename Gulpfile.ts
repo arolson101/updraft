@@ -11,7 +11,7 @@ var typedoc = require("gulp-typedoc");
 var uglify = require("gulp-uglify");
 var tslint = require("gulp-tslint");
 var mochaPhantomJS = require('gulp-mocha-phantomjs');
-var istanbul = require('gulp-istanbul');
+var shell = require("gulp-shell");
 var rename = require("gulp-rename");
 import mocha = require("gulp-mocha");
 
@@ -66,21 +66,9 @@ gulp.task("compile", function() {
 });
 
 
-gulp.task('pre-coverage', ['compile'], function () {
-	return gulp.src(['dist/*.js'])
-		// Covering files
-		.pipe(istanbul())
-		// Force `require` to return covered files
-		.pipe(istanbul.hookRequire());
-});
-
-
-gulp.task('coverage', ['pre-coverage'], function () {
-  return gulp.src(['test/*.ts'])
-    .pipe(mocha())
-    // Creating the reports after tests ran
-    .pipe(istanbul.writeReports())
-});
+gulp.task('coverage', ['compile'], shell.task([
+  "./node_modules/.bin/ts-node node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha test/*.ts"
+]));
 
 
 gulp.task("typedoc", function() {

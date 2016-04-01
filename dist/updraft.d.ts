@@ -301,8 +301,9 @@ declare namespace Updraft {
         each(sql: string, params?: any[], callback?: (err: Error, row: any) => void, complete?: (err: Error, count: number) => void): IDatabase;
         serialize(callback?: () => void): void;
         parallelize(callback?: () => void): void;
+        wait(callback?: () => void): void;
     }
-    function createSQLiteWrapper(db: IDatabase): DbWrapper;
+    function createSQLiteWrapper(db: IDatabase, traceCallback?: (trace: string) => any): DbWrapper;
 }
 declare namespace Updraft {
     function createWebsqlWrapper(name: string, version?: string, displayName?: string, estimatedSize?: number, traceCallback?: (trace: string) => any): DbWrapper;
