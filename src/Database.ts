@@ -35,15 +35,15 @@ namespace Updraft {
 	export interface DbTransactionCallback {
 		(transaction: DbTransaction): void;
 	}
-  
-  export interface DbCommitCallback {
-    (): void;
-  }
+	
+	export interface DbCommitCallback {
+		(): void;
+	}
 	
 	export interface DbTransaction {
 		executeSql(sql: string, params: (string | number)[], callback: DbResultsCallback): void;
 		each(sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void;
-    commit(callback: DbCommitCallback): void;
+		commit(callback: DbCommitCallback): void;
 	}
 	
 	export interface DbResultsCallback {

@@ -47,8 +47,8 @@ function purgeDb(db: Updraft.DbWrapper): Promise<any> {
 					}
 				});
 				Updraft.DbExecuteSequence(tx2, stmts, () => {
-          transaction.commit(resolve);
-        });
+					transaction.commit(resolve);
+				});
 			});
 		}, reject);
 	});
@@ -56,15 +56,15 @@ function purgeDb(db: Updraft.DbWrapper): Promise<any> {
 
 type TraceFcn = (str: string) => any;
 function createDb(inMemory: boolean, trace: boolean | TraceFcn): Db {
-  let traceCallback: TraceFcn = null;
-  if (trace) {
-    if (typeof trace === "function") {
-      traceCallback = trace as TraceFcn;
-    }
-    else if (trace) {
-      traceCallback = (sql: string) => console.log(sql);
-    }
-  }
+	let traceCallback: TraceFcn = null;
+	if (trace) {
+		if (typeof trace === "function") {
+			traceCallback = trace as TraceFcn;
+		}
+		else if (trace) {
+			traceCallback = (sql: string) => console.log(sql);
+		}
+	}
 	if (typeof window != "undefined") {
 		let db = Updraft.createWebsqlWrapper("testdb", "1.0", "updraft test database", 5 * 1024 * 1024, traceCallback);
 		return {
@@ -542,59 +542,59 @@ describe("table", function() {
 		});
 	});
 
-  it("sqlite: transactions are atomic", function() {
-    if (typeof window != "undefined") {
-      return;
-    }
+	it("sqlite: transactions are atomic", function() {
+		if (typeof window != "undefined") {
+			return;
+		}
 
-    let todoTable: TodoTable;
-    const debug = false;
-    const statements: string[] = [];
-    const logger = (sql: string) => {
-      statements.push(sql);
-      if (debug) {
-        console.log(sql);
-      }
-    };
+		let todoTable: TodoTable;
+		const debug = false;
+		const statements: string[] = [];
+		const logger = (sql: string) => {
+			statements.push(sql);
+			if (debug) {
+				console.log(sql);
+			}
+		};
 
-    let w = createDb(true, logger);
+		let w = createDb(true, logger);
 
-    let store = Updraft.createStore({ db: w.db });
-    todoTable = store.createTable(todoTableSpec);
+		let store = Updraft.createStore({ db: w.db });
+		todoTable = store.createTable(todoTableSpec);
 
-    let changes: Todo[] = [
-      {
-        id: 1,
-        text: "base text 1",
-        created: undefined,
-        completed: false,
-        tags: new Set<string>()
-      },
-      {
-        id: 2,
-        text: "base text 2",
-        created: undefined,
-        completed: false,
-        status: TodoStatus.InProgress,
-        tags: new Set<string>()
-      },
-    ];
+		let changes: Todo[] = [
+			{
+				id: 1,
+				text: "base text 1",
+				created: undefined,
+				completed: false,
+				tags: new Set<string>()
+			},
+			{
+				id: 2,
+				text: "base text 2",
+				created: undefined,
+				completed: false,
+				status: TodoStatus.InProgress,
+				tags: new Set<string>()
+			},
+		];
 
-    return Promise.resolve()
-      .then(() => store.open())
-      .then(() => {
-        statements.length = 0; // clear array
-        return store.add(...changes.map(Updraft.makeSave(todoTable, 100)));
-      })
-      .then(() => {
-        //console.log("statements: ", statements);
-        expect(statements).to.have.length(5); // 2 for begin/commit, 1 check for existing ids, 2 inserts
-        expect(statements[0]).to.match(/BEGIN TRANSACTION/i);
-        expect(statements[statements.length - 1]).to.match(/COMMIT TRANSACTION/i);
-      })
-      .then(() => w.close(), (err) => w.close(err))
-      ;
-  });
+		return Promise.resolve()
+			.then(() => store.open())
+			.then(() => {
+				statements.length = 0; // clear array
+				return store.add(...changes.map(Updraft.makeSave(todoTable, 100)));
+			})
+			.then(() => {
+				//console.log("statements: ", statements);
+				expect(statements).to.have.length(5); // 2 for begin/commit, 1 check for existing ids, 2 inserts
+				expect(statements[0]).to.match(/BEGIN TRANSACTION/i);
+				expect(statements[statements.length - 1]).to.match(/COMMIT TRANSACTION/i);
+			})
+			.then(() => w.close(), (err) => w.close(err))
+			;
+	});
 
 	describe("merge changes", function() {
 		function runChanges(changes: TodoChange[], expectedResults: Todo[], debug?: boolean) {
@@ -685,14 +685,14 @@ describe("table", function() {
 						tags: new Set<string>()
 					},
 				},
-      ];
+			];
 
 			return runChanges(changes, [{
 				id: 1,
 				text: "base text 2",
-        completed: false,
-        progress: 0.1,
-        tags: new Set<string>()
+				completed: false,
+				progress: 0.1,
+				tags: new Set<string>()
 			}]);
 		});
 
@@ -899,18 +899,18 @@ describe("table", function() {
 		});
 
 		it("large transactions", function() {
-      this.timeout(10 * 1000);
-      function makeRecords(start: number, end: number): Todo[] {
+			this.timeout(10 * 1000);
+			function makeRecords(start: number, end: number): Todo[] {
 			let ret: Todo[] = [];
-        for (let i = start; i < end; i++) {
-        let elt = <Todo>{
-            id: i,
-            text: "todo " + i
-          };
-          ret.push(elt);
-        }
-        return ret;
-      }
+				for (let i = start; i < end; i++) {
+				let elt = <Todo>{
+						id: i,
+						text: "todo " + i
+					};
+					ret.push(elt);
+				}
+				return ret;
+			}
 			
 			let w = createDb(true, false);
 			let store = Updraft.createStore({ db: w.db });
@@ -1009,7 +1009,7 @@ describe("table", function() {
 					.then(() => todoTable.find({tags: {$hasAll: ["all", "even"]}}).then((results) => expect(results).to.deep.equal(evens)))
 					;
 			});
-      
+			
 			it("compound conditionals (OR)", function() {
 				return Promise.resolve()
 					.then(() => todoTable.find([{text: {$like: "todo 1"}}, {text: {$like: "todo 2"}}]).then((results) => expect(results).to.deep.equal([todos[1], todos[2]])))

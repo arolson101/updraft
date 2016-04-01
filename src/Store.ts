@@ -62,7 +62,7 @@ namespace Updraft {
 		[key: string]: any;
 	}
 
-  const MAX_VARIABLES = 999;
+	const MAX_VARIABLES = 999;
 	const ROWID = "rowid";
 	const COUNT = "COUNT(*)";
 	const internal_prefix = "updraft_";
@@ -141,8 +141,8 @@ namespace Updraft {
 							}
 							else {
 								this.loadKeyValues(transaction, () => {
-                  transaction.commit(resolve);
-                });
+									transaction.commit(resolve);
+								});
 							}
 						};
 						this.db.transaction(act, reject);
@@ -301,93 +301,93 @@ namespace Updraft {
 				key: KeyType;
 			}
 
-      interface TableKeySet {
-        table: TableAny;
-        keysArray: Set<KeyType>[];
-        allKeys: Set<KeyType>;
-        duplicateKeys: Set<KeyType>;
-        existingKeys: Set<KeyType>;
-      }
+			interface TableKeySet {
+				table: TableAny;
+				keysArray: Set<KeyType>[];
+				allKeys: Set<KeyType>;
+				duplicateKeys: Set<KeyType>;
+				existingKeys: Set<KeyType>;
+			}
 
 			return new Promise((promiseResolve, reject) => {
-        const tableKeySet: TableKeySet[] = [];
-        changes.forEach(change => {
-          if (change.save) {
-            const key = change.table.keyValue(change.save);
-            let keys: Set<KeyType> = null;
-            let duplicateKeys: Set<KeyType> = null;
-            let allKeys: Set<KeyType> = null;
-            for (let j = 0; j < tableKeySet.length; j++) {
-              /* istanbul ignore else */
-              if (tableKeySet[j].table === change.table) {
-                duplicateKeys = tableKeySet[j].duplicateKeys;
-                allKeys = tableKeySet[j].allKeys;
-                for (let k = 0; k < tableKeySet[j].keysArray.length; k++) {
-                  let kk = tableKeySet[j].keysArray[k];
-                  if (kk.size < MAX_VARIABLES) {
-                    keys = kk;
-                    break;
-                  }
-                }
-                if (!keys) {
-                  keys = new Set<KeyType>();
-                  tableKeySet[j].keysArray.push(keys);
-                }
-                break;
-              }
-            }
-            if (keys == null) {
-              keys = new Set<KeyType>();
-              duplicateKeys = new Set<KeyType>();
-              allKeys = new Set<KeyType>();
-              tableKeySet.push({ table: change.table, keysArray: [keys], allKeys, duplicateKeys, existingKeys: new Set<KeyType>() });
-            }
-            if (allKeys.has(key)) {
-              duplicateKeys.add(key);
-            }
-            allKeys.add(key);
-            keys.add(key);
-          }
-        });
-        let findIdx = 0;
-        let findBatchIdx = 0;
+				const tableKeySet: TableKeySet[] = [];
+				changes.forEach(change => {
+					if (change.save) {
+						const key = change.table.keyValue(change.save);
+						let keys: Set<KeyType> = null;
+						let duplicateKeys: Set<KeyType> = null;
+						let allKeys: Set<KeyType> = null;
+						for (let j = 0; j < tableKeySet.length; j++) {
+							/* istanbul ignore else */
+							if (tableKeySet[j].table === change.table) {
+								duplicateKeys = tableKeySet[j].duplicateKeys;
+								allKeys = tableKeySet[j].allKeys;
+								for (let k = 0; k < tableKeySet[j].keysArray.length; k++) {
+									let kk = tableKeySet[j].keysArray[k];
+									if (kk.size < MAX_VARIABLES) {
+										keys = kk;
+										break;
+									}
+								}
+								if (!keys) {
+									keys = new Set<KeyType>();
+									tableKeySet[j].keysArray.push(keys);
+								}
+								break;
+							}
+						}
+						if (keys == null) {
+							keys = new Set<KeyType>();
+							duplicateKeys = new Set<KeyType>();
+							allKeys = new Set<KeyType>();
+							tableKeySet.push({ table: change.table, keysArray: [keys], allKeys, duplicateKeys, existingKeys: new Set<KeyType>() });
+						}
+						if (allKeys.has(key)) {
+							duplicateKeys.add(key);
+						}
+						allKeys.add(key);
+						keys.add(key);
+					}
+				});
+				let findIdx = 0;
+				let findBatchIdx = 0;
  				let changeIdx = 0;
 				let toResolve = new Set<ResolveKey>();
-        let findExistingIds: DbTransactionCallback = null;
+				let findExistingIds: DbTransactionCallback = null;
 				let insertNextChange: DbTransactionCallback = null;
 				let resolveChanges: DbTransactionCallback = null;
 
-        findExistingIds = (transaction: DbTransaction) => {
-          if (findIdx < tableKeySet.length) {
-            const table = tableKeySet[findIdx].table;
-            const keysArray = tableKeySet[findIdx].keysArray;
-            const duplicateKeys = tableKeySet[findIdx].duplicateKeys;
-            const existingKeys = tableKeySet[findIdx].existingKeys;
-            const notDuplicatedValues: KeyValue[] = [];
-            keysArray[findBatchIdx].forEach(key => {
-              if (!duplicateKeys.has(key)) {
-                notDuplicatedValues.push(key);
-              }
-            });
-            const query: any = { [table.key]: { $in: notDuplicatedValues } };
-            const opts: FindOpts = { fields: { [table.key]: true } };
-            runQuery(transaction, table, query, opts, null, (tx: DbTransaction, rows: any[]) => {
-              for (let row of rows) {
-                existingKeys.add(row[table.key]);
-              }
+				findExistingIds = (transaction: DbTransaction) => {
+					if (findIdx < tableKeySet.length) {
+						const table = tableKeySet[findIdx].table;
+						const keysArray = tableKeySet[findIdx].keysArray;
+						const duplicateKeys = tableKeySet[findIdx].duplicateKeys;
+						const existingKeys = tableKeySet[findIdx].existingKeys;
+						const notDuplicatedValues: KeyValue[] = [];
+						keysArray[findBatchIdx].forEach(key => {
+							if (!duplicateKeys.has(key)) {
+								notDuplicatedValues.push(key);
+							}
+						});
+						const query: any = { [table.key]: { $in: notDuplicatedValues } };
+						const opts: FindOpts = { fields: { [table.key]: true } };
+						runQuery(transaction, table, query, opts, null, (tx: DbTransaction, rows: any[]) => {
+							for (let row of rows) {
+								existingKeys.add(row[table.key]);
+							}
 
-              findBatchIdx++;
-              if (findBatchIdx >= keysArray.length) {
-                findIdx++;
-                findBatchIdx = 0;
-              }
-              findExistingIds(transaction);
-            });
-          }
-          else {
-            insertNextChange(transaction);
-          }
-        };
+							findBatchIdx++;
+							if (findBatchIdx >= keysArray.length) {
+								findIdx++;
+								findBatchIdx = 0;
+							}
+							findExistingIds(transaction);
+						});
+					}
+					else {
+						insertNextChange(transaction);
+					}
+				};
 
 				insertNextChange = (transaction: DbTransaction) => {
 					if (changeIdx < changes.length) {
@@ -398,17 +398,17 @@ namespace Updraft {
 						let changeTable = getChangeTableName(table.spec.name);
 						let time = change.time || Date.now();
 						verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
-            let existingKeys: Set<KeyType> = null;
-            tableKeySet.some((tk): boolean => {
-              /* istanbul ignore else */
-              if (tk.table === table) {
-                existingKeys = tk.existingKeys;
-                return true;
-              }
-              else {
-                return false;
-              }
-            });
+						let existingKeys: Set<KeyType> = null;
+						tableKeySet.some((tk): boolean => {
+							/* istanbul ignore else */
+							if (tk.table === table) {
+								existingKeys = tk.existingKeys;
+								return true;
+							}
+							else {
+								return false;
+							}
+						});
 
 						if (change.save) {
 							// append internal column values
@@ -417,14 +417,14 @@ namespace Updraft {
 								change.save,
 								{ [internal_column_time]: time }
 							);
-             const key = table.keyValue(element);
-             // optimization: don't resolve elements that aren't already in the db- just mark them as latest
-              if (existingKeys.has(key)) {
-                toResolve.add({ table, key });
-              }
-              else {
-                element[internal_column_latest] = true;
-              }
+						 const key = table.keyValue(element);
+						 // optimization: don't resolve elements that aren't already in the db- just mark them as latest
+							if (existingKeys.has(key)) {
+								toResolve.add({ table, key });
+							}
+							else {
+								element[internal_column_latest] = true;
+							}
 							insertElement(transaction, table, element, insertNextChange);
 						}
 
@@ -454,7 +454,7 @@ namespace Updraft {
 							insert(transaction, changeTable, columns, values, insertNextChange);
 						}
 
-            /* istanbul ignore next */
+						/* istanbul ignore next */
 						if (!change.save && !change.change && !change.delete) {
 							throw new Error("no operation specified for change- should be one of save, change, or delete");
 						}
@@ -489,15 +489,15 @@ namespace Updraft {
 		find<Element, Query>(table: Table<Element, any, Query>, queryArg: Query | Query[], opts?: FindOpts): Promise<Element[] | number> {
 			return new Promise((resolve: Resolver<Element[] | number>, reject: DbErrorCallback) => {
 				this.db.readTransaction((transaction: DbTransaction) => {
-          let queries: Query[] = Array.isArray(queryArg) ? queryArg : [queryArg];
+					let queries: Query[] = Array.isArray(queryArg) ? queryArg : [queryArg];
 					let qs = queries.map(query => 
-            assign({}, query, {
-              [internal_column_deleted]: false,
-              [internal_column_latest]: true,
-            })
-          );
+						assign({}, query, {
+							[internal_column_deleted]: false,
+							[internal_column_latest]: true,
+						})
+					);
 					runQuery(transaction, table, qs, opts, table.spec.clazz, (tx2: DbTransaction, results: Element[] | number) => {
-            tx2.commit(() => resolve(results));
+						tx2.commit(() => resolve(results));
 					});
 				}, reject);
 			});
@@ -834,137 +834,137 @@ namespace Updraft {
 	
 		let conditionSets: string[][] = [];
 		let values: (string | number)[] = [];
-    const queries: Query[] = Array.isArray(queryArg) ? queryArg : [queryArg];
+		const queries: Query[] = Array.isArray(queryArg) ? queryArg : [queryArg];
 
-    queries.forEach(query => {
-      let conditions: string[] = [];
-      Object.keys(query).forEach((col: string) => {
-        verify((col in table.spec.columns) || (col in internalColumn), "attempting to query based on column '%s' not in schema (%s)", col, table.spec.columns);
-        let column: Column = (col in internalColumn) ? internalColumn[col] : table.spec.columns[col];
-        let spec = query[col];
-        let found = false;
-        
-        switch (column.type) {
-        case ColumnType.int:
-        case ColumnType.real:
-        case ColumnType.enum:
-        case ColumnType.date:
-        case ColumnType.datetime:
-          const comparisons = {
-            $gt: ">",
-            $gte: ">=",
-            $lt: "<",
-            $lte: "<=",
-            $ne: "!="
-          };
-          for (let condition in comparisons) {
-            if (hasOwnProperty.call(spec, condition)) {
-              conditions.push("(" + col + comparisons[condition] + "?)");
-              let value = column.serialize(spec[condition]);
-              verify(Object(value) !== value, "condition %s must have a numeric-ish argument; got %s instead", condition, value);
-              values.push(value);
-              found = true;
-            }
-          }
-          break;
+		queries.forEach(query => {
+			let conditions: string[] = [];
+			Object.keys(query).forEach((col: string) => {
+				verify((col in table.spec.columns) || (col in internalColumn), "attempting to query based on column '%s' not in schema (%s)", col, table.spec.columns);
+				let column: Column = (col in internalColumn) ? internalColumn[col] : table.spec.columns[col];
+				let spec = query[col];
+				let found = false;
+				
+				switch (column.type) {
+				case ColumnType.int:
+				case ColumnType.real:
+				case ColumnType.enum:
+				case ColumnType.date:
+				case ColumnType.datetime:
+					const comparisons = {
+						$gt: ">",
+						$gte: ">=",
+						$lt: "<",
+						$lte: "<=",
+						$ne: "!="
+					};
+					for (let condition in comparisons) {
+						if (hasOwnProperty.call(spec, condition)) {
+							conditions.push("(" + col + comparisons[condition] + "?)");
+							let value = column.serialize(spec[condition]);
+							verify(Object(value) !== value, "condition %s must have a numeric-ish argument; got %s instead", condition, value);
+							values.push(value);
+							found = true;
+						}
+					}
+					break;
 
-        case ColumnType.text:
-          const operations = {
-            $like: (value: string) => {
-              conditions.push("(" + col + " LIKE ? ESCAPE '\\')");
-              values.push(value);
-              found = true;
-            },
-            
-            $notLike: (value: string) => {
-              conditions.push("(" + col + " NOT LIKE ? ESCAPE '\\')");
-              values.push(value);
-              found = true;
-            }
-          };
-          for (let condition in operations) {
-            if (hasOwnProperty.call(spec, condition)) {
-              operations[condition](spec[condition]);
-            }
-          }
-          break;
+				case ColumnType.text:
+					const operations = {
+						$like: (value: string) => {
+							conditions.push("(" + col + " LIKE ? ESCAPE '\\')");
+							values.push(value);
+							found = true;
+						},
+						
+						$notLike: (value: string) => {
+							conditions.push("(" + col + " NOT LIKE ? ESCAPE '\\')");
+							values.push(value);
+							found = true;
+						}
+					};
+					for (let condition in operations) {
+						if (hasOwnProperty.call(spec, condition)) {
+							operations[condition](spec[condition]);
+						}
+					}
+					break;
 
-        case ColumnType.bool:
-          conditions.push(col + (spec ? "!=0" : "=0"));
-          found = true;
-          break;
+				case ColumnType.bool:
+					conditions.push(col + (spec ? "!=0" : "=0"));
+					found = true;
+					break;
 
-        case ColumnType.set:
-          let existsSetValues = function(setValues: any[], args: (string | number)[]): string {
-            let escapedValues = setValues.map(value => column.element.serialize(value));
-            args.push(...escapedValues);
-            return "EXISTS ("
-              + "SELECT 1 FROM " + getSetTableName(table.spec.name, col)
-              + " WHERE value IN (" + setValues.map(x => "?").join(", ") + ")"
-              + " AND key=" + table.spec.name + "." + table.key
-              + " AND time=" + table.spec.name + "." + internal_column_time
-              + ")";
-          };
+				case ColumnType.set:
+					let existsSetValues = function(setValues: any[], args: (string | number)[]): string {
+						let escapedValues = setValues.map(value => column.element.serialize(value));
+						args.push(...escapedValues);
+						return "EXISTS ("
+							+ "SELECT 1 FROM " + getSetTableName(table.spec.name, col)
+							+ " WHERE value IN (" + setValues.map(x => "?").join(", ") + ")"
+							+ " AND key=" + table.spec.name + "." + table.key
+							+ " AND time=" + table.spec.name + "." + internal_column_time
+							+ ")";
+					};
 
-          let setConditions = {
-            $has: (hasValue: any) => {
-              verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
-              let condition = existsSetValues([hasValue], values);
-              conditions.push(condition);
-            },
-            $hasAny: (hasAnyValues: any[]) => {
-              verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
-              let condition = existsSetValues(hasAnyValues, values);
-              conditions.push(condition);
-            },
-            $hasAll: (hasAllValues: any[]) => {
-              verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
-              for (let hasValue of hasAllValues) {
-                let condition = existsSetValues([hasValue], values);
-                conditions.push(condition);
-              }
-            }
-          };
-          
-          for (let condition in setConditions) {
-            if (hasOwnProperty.call(spec, condition)) {
-              let value = spec[condition];
-              setConditions[condition](value);
-              found = true;
-              break;
-            }
-          }
-          break;
-        }
+					let setConditions = {
+						$has: (hasValue: any) => {
+							verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
+							let condition = existsSetValues([hasValue], values);
+							conditions.push(condition);
+						},
+						$hasAny: (hasAnyValues: any[]) => {
+							verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
+							let condition = existsSetValues(hasAnyValues, values);
+							conditions.push(condition);
+						},
+						$hasAll: (hasAllValues: any[]) => {
+							verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
+							for (let hasValue of hasAllValues) {
+								let condition = existsSetValues([hasValue], values);
+								conditions.push(condition);
+							}
+						}
+					};
+					
+					for (let condition in setConditions) {
+						if (hasOwnProperty.call(spec, condition)) {
+							let value = spec[condition];
+							setConditions[condition](value);
+							found = true;
+							break;
+						}
+					}
+					break;
+				}
 
-        if (!found) {
-          const inCondition = keyOf({ $in: false });
-          if (hasOwnProperty.call(spec, inCondition)) {
-            verify(Array.isArray(spec[inCondition]), "must be an array: %s", spec[inCondition]);
-            conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
-            let inValues: any[] = spec[inCondition];
-            inValues = inValues.map(val => column.serialize(val));
-            values.push(...inValues);
-            found = true;
-          }
-        }
-        
-        if (!found) {
-          /* istanbul ignore else */
-          if (typeof spec === "number" || typeof spec === "string") {
-            conditions.push(col + "=?");
-            values.push(spec);
-            found = true;
-          }
-        }
+				if (!found) {
+					const inCondition = keyOf({ $in: false });
+					if (hasOwnProperty.call(spec, inCondition)) {
+						verify(Array.isArray(spec[inCondition]), "must be an array: %s", spec[inCondition]);
+						conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
+						let inValues: any[] = spec[inCondition];
+						inValues = inValues.map(val => column.serialize(val));
+						values.push(...inValues);
+						found = true;
+					}
+				}
+				
+				if (!found) {
+					/* istanbul ignore else */
+					if (typeof spec === "number" || typeof spec === "string") {
+						conditions.push(col + "=?");
+						values.push(spec);
+						found = true;
+					}
+				}
 
-        verify(found, "unknown query condition for %s: %s", col, spec);
-      });
-      
-      if (conditions.length) {
-        conditionSets.push(conditions);
-      }
-    });
+				verify(found, "unknown query condition for %s: %s", col, spec);
+			});
+			
+			if (conditions.length) {
+				conditionSets.push(conditions);
+			}
+		});
 	
 		let fields: FieldSpec = assign({}, opts.fields || table.spec.columns, {[internal_column_time]: true});
 		let columns: string[] = selectableColumns(table.spec, fields);

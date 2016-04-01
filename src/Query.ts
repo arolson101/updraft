@@ -6,7 +6,7 @@ namespace Updraft.Query {
 		$gte?: number;
 		$lt?: number;
 		$lte?: number;
-    $ne?: number;
+		$ne?: number;
 	}
 	
 	export interface SetHasCondition<T> {
@@ -24,14 +24,14 @@ namespace Updraft.Query {
 	export interface InCondition<T> {
 		$in: T[];
 	}
-  
-  export interface LikeCondition {
-    $like: string;
-  }
+	
+	export interface LikeCondition {
+		$like: string;
+	}
 
-  export interface NotLikeCondition {
-    $notLike: string;
-  }
+	export interface NotLikeCondition {
+		$notLike: string;
+	}
 	
 	export type primitive<T> = T | InCondition<T>;
 
@@ -43,9 +43,9 @@ namespace Updraft.Query {
 	export type enm<T> = primitive<T>;
 	export type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
 	export type strSet = set<string>;
-  
-  /* istanbul ignore next */
-  export function escape(str: string): string {
-    return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
-  }
+	
+	/* istanbul ignore next */
+	export function escape(str: string): string {
+		return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
+	}
 }

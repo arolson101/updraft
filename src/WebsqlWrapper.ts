@@ -118,9 +118,9 @@ namespace Updraft {
 				each: (sql: string, params: (string | number)[], callback: DbEachResultCallback, final: DbTransactionCallback): void => {
 					this.each(tx, sql, params, callback, final);
 				},
-        commit: (cb: DbCommitCallback) => {
-          cb();
-        }
+				commit: (cb: DbCommitCallback) => {
+					cb();
+				}
 			};
 			return tx;
 		}
