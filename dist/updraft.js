@@ -962,7 +962,6 @@ var Updraft;
                                 return false;
                             }
                         });
-                        /* istanbul ignore else */
                         if (change.save) {
                             // append internal column values
                             var element = Updraft.assign({}, change.save, (_a = {}, _a[internal_column_time] = time, _a));
@@ -976,7 +975,7 @@ var Updraft;
                             }
                             insertElement(transaction, table, element, insertNextChange);
                         }
-                        else if (change.change || change.delete) {
+                        if (change.change || change.delete) {
                             var changeRow = {
                                 key: null,
                                 time: time,
@@ -1000,8 +999,8 @@ var Updraft;
                             toResolve.add({ table: table, key: changeRow.key });
                             insert(transaction, changeTable, columns, values, insertNextChange);
                         }
-                        else {
-                            /* istanbul ignore next */
+                        /* istanbul ignore next */
+                        if (!change.save && !change.change && !change.delete) {
                             throw new Error("no operation specified for change- should be one of save, change, or delete");
                         }
                     }
@@ -1366,7 +1365,6 @@ var Updraft;
                                 Updraft.verify(Object(value) !== value, "condition %s must have a numeric-ish argument; got %s instead", condition, value);
                                 values.push(value);
                                 found = true;
-                                break;
                             }
                         }
                         break;

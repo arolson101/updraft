@@ -10,15 +10,15 @@ namespace Updraft.Query {
 	}
 	
 	export interface SetHasCondition<T> {
-		$has?: T;
+		$has: T;
 	}
 
 	export interface SetHasAnyCondition<T> {
-		$hasAny?: T[];
+		$hasAny: T[];
 	}
 
 	export interface SetHasAllConditions<T> {
-		$hasAll?: T[];
+		$hasAll: T[];
 	}
 	
 	export interface InCondition<T> {

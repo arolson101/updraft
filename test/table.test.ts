@@ -971,6 +971,7 @@ describe("table", function() {
 					.then(() => todoTable.find({id: {$lte: 1}}).then((results) => expect(results).to.deep.equal([todos[0], todos[1]])))
 					.then(() => todoTable.find({id: {$gt: 10}}).then((results) => expect(results).to.deep.equal([todos[11]])))
 					.then(() => todoTable.find({id: {$gte: 10}}).then((results) => expect(results).to.deep.equal([todos[10], todos[11]])))
+					.then(() => todoTable.find({id: {$gt: 1, $lt: 3}}).then((results) => expect(results).to.deep.equal([todos[2]])))
 					;
 			});
 
@@ -982,6 +983,7 @@ describe("table", function() {
 					.then(() => todoTable.find({text: {$like: "odo%"}}).then((results) => expect(results).to.deep.equal([])))
 					.then(() => todoTable.find({text: {$like: "%11%"}}).then((results) => expect(results).to.deep.equal([todos[11]])))
 					.then(() => todoTable.find({text: {$like: "%t%0%"}}).then((results) => expect(results).to.deep.equal([todos[0], todos[10]])))
+					.then(() => todoTable.find({text: {$notLike: "%todo%"}}).then((results) => expect(results).to.deep.equal([])))
 					;
 			});
 

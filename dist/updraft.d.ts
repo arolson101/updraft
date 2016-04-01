@@ -263,13 +263,13 @@ declare namespace Updraft.Query {
         $ne?: number;
     }
     interface SetHasCondition<T> {
-        $has?: T;
+        $has: T;
     }
     interface SetHasAnyCondition<T> {
-        $hasAny?: T[];
+        $hasAny: T[];
     }
     interface SetHasAllConditions<T> {
-        $hasAll?: T[];
+        $hasAll: T[];
     }
     interface InCondition<T> {
         $in: T[];

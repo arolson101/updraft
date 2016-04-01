@@ -400,7 +400,7 @@ namespace Updraft {
 						verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
             let existingKeys: Set<KeyType> = null;
             tableKeySet.some((tk): boolean => {
-                /* istanbul ignore else */
+              /* istanbul ignore else */
               if (tk.table === table) {
                 existingKeys = tk.existingKeys;
                 return true;
@@ -410,7 +410,6 @@ namespace Updraft {
               }
             });
 
-						/* istanbul ignore else */
 						if (change.save) {
 							// append internal column values
 							let element = assign(
@@ -428,7 +427,8 @@ namespace Updraft {
               }
 							insertElement(transaction, table, element, insertNextChange);
 						}
-						else if (change.change || change.delete) {
+
+						if (change.change || change.delete) {
 							let changeRow: ChangeTableRow = {
 								key: null,
 								time: time,
@@ -453,8 +453,9 @@ namespace Updraft {
 							toResolve.add({table, key: changeRow.key});
 							insert(transaction, changeTable, columns, values, insertNextChange);
 						}
-						else {
-							/* istanbul ignore next */
+
+            /* istanbul ignore next */
+						if (!change.save && !change.change && !change.delete) {
 							throw new Error("no operation specified for change- should be one of save, change, or delete");
 						}
 					}
@@ -863,7 +864,6 @@ namespace Updraft {
               verify(Object(value) !== value, "condition %s must have a numeric-ish argument; got %s instead", condition, value);
               values.push(value);
               found = true;
-              break;
             }
           }
           break;
