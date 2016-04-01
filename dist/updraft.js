@@ -1336,16 +1336,6 @@ var Updraft;
     }
     function runQuery(transaction, table, queryArg, opts, clazz, resultCallback) {
         opts = opts || {};
-        var numericConditions = {
-            $gt: ">",
-            $gte: ">=",
-            $lt: "<",
-            $lte: "<="
-        };
-        var inCondition = Updraft.keyOf({ $in: false });
-        var hasCondition = Updraft.keyOf({ $has: false });
-        var hasAnyCondition = Updraft.keyOf({ $hasAny: false });
-        var hasAllConditions = Updraft.keyOf({ $hasAll: false });
         var conditionSets = [];
         var values = [];
         var queries = Array.isArray(queryArg) ? queryArg : [queryArg];
@@ -1356,31 +1346,54 @@ var Updraft;
                 var column = (col in internalColumn) ? internalColumn[col] : table.spec.columns[col];
                 var spec = query[col];
                 var found = false;
-                for (var condition in numericConditions) {
-                    if (Updraft.hasOwnProperty.call(spec, condition)) {
-                        conditions.push("(" + col + numericConditions[condition] + "?)");
-                        var value = spec[condition];
-                        Updraft.verify(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
-                        values.push(value);
+                switch (column.type) {
+                    case Updraft.ColumnType.int:
+                    case Updraft.ColumnType.real:
+                    case Updraft.ColumnType.enum:
+                    case Updraft.ColumnType.date:
+                    case Updraft.ColumnType.datetime:
+                        var comparisons = {
+                            $gt: ">",
+                            $gte: ">=",
+                            $lt: "<",
+                            $lte: "<=",
+                            $ne: "!="
+                        };
+                        for (var condition in comparisons) {
+                            if (Updraft.hasOwnProperty.call(spec, condition)) {
+                                conditions.push("(" + col + comparisons[condition] + "?)");
+                                var value = column.serialize(spec[condition]);
+                                Updraft.verify(Object(value) !== value, "condition %s must have a numeric-ish argument; got %s instead", condition, value);
+                                values.push(value);
+                                found = true;
+                                break;
+                            }
+                        }
+                        break;
+                    case Updraft.ColumnType.text:
+                        var operations = {
+                            $like: function (value) {
+                                conditions.push("(" + col + " LIKE ? ESCAPE '\\')");
+                                values.push(value);
+                                found = true;
+                            },
+                            $notLike: function (value) {
+                                conditions.push("(" + col + " NOT LIKE ? ESCAPE '\\')");
+                                values.push(value);
+                                found = true;
+                            }
+                        };
+                        for (var condition in operations) {
+                            if (Updraft.hasOwnProperty.call(spec, condition)) {
+                                operations[condition](spec[condition]);
+                            }
+                        }
+                        break;
+                    case Updraft.ColumnType.bool:
+                        conditions.push(col + (spec ? "!=0" : "=0"));
                         found = true;
                         break;
-                    }
-                }
-                if (!found) {
-                    if (Updraft.hasOwnProperty.call(spec, inCondition)) {
-                        Updraft.verify(Array.isArray(spec[inCondition]), "must be an array: %s", spec[inCondition]);
-                        conditions.push(col + " IN (" + spec[inCondition].map(function (x) { return "?"; }).join(", ") + ")");
-                        var inValues = spec[inCondition];
-                        inValues = inValues.map(function (val) { return column.serialize(val); });
-                        values.push.apply(values, inValues);
-                        found = true;
-                    }
-                }
-                if (!found) {
-                    var has = Updraft.hasOwnProperty.call(spec, hasCondition);
-                    var hasAny = Updraft.hasOwnProperty.call(spec, hasAnyCondition);
-                    var hasAll = Updraft.hasOwnProperty.call(spec, hasAllConditions);
-                    if (has || hasAny || hasAll) {
+                    case Updraft.ColumnType.set:
                         var existsSetValues = function (setValues, args) {
                             var escapedValues = setValues.map(function (value) { return column.element.serialize(value); });
                             args.push.apply(args, escapedValues);
@@ -1391,78 +1404,56 @@ var Updraft;
                                 + " AND time=" + table.spec.name + "." + internal_column_time
                                 + ")";
                         };
-                        /* istanbul ignore else */
-                        if (has) {
-                            var hasValue = spec[hasCondition];
-                            Updraft.verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
-                            var condition = existsSetValues([hasValue], values);
-                            conditions.push(condition);
-                        }
-                        else if (hasAny) {
-                            var hasAnyValues = spec[hasAnyCondition];
-                            Updraft.verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
-                            var condition = existsSetValues(hasAnyValues, values);
-                            conditions.push(condition);
-                        }
-                        else if (hasAll) {
-                            var hasAllValues = spec[hasAllConditions];
-                            Updraft.verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
-                            for (var _i = 0; _i < hasAllValues.length; _i++) {
-                                var hasValue = hasAllValues[_i];
+                        var setConditions = {
+                            $has: function (hasValue) {
+                                Updraft.verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
                                 var condition = existsSetValues([hasValue], values);
                                 conditions.push(condition);
+                            },
+                            $hasAny: function (hasAnyValues) {
+                                Updraft.verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
+                                var condition = existsSetValues(hasAnyValues, values);
+                                conditions.push(condition);
+                            },
+                            $hasAll: function (hasAllValues) {
+                                Updraft.verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
+                                for (var _i = 0; _i < hasAllValues.length; _i++) {
+                                    var hasValue = hasAllValues[_i];
+                                    var condition = existsSetValues([hasValue], values);
+                                    conditions.push(condition);
+                                }
+                            }
+                        };
+                        for (var condition in setConditions) {
+                            if (Updraft.hasOwnProperty.call(spec, condition)) {
+                                var value = spec[condition];
+                                setConditions[condition](value);
+                                found = true;
+                                break;
                             }
                         }
+                        break;
+                }
+                if (!found) {
+                    var inCondition = Updraft.keyOf({ $in: false });
+                    if (Updraft.hasOwnProperty.call(spec, inCondition)) {
+                        Updraft.verify(Array.isArray(spec[inCondition]), "must be an array: %s", spec[inCondition]);
+                        conditions.push(col + " IN (" + spec[inCondition].map(function (x) { return "?"; }).join(", ") + ")");
+                        var inValues = spec[inCondition];
+                        inValues = inValues.map(function (val) { return column.serialize(val); });
+                        values.push.apply(values, inValues);
                         found = true;
                     }
                 }
                 if (!found) {
                     /* istanbul ignore else */
-                    if (column.type == Updraft.ColumnType.bool) {
-                        conditions.push(col + (spec ? "!=0" : "=0"));
-                        found = true;
-                    }
-                    else if (column.type == Updraft.ColumnType.date || column.type == Updraft.ColumnType.datetime) {
-                        var $before = Updraft.keyOf({ $before: true });
-                        var $after = Updraft.keyOf({ $after: true });
-                        if (Updraft.hasOwnProperty.call(spec, $before)) {
-                            conditions.push(col + "<=?");
-                            values.push(column.serialize(spec[$before]));
-                            found = true;
-                        }
-                        if (Updraft.hasOwnProperty.call(spec, $after)) {
-                            conditions.push(col + ">=?");
-                            values.push(column.serialize(spec[$after]));
-                            found = true;
-                        }
-                        if (!found) {
-                            conditions.push(col + "=?");
-                            values.push(column.serialize(spec));
-                            found = true;
-                        }
-                    }
-                    else if (typeof spec === "number" || typeof spec === "string") {
+                    if (typeof spec === "number" || typeof spec === "string") {
                         conditions.push(col + "=?");
                         values.push(spec);
                         found = true;
                     }
-                    else if (typeof spec === "object") {
-                        var likeKey = Updraft.keyOf({ $like: false });
-                        var notLikeKey = Updraft.keyOf({ $notLike: false });
-                        /* istanbul ignore else */
-                        if (Updraft.hasOwnProperty.call(spec, likeKey)) {
-                            conditions.push("(" + col + " LIKE ? ESCAPE '\\')");
-                            values.push(spec[likeKey]);
-                            found = true;
-                        }
-                        else if (Updraft.hasOwnProperty.call(spec, notLikeKey)) {
-                            conditions.push("(" + col + " NOT LIKE ? ESCAPE '\\')");
-                            values.push(spec[notLikeKey]);
-                            found = true;
-                        }
-                    }
-                    Updraft.verify(found, "unknown query condition for %s: %s", col, spec);
                 }
+                Updraft.verify(found, "unknown query condition for %s: %s", col, spec);
             });
             if (conditions.length) {
                 conditionSets.push(conditions);

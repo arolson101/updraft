@@ -255,11 +255,12 @@ declare namespace Updraft {
     function makeDelete(table: Updraft.TableAny, time: number): (id: string | number) => TableChange<any, any>;
 }
 declare namespace Updraft.Query {
-    interface NumericConditions {
+    interface Comparisons<T> {
         $gt?: number;
         $gte?: number;
         $lt?: number;
         $lte?: number;
+        $ne?: number;
     }
     interface SetHasCondition<T> {
         $has?: T;
@@ -269,10 +270,6 @@ declare namespace Updraft.Query {
     }
     interface SetHasAllConditions<T> {
         $hasAll?: T[];
-    }
-    interface DateConditions {
-        $after?: Date;
-        $before?: Date;
     }
     interface InCondition<T> {
         $in: T[];
@@ -286,9 +283,9 @@ declare namespace Updraft.Query {
     type primitive<T> = T | InCondition<T>;
     type none = void;
     type bool = boolean;
-    type num = primitive<number> | NumericConditions;
+    type num = primitive<number> | Comparisons<number>;
     type str = primitive<string> | LikeCondition | NotLikeCondition;
-    type date = primitive<Date> | DateConditions;
+    type date = primitive<Date> | Comparisons<Date>;
     type enm<T> = primitive<T>;
     type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
     type strSet = set<string>;

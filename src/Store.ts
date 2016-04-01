@@ -831,18 +831,6 @@ namespace Updraft {
 	function runQuery<Element, Query>(transaction: DbTransaction, table: Table<Element, any, Query>, queryArg: Query | Query[], opts: FindOpts, clazz: new (props: Element) => Element, resultCallback: DbCallback<number | Element[]>): void {
 		opts = opts || {};
 	
-		const numericConditions = {
-			$gt: ">",
-			$gte: ">=",
-			$lt: "<",
-			$lte: "<="
-		};
-	
-		const inCondition = keyOf({ $in: false });
-		const hasCondition = keyOf({ $has: false });
-		const hasAnyCondition = keyOf({ $hasAny: false });
-		const hasAllConditions = keyOf({ $hasAll: false });
-	
 		let conditionSets: string[][] = [];
 		let values: (string | number)[] = [];
     const queries: Query[] = Array.isArray(queryArg) ? queryArg : [queryArg];
@@ -854,19 +842,103 @@ namespace Updraft {
         let column: Column = (col in internalColumn) ? internalColumn[col] : table.spec.columns[col];
         let spec = query[col];
         let found = false;
-    
-        for (let condition in numericConditions) {
-          if (hasOwnProperty.call(spec, condition)) {
-            conditions.push("(" + col + numericConditions[condition] + "?)");
-            let value = spec[condition];
-            verify(parseInt(value, 10) == value, "condition %s must have a numeric argument: %s", condition, value);
-            values.push(value);
-            found = true;
-            break;
+        
+        switch (column.type) {
+        case ColumnType.int:
+        case ColumnType.real:
+        case ColumnType.enum:
+        case ColumnType.date:
+        case ColumnType.datetime:
+          const comparisons = {
+            $gt: ">",
+            $gte: ">=",
+            $lt: "<",
+            $lte: "<=",
+            $ne: "!="
+          };
+          for (let condition in comparisons) {
+            if (hasOwnProperty.call(spec, condition)) {
+              conditions.push("(" + col + comparisons[condition] + "?)");
+              let value = column.serialize(spec[condition]);
+              verify(Object(value) !== value, "condition %s must have a numeric-ish argument; got %s instead", condition, value);
+              values.push(value);
+              found = true;
+              break;
+            }
           }
+          break;
+
+        case ColumnType.text:
+          const operations = {
+            $like: (value: string) => {
+              conditions.push("(" + col + " LIKE ? ESCAPE '\\')");
+              values.push(value);
+              found = true;
+            },
+            
+            $notLike: (value: string) => {
+              conditions.push("(" + col + " NOT LIKE ? ESCAPE '\\')");
+              values.push(value);
+              found = true;
+            }
+          };
+          for (let condition in operations) {
+            if (hasOwnProperty.call(spec, condition)) {
+              operations[condition](spec[condition]);
+            }
+          }
+          break;
+
+        case ColumnType.bool:
+          conditions.push(col + (spec ? "!=0" : "=0"));
+          found = true;
+          break;
+
+        case ColumnType.set:
+          let existsSetValues = function(setValues: any[], args: (string | number)[]): string {
+            let escapedValues = setValues.map(value => column.element.serialize(value));
+            args.push(...escapedValues);
+            return "EXISTS ("
+              + "SELECT 1 FROM " + getSetTableName(table.spec.name, col)
+              + " WHERE value IN (" + setValues.map(x => "?").join(", ") + ")"
+              + " AND key=" + table.spec.name + "." + table.key
+              + " AND time=" + table.spec.name + "." + internal_column_time
+              + ")";
+          };
+
+          let setConditions = {
+            $has: (hasValue: any) => {
+              verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
+              let condition = existsSetValues([hasValue], values);
+              conditions.push(condition);
+            },
+            $hasAny: (hasAnyValues: any[]) => {
+              verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
+              let condition = existsSetValues(hasAnyValues, values);
+              conditions.push(condition);
+            },
+            $hasAll: (hasAllValues: any[]) => {
+              verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
+              for (let hasValue of hasAllValues) {
+                let condition = existsSetValues([hasValue], values);
+                conditions.push(condition);
+              }
+            }
+          };
+          
+          for (let condition in setConditions) {
+            if (hasOwnProperty.call(spec, condition)) {
+              let value = spec[condition];
+              setConditions[condition](value);
+              found = true;
+              break;
+            }
+          }
+          break;
         }
-    
+
         if (!found) {
+          const inCondition = keyOf({ $in: false });
           if (hasOwnProperty.call(spec, inCondition)) {
             verify(Array.isArray(spec[inCondition]), "must be an array: %s", spec[inCondition]);
             conditions.push(col + " IN (" + spec[inCondition].map((x: any) => "?").join(", ") + ")");
@@ -878,96 +950,15 @@ namespace Updraft {
         }
         
         if (!found) {
-          let has = hasOwnProperty.call(spec, hasCondition);
-          let hasAny = hasOwnProperty.call(spec, hasAnyCondition);
-          let hasAll = hasOwnProperty.call(spec, hasAllConditions);
-          if (has || hasAny || hasAll) {
-            let existsSetValues = function(setValues: any[], args: (string | number)[]): string {
-              let escapedValues = setValues.map(value => column.element.serialize(value));
-              args.push(...escapedValues);
-              return "EXISTS ("
-                + "SELECT 1 FROM " + getSetTableName(table.spec.name, col)
-                + " WHERE value IN (" + setValues.map(x => "?").join(", ") + ")"
-                + " AND key=" + table.spec.name + "." + table.key
-                + " AND time=" + table.spec.name + "." + internal_column_time
-                + ")";
-            };
-            
-            /* istanbul ignore else */
-            if (has) {
-              let hasValue = spec[hasCondition];
-              verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
-              let condition = existsSetValues([hasValue], values);
-              conditions.push(condition);
-            }
-            else if (hasAny) {
-              let hasAnyValues: any[] = spec[hasAnyCondition];
-              verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
-              let condition = existsSetValues(hasAnyValues, values);
-              conditions.push(condition);
-            }
-            else if (hasAll) {
-              let hasAllValues: any[] = spec[hasAllConditions];
-              verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
-              for (let hasValue of hasAllValues) {
-                let condition = existsSetValues([hasValue], values);
-                conditions.push(condition);
-              }
-            }
-            found = true;
-          }
-        }
-    
-        if (!found) {
           /* istanbul ignore else */
-          if (column.type == ColumnType.bool) {
-            conditions.push(col + (spec ? "!=0" : "=0"));
-            found = true;
-          }
-          else if (column.type == ColumnType.date || column.type == ColumnType.datetime) {
-            const $before = keyOf({$before: true});
-            const $after = keyOf({$after: true});
-            if (hasOwnProperty.call(spec, $before)) {
-              conditions.push(col + "<=?");
-              values.push(column.serialize(spec[$before]));
-              found = true;
-            }
-            
-            if (hasOwnProperty.call(spec, $after)) {
-              conditions.push(col + ">=?");
-              values.push(column.serialize(spec[$after]));
-              found = true;
-            }
-            
-            if (!found) {
-              conditions.push(col + "=?");
-              values.push(column.serialize(spec));
-              found = true;
-            }
-          }
-          else if (typeof spec === "number" || typeof spec === "string") {
+          if (typeof spec === "number" || typeof spec === "string") {
             conditions.push(col + "=?");
             values.push(spec);
             found = true;
           }
-          else if (typeof spec === "object") {
-            const likeKey = keyOf({ $like: false });
-            const notLikeKey = keyOf({ $notLike: false });
-            /* istanbul ignore else */
-            if (hasOwnProperty.call(spec, likeKey)) {
-              conditions.push("(" + col + " LIKE ? ESCAPE '\\')");
-              values.push(spec[likeKey]);
-              found = true;
-            }
-            else if (hasOwnProperty.call(spec, notLikeKey)) {
-              conditions.push("(" + col + " NOT LIKE ? ESCAPE '\\')");
-              values.push(spec[notLikeKey]);
-              found = true;
-            }
-          }
-    
-          verify(found, "unknown query condition for %s: %s", col, spec);
         }
+
+        verify(found, "unknown query condition for %s: %s", col, spec);
       });
       
       if (conditions.length) {

@@ -1,11 +1,12 @@
 "use strict";
 
 namespace Updraft.Query {
-	export interface NumericConditions {
+	export interface Comparisons<T> {
 		$gt?: number;
 		$gte?: number;
 		$lt?: number;
 		$lte?: number;
+    $ne?: number;
 	}
 	
 	export interface SetHasCondition<T> {
@@ -18,11 +19,6 @@ namespace Updraft.Query {
 
 	export interface SetHasAllConditions<T> {
 		$hasAll?: T[];
-	}
-	
-	export interface DateConditions {
-		$after?: Date;
-		$before?: Date;
 	}
 	
 	export interface InCondition<T> {
@@ -41,9 +37,9 @@ namespace Updraft.Query {
 
 	export type none = void;
 	export type bool = boolean;
-	export type num = primitive<number> | NumericConditions;
+	export type num = primitive<number> | Comparisons<number>;
 	export type str = primitive<string> | LikeCondition | NotLikeCondition;
-	export type date = primitive<Date> | DateConditions;
+	export type date = primitive<Date> | Comparisons<Date>;
 	export type enm<T> = primitive<T>;
 	export type set<T> = SetHasCondition<T> | SetHasAnyCondition<T> | SetHasAllConditions<T>;
 	export type strSet = set<string>;
