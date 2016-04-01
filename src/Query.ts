@@ -2,11 +2,11 @@
 
 namespace Updraft.Query {
 	export interface Comparisons<T> {
-		$gt?: number;
-		$gte?: number;
-		$lt?: number;
-		$lte?: number;
-		$ne?: number;
+		$gt?: T;
+		$gte?: T;
+		$lt?: T;
+		$lte?: T;
+		$ne?: T;
 	}
 	
 	export interface SetHasCondition<T> {

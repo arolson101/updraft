@@ -256,11 +256,11 @@ declare namespace Updraft {
 }
 declare namespace Updraft.Query {
     interface Comparisons<T> {
-        $gt?: number;
-        $gte?: number;
-        $lt?: number;
-        $lte?: number;
-        $ne?: number;
+        $gt?: T;
+        $gte?: T;
+        $lt?: T;
+        $lte?: T;
+        $ne?: T;
     }
     interface SetHasCondition<T> {
         $has: T;
