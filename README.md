@@ -27,15 +27,15 @@ What if one user deleted a record that another modified?
 
 Updraft addresses these problems by storing baseline records and changes.  Users can insert a baseline (that
 is, whole) record at any time, but this is intended to be done only once, because only the latest record is
-considered the baseline.  Subsequent modifications should be made as `mutators`- you tell the database to made
-a change, and it applies the mutator to the latest record, as well as keeping a record of the changes.  Every 
-time a change comes in, it runs all the mutators in the order and updates the latest record.
+considered the baseline.  Subsequent modifications should be made as `deltas`- you tell the database to made
+a change, and it applies the delta to the latest record, as well as keeping a record of all deltas and their 
+timestamp.  Every time a change comes in, it runs all the deltas in order and updates the latest record.
 
 This system makes conflict resolution trivial- if two users change the same record offline, once they resume 
 syncing their changes will automatically merge based on the time they came in.
 
-## Mutators
-Mutators are based on [React's immutability helpers](https://facebook.github.io/react/docs/update.html), which
+## Deltas
+Deltas are based on [React's immutability helpers](https://facebook.github.io/react/docs/update.html), which
 in turn is based on [MongoDB's query language](http://docs.mongodb.org/manual/core/crud-introduction/#query), though
 there is no tie to any database.  They are immutable operations, meaning they leave the source object untouched.  
 For example:
@@ -46,11 +46,11 @@ var record = {
   text: "original text"
 };
 
-var mutator = {
+var delta = {
   text: { $set: "new text" }
 };
 
-var newRecord = Updraft.mutate(record, mutator);
+var newRecord = Updraft.update(record, delta);
 // record -> { id: 123, text: "original text" }
 // newRecord -> { id: 123, text: "new text" }
 ```
@@ -114,7 +114,7 @@ store.open({name: 'my database'})
   })
   .then(function() {
 
-    var change = {
+    var delta = {
       description: { $set: "changed description" },
       done: { $set: true }
     };
@@ -124,7 +124,7 @@ store.open({name: 'my database'})
     time = time + 1;
 
     // save the change
-    return taskTable.add([{ time: time, change: change }]);
+    return taskTable.add([{ time: time, delta: delta }]);
   })
   .then(function() {
     // find the value with id 123.  See docs for more advanced query options
@@ -140,7 +140,7 @@ store.open({name: 'my database'})
 If you use TypeScript, you can use interfaces to make your life easier and let the compiler catch errors:
 
 ```typescript
-import M = Updraft.Mutators;
+import D = Updraft.Delta;
 import Q = Updraft.Query;
 
 // either set up multiple interfaces for declarations and queries:
@@ -150,7 +150,7 @@ interface Task {
   done: boolean; 
 }
 
-interface TaskMutator {
+interface TaskDelta {
   id: number; // NOTE: database does not support changing the key value
   description: M.str;
   done: M.bool;
@@ -170,13 +170,12 @@ interface _Task<key, str, bool> {
 }
 
 interface Task extends _Task<number, string, boolean> {}
-interface TaskMutator extends _Task<number, M.str, M.bool> {}
+interface TaskDelta extends _Task<number, D.str, D.bool> {}
 interface TaskQuery extends _Task<Q.num, Q.str, Q.bool> {}
 
 // then set up your table
-type TaskTable = Updraft.Table<Task, TaskMutator, TaskQuery>;
-type TaskChange = Updraft.TableChange<Task, TaskMutator>;
-type TaskTableSpec = Updraft.TableSpec<Task, TaskMutator, TaskQuery>;
+type TaskTable = Updraft.Table<Task, TaskDelta, TaskQuery>;
+type TaskTableSpec = Updraft.TableSpec<Task, TaskDelta, TaskQuery>;
 
 const taskSpec: TaskTableSpec = {
   name: 'tasks',
@@ -190,7 +189,7 @@ const taskSpec: TaskTableSpec = {
 // ...
 
 var store = new Updraft.createStore({ db: Updraft.createSQLiteWrapper(db) });
-var taskTable: TaskTable = store.createTable(TaskSpec);
+var taskTable: TaskTable = store.createTable(taskSpec);
 
 ```
 For advanced usage, see the documentation.
@@ -233,7 +232,7 @@ field types, but because the underlying database is SQLite, the 'type' is only a
 type (int/string/blob/etc) in any field.
 
 During migrations, removed and renamed columns will be preserved not only in the resulting table but also by walking
-every change and updating the columns on the mutator objects.  Because of this, it might take some time depending on
+every change and updating the delta objects.  Because of this, it might take some time depending on
 how many records you have.
 
 Not supported:

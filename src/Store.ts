@@ -1,5 +1,5 @@
-///<reference path="./Mutate"/>
 ///<reference path="./Column"/>
+///<reference path="./Delta"/>
 ///<reference path="./Database"/>
 ///<reference path="./Table"/>
 ///<reference path="./Text"/>
@@ -101,7 +101,7 @@ namespace Updraft {
 			this.keyValueTable = this.createTable<KeyValue, any, any>(keyValueTableSpec);
 		}
 	
-		createTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query> {
+		createTable<Element, Delta, Query>(tableSpec: TableSpec<Element, Delta, Query>): Table<Element, Delta, Query> {
 			verify(!this.db, "createTable() can only be added before open()");
 			if (tableSpec !== keyValueTableSpec) {
 				verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
@@ -109,8 +109,8 @@ namespace Updraft {
 			for (let col in tableSpec.columns) {
 				verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
 			}
-			let table = new Table<Element, Mutator, Query>(tableSpec);
-			table.add = (...changes: TableChange<Element, Mutator>[]): Promise<any> => {
+			let table = new Table<Element, Delta, Query>(tableSpec);
+			table.add = (...changes: TableChange<Element, Delta>[]): Promise<any> => {
 				changes.forEach(change => change.table = table);
 				return this.add(...changes);
 			};
@@ -290,7 +290,7 @@ namespace Updraft {
 		
 		setValue(key: string, value: any): Promise<any> {
 			this.keyValues[key] = value;
-			return this.keyValueTable.add({save: {key, value}});
+			return this.keyValueTable.add({create: {key, value}});
 		}
 	
 		add(...changes: TableChange<any, any>[]): Promise<any> {
@@ -312,8 +312,8 @@ namespace Updraft {
 			return new Promise((promiseResolve, reject) => {
 				const tableKeySet: TableKeySet[] = [];
 				changes.forEach(change => {
-					if (change.save) {
-						const key = change.table.keyValue(change.save);
+					if (change.create) {
+						const key = change.table.keyValue(change.create);
 						let keys: Set<KeyType> = null;
 						let duplicateKeys: Set<KeyType> = null;
 						let allKeys: Set<KeyType> = null;
@@ -397,7 +397,7 @@ namespace Updraft {
 						verify(table, "change must specify table");
 						let changeTable = getChangeTableName(table.spec.name);
 						let time = change.time || Date.now();
-						verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
+						verify((change.create ? 1 : 0) + (change.update ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
 						let existingKeys: Set<KeyType> = null;
 						tableKeySet.some((tk): boolean => {
 							/* istanbul ignore else */
@@ -410,11 +410,11 @@ namespace Updraft {
 							}
 						});
 
-						if (change.save) {
+						if (change.create) {
 							// append internal column values
 							let element = assign(
 								{},
-								change.save,
+								change.create,
 								{ [internal_column_time]: time }
 							);
 						 const key = table.keyValue(element);
@@ -428,26 +428,26 @@ namespace Updraft {
 							insertElement(transaction, table, element, insertNextChange);
 						}
 
-						if (change.change || change.delete) {
+						if (change.update || change.delete) {
 							let changeRow: ChangeTableRow = {
 								key: null,
 								time: time,
 								change: null
 							};
-							if (change.change) {
-								// store changes
-								let mutator = shallowCopy(change.change);
-								changeRow.key = table.keyValue(mutator);
-								delete mutator[table.key];
-								changeRow.change = serializeChange(mutator, table.spec);
+							if (change.update) {
+								// store deltas
+								let delta = shallowCopy(change.update);
+								changeRow.key = table.keyValue(delta);
+								delete delta[table.key];
+								changeRow.change = serializeDelta(delta, table.spec);
 							}
 							else {
 								// mark deleted
 								changeRow.key = change.delete;
-								changeRow.change = serializeChange(deleteRow_action, table.spec);
+								changeRow.change = serializeDelta(deleteRow_action, table.spec);
 							}
 		
-							// insert into change table
+							// insert into delta table
 							let columns = Object.keys(changeRow);
 							let values: any[] = columns.map(k => changeRow[k]);
 							toResolve.add({table, key: changeRow.key});
@@ -455,8 +455,8 @@ namespace Updraft {
 						}
 
 						/* istanbul ignore next */
-						if (!change.save && !change.change && !change.delete) {
-							throw new Error("no operation specified for change- should be one of save, change, or delete");
+						if (!change.create && !change.update && !change.delete) {
+							throw new Error("no operation specified for delta- should be one of create, update, or delete");
 						}
 					}
 					else {
@@ -806,18 +806,18 @@ namespace Updraft {
 	function resolve<Element>(transaction: DbTransaction, table: Table<Element, any, any>, keyValue: KeyType, nextCallback: DbTransactionCallback): void {
 		selectBaseline(transaction, table, keyValue, (tx2: DbTransaction, baseline: BaselineInfo<Element>) => {
 			getChanges(tx2, table, baseline, (tx3: DbTransaction, changes: ChangeTableRow[]) => {
-				let mutation = applyChanges(baseline, changes, table.spec);
+				let deltaResult = applyChanges(baseline, changes, table.spec);
 				let promises: Promise<any>[] = [];
-				if (!mutation.isChanged) {
+				if (!deltaResult.isChanged) {
 					// mark it as latest (and others as not)
 					setLatest(tx3, table, keyValue, baseline.rowid, nextCallback);
 				}
 				else {
 					// invalidate old latest rows
 					// insert new latest row
-					let element = mutate(mutation.element, {
+					let element = update(deltaResult.element, {
 						[internal_column_latest]: {$set: true},
-						[internal_column_time]: {$set: mutation.time},
+						[internal_column_time]: {$set: deltaResult.time},
 						[internal_column_composed]: {$set: true}
 					});
 					
@@ -1119,22 +1119,22 @@ namespace Updraft {
 			resultCallback);
 	}
 	
-	interface MutationResult<Element> {
+	interface DeltaResult<Element> {
 		element: Element;
 		time: number;
 		isChanged: boolean;
 	}
 	
-	function applyChanges<Element, Mutator>(baseline: BaselineInfo<Element>, changes: ChangeTableRow[], spec: TableSpecAny): MutationResult<Element> {
+	function applyChanges<Element, Delta>(baseline: BaselineInfo<Element>, changes: ChangeTableRow[], spec: TableSpecAny): DeltaResult<Element> {
 		let element: Element = baseline.element;
 		let time = baseline.time;
 		for (let i = 0; i < changes.length; i++) {
 			let row = changes[i];
-			let mutator = <Mutator>deserializeChange(row.change, spec);
-			element = mutate(element, mutator);
+			let delta = <Delta>deserializeDelta(row.change, spec);
+			element = update(element, delta);
 			time = Math.max(time, row.time);
 		}
-		let isChanged = isMutated(baseline.element, element) || baseline.rowid == -1;
+		let isChanged = (baseline.element !== element) || baseline.rowid == -1;
 		return { element, time, isChanged };
 	}
 	
@@ -1177,7 +1177,7 @@ namespace Updraft {
 	}
 	
 	let setKey = keyOf({ $set: false });
-	function serializeChange<Mutator>(change: Mutator, spec: TableSpec<any, Mutator, any>): string {
+	function serializeDelta<Delta>(change: Delta, spec: TableSpec<any, Delta, any>): string {
 		for (let col in change) {
 			let val = change[col];
 			if (hasOwnProperty.call(val, setKey)) {
@@ -1188,15 +1188,15 @@ namespace Updraft {
 		return toText(change);
 	}
 	
-	function deserializeChange<Mutator>(text: string, spec: TableSpec<any, Mutator, any>): Mutator {
-		let change = fromText(text);
-		for (let col in change) {
-			let val = change[col];
+	function deserializeDelta<Delta>(text: string, spec: TableSpec<any, Delta, any>): Delta {
+		let delta = fromText(text);
+		for (let col in delta) {
+			let val = delta[col];
 			if (hasOwnProperty.call(val, setKey)) {
-				change[col][setKey] = deserializeValue(spec, col, change[col][setKey]);
+				delta[col][setKey] = deserializeValue(spec, col, delta[col][setKey]);
 			}
 		}
-		return change;
+		return delta;
 	}
 	
 	function deserializeRow<T>(spec: TableSpecAny, row: any[]): T {
@@ -1222,30 +1222,30 @@ namespace Updraft {
 	}
 	
 	/* istanbul ignore next */
-	export function makeSave<Element>(table: Updraft.Table<Element, any, any>, time: number) {
-		return (save: Element) => ({
+	export function makeCreate<Element>(table: Updraft.Table<Element, any, any>, time: number) {
+		return (create: Element): Updraft.TableChange<Element, any> => ({
 			table,
 			time,
-			save
-		} as Updraft.TableChange<Element, any>);
+			create
+		});
 	}
 
 	/* istanbul ignore next */
-	export function makeChange<Mutator>(table: Updraft.Table<any, Mutator, any>, time: number) {
-		return (change: Mutator) => ({
+	export function makeUpdate<Delta>(table: Updraft.Table<any, Delta, any>, time: number) {
+		return (update: Delta): Updraft.TableChange<Element, any> => ({
 			table,
 			time,
-			change
-		} as Updraft.TableChange<any, Mutator>);
+			update
+		});
 	}
 
 	/* istanbul ignore next */
 	export function makeDelete(table: Updraft.TableAny, time: number) {
-		return (id: KeyType) => ({
+		return (id: KeyType): Updraft.TableChange<any, any> => ({
 			table,
 			time,
 			delete: id
-		} as Updraft.TableChange<any, any>);
+		});
 	}
 
 }

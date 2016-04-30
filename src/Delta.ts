@@ -7,7 +7,7 @@
 "use strict";
 
 namespace Updraft {
-	export namespace Mutate {
+	export namespace Delta {
 		export interface setter<T> {
 			$set: T;
 		}
@@ -154,14 +154,14 @@ namespace Updraft {
 	function verifyArrayCase(value: any, spec: any, c: string) {
 		verify(
 			Array.isArray(value),
-			"mutate(): expected target of %s to be an array; got %s.",
+			"update(): expected target of %s to be an array; got %s.",
 			c,
 			value
 		);
 		let specValue = spec[c];
 		verify(
 			Array.isArray(specValue),
-			"mutate(): expected spec of %s to be an array; got %s. " +
+			"update(): expected spec of %s to be an array; got %s. " +
 			"Did you forget to wrap your parameter in an array?",
 			c,
 			specValue
@@ -171,34 +171,34 @@ namespace Updraft {
 	function verifySetCase(value: any, spec: any, c: string) {
 		verify(
 			value instanceof Set,
-			"mutate(): expected target of %s to be a set; got %s.",
+			"update(): expected target of %s to be a set; got %s.",
 			c,
 			value
 		);
 		let specValue = spec[c];
 		verify(
 			Array.isArray(specValue),
-			"mutate(): expected spec of %s to be an array; got %s. " +
+			"update(): expected spec of %s to be an array; got %s. " +
 			"Did you forget to wrap your parameter in an array?",
 			c,
 			specValue
 		);
 	}
 	
-	export function mutate<Element, Mutator>(value: Element, spec: Mutator): Element {
+	export function update<Element, Delta>(value: Element, spec: Delta): Element {
 		verify(
 			typeof spec === "object",
-			"mutate(): You provided a key path to mutate() that did not contain one " +
+			"update(): You provided a key path to update() that did not contain one " +
 			"of %s. Did you forget to include {%s: ...}?",
 			Object.keys(command).join(", "),
 			command.set
 		);
-	
+
 		// verify(
 		// 	Object.keys(spec).reduce( function(previousValue: boolean, currentValue: string): boolean {
 		// 		return previousValue && (keyOf(spec[currentValue]) in command);
 		// 	}, true),
-		// 	"mutate(): argument has an unknown key; supported keys are (%s).  mutator: %s",
+		// 	"update(): argument has an unknown key; supported keys are (%s).  delta: %s",
 		// 	Object.keys(command).join(", "),
 		// 	spec
 		// );
@@ -232,13 +232,13 @@ namespace Updraft {
 			let nextValue = <any>shallowCopy(value);
 			verify(
 				mergeObj && typeof mergeObj === "object",
-				"mutate(): %s expects a spec of type 'object'; got %s",
+				"update(): %s expects a spec of type 'object'; got %s",
 				command.merge,
 				mergeObj
 			);
 			verify(
 				nextValue && typeof nextValue === "object",
-				"mutate(): %s expects a target of type 'object'; got %s",
+				"update(): %s expects a target of type 'object'; got %s",
 				command.merge,
 				nextValue
 			);
@@ -250,7 +250,7 @@ namespace Updraft {
 			let keys = <any[]>spec[command.deleter];
 			verify(
 				keys && Array.isArray(keys),
-				"mutate(): %s expects a spec of type 'array'; got %s",
+				"update(): %s expects a spec of type 'array'; got %s",
 				command.deleter,
 				keys
 			);
@@ -299,7 +299,7 @@ namespace Updraft {
 			);
 			verify(
 				Array.isArray(spec[command.splice]),
-				"mutate(): expected spec of %s to be an array of arrays; got %s. " +
+				"update(): expected spec of %s to be an array of arrays; got %s. " +
 				"Did you forget to wrap your parameters in an array?",
 				command.splice,
 				spec[command.splice]
@@ -307,7 +307,7 @@ namespace Updraft {
 			spec[command.splice].forEach(function(args: any) {
 				verify(
 					Array.isArray(args),
-					"mutate(): expected spec of %s to be an array of arrays; got %s. " +
+					"update(): expected spec of %s to be an array of arrays; got %s. " +
 					"Did you forget to wrap your parameters in an array?",
 					command.splice,
 					spec[command.splice]
@@ -344,7 +344,7 @@ namespace Updraft {
 		for (let k in spec) {
 			if (typeof value === "object" && !(command.hasOwnProperty(k))) {
 				let oldValue = value[k];
-				let newValue = mutate(oldValue, spec[k]);
+				let newValue = update(oldValue, spec[k]);
 				if (oldValue !== newValue) {
 					if (!nextValue) {
 						nextValue = <any>shallowCopy(value);
@@ -356,10 +356,5 @@ namespace Updraft {
 		}
 	
 		return changed ? nextValue : value;
-	}
-	
-	
-	export function isMutated<Element>(a: Element, b: Element): boolean {
-		return a !== b;
 	}
 }

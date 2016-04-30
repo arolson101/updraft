@@ -130,7 +130,7 @@ declare namespace Updraft {
     }
 }
 declare namespace Updraft {
-    namespace Mutate {
+    namespace Delta {
         interface setter<T> {
             $set: T;
         }
@@ -174,19 +174,18 @@ declare namespace Updraft {
     function shallowEqual<T>(a: T, b: T): boolean;
     let hasOwnProperty: (v: string) => boolean;
     function keyOf(obj: Object): string;
-    function mutate<Element, Mutator>(value: Element, spec: Mutator): Element;
-    function isMutated<Element>(a: Element, b: Element): boolean;
+    function update<Element, Delta>(value: Element, spec: Delta): Element;
 }
 declare namespace Updraft {
     type KeyType = string | number;
-    interface TableChange<Element, Mutator> {
-        table?: Table<Element, Mutator, any>;
+    interface TableChange<Element, Delta> {
+        table?: Table<Element, Delta, any>;
         time?: number;
         delete?: KeyType;
-        change?: Mutator;
-        save?: Element;
+        update?: Delta;
+        create?: Element;
     }
-    interface TableSpec<Element, Mutator, Query> {
+    interface TableSpec<Element, Delta, Query> {
         name: string;
         columns: ColumnSet;
         renamedColumns?: RenamedColumnSet;
@@ -213,13 +212,13 @@ declare namespace Updraft {
         limit?: number;
         count?: boolean;
     }
-    class Table<Element, Mutator, Query> {
-        spec: TableSpec<Element, Mutator, Query>;
+    class Table<Element, Delta, Query> {
+        spec: TableSpec<Element, Delta, Query>;
         key: KeyType;
-        constructor(spec: TableSpec<Element, Mutator, Query>);
-        keyValue(element: Element | Mutator): KeyType;
+        constructor(spec: TableSpec<Element, Delta, Query>);
+        keyValue(element: Element | Delta): KeyType;
         find: (query: Query | Query[], opts?: FindOpts) => Promise<Element[] | number>;
-        add: (...changes: TableChange<Element, Mutator>[]) => Promise<any>;
+        add: (...changes: TableChange<Element, Delta>[]) => Promise<any>;
     }
     function tableKey(spec: TableSpec<any, any, any>): KeyType;
 }
@@ -239,7 +238,7 @@ declare namespace Updraft {
         private keyValueTable;
         private keyValues;
         constructor(params: CreateStoreParams);
-        createTable<Element, Mutator, Query>(tableSpec: TableSpec<Element, Mutator, Query>): Table<Element, Mutator, Query>;
+        createTable<Element, Delta, Query>(tableSpec: TableSpec<Element, Delta, Query>): Table<Element, Delta, Query>;
         open(): Promise<any>;
         readSchema(): Promise<Schema>;
         private syncTable(transaction, schema, spec, nextCallback);
@@ -250,8 +249,8 @@ declare namespace Updraft {
         find<Element, Query>(table: Table<Element, any, Query>, queryArg: Query | Query[], opts?: FindOpts): Promise<Element[] | number>;
     }
     function createStore(params: CreateStoreParams): Store;
-    function makeSave<Element>(table: Updraft.Table<Element, any, any>, time: number): (save: Element) => TableChange<Element, any>;
-    function makeChange<Mutator>(table: Updraft.Table<any, Mutator, any>, time: number): (change: Mutator) => TableChange<any, Mutator>;
+    function makeCreate<Element>(table: Updraft.Table<Element, any, any>, time: number): (create: Element) => TableChange<Element, any>;
+    function makeUpdate<Delta>(table: Updraft.Table<any, Delta, any>, time: number): (update: Delta) => TableChange<Element, any>;
     function makeDelete(table: Updraft.TableAny, time: number): (id: string | number) => TableChange<any, any>;
 }
 declare namespace Updraft.Query {

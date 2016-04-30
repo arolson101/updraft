@@ -10,9 +10,9 @@ import Enum = require("enum");
 import Column = Updraft.Column;
 import ColumnType = Updraft.ColumnType;
 import Q = Updraft.Query;
-import M = Updraft.Mutate;
+import D = Updraft.Delta;
 import OrderBy = Updraft.OrderBy;
-import mutate = Updraft.mutate;
+import update = Updraft.update;
 
 let saveWebSqlValues = false;
 // TODO: lists
@@ -123,13 +123,13 @@ interface _Todo<key, date, estatus, ealtstatus, real, bool, str, strset, history
 }
 
 interface Todo extends _Todo<number, Date, TodoStatus, EnumValue, number, boolean, string, Set<string>, Array<HistoryItem>> {}
-interface TodoMutator extends _Todo<number, M.date, M.primitive<TodoStatus>, M.primitive<EnumValue>, M.num, M.bool, M.str, M.strSet, M.array<HistoryItem>> {}
+interface TodoDelta extends _Todo<number, D.date, D.primitive<TodoStatus>, D.primitive<EnumValue>, D.num, D.bool, D.str, D.strSet, D.array<HistoryItem>> {}
 interface TodoQuery extends _Todo<Q.num, Q.date, Q.primitive<TodoStatus>, Q.primitive<EnumValue>, Q.num, Q.bool, Q.str, Q.strSet, Q.none> {}
 interface TodoFields extends _Todo<boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean> {}
 
-type TodoTable = Updraft.Table<Todo, TodoMutator, TodoQuery>;
-type TodoChange = Updraft.TableChange<Todo, TodoMutator>;
-type TodoTableSpec = Updraft.TableSpec<Todo, TodoMutator, TodoQuery>;
+type TodoTable = Updraft.Table<Todo, TodoDelta, TodoQuery>;
+type TodoChange = Updraft.TableChange<Todo, TodoDelta>;
+type TodoTableSpec = Updraft.TableSpec<Todo, TodoDelta, TodoQuery>;
 
 const todoTableSpec: TodoTableSpec = {
 	name: "todos",
@@ -249,11 +249,11 @@ function sampleTodos(count: number) {
 	return todos;
 }
 
-function sampleMutators(count: number) {
-	let mutators: TodoMutator[] = [];
+function sampleDeltas(count: number) {
+	let deltas: TodoDelta[] = [];
 
 	for (let i = 0; i < count; i++) {
-		let m: TodoMutator = {
+		let m: TodoDelta = {
 			id: i,
 		};
 
@@ -290,10 +290,10 @@ function sampleMutators(count: number) {
 			break;
 		}
 
-		mutators.push(m);
+		deltas.push(m);
 	}
 
-	return mutators;
+	return deltas;
 }
 
 function populateData(db: Updraft.DbWrapper, count: number) {
@@ -302,8 +302,8 @@ function populateData(db: Updraft.DbWrapper, count: number) {
 	let p = Promise.resolve(); 
 	p = p.then(() => purgeDb(db));
 	p = p.then(() => store.open());
-	p = p.then(() => todoTable.add(...sampleTodos(count).map(todo => <TodoChange>{ time: 1, save: todo })));
-	p = p.then(() => todoTable.add(...sampleMutators(count).map(m => <TodoChange>{ time: 2, change: m })));
+	p = p.then(() => todoTable.add(...sampleTodos(count).map(todo => <TodoChange>{ time: 1, create: todo })));
+	p = p.then(() => todoTable.add(...sampleDeltas(count).map(m => <TodoChange>{ time: 2, update: m })));
 	return p;
 }
 
@@ -351,14 +351,14 @@ describe("table", function() {
 	
 	describe("schema migrations", function() {
 		function runMigration(newFields: Updraft.ColumnSet, deletedFields: string[], rename: {[old: string]: string}, newindices: string[][], debug?: boolean) {
-			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clonePreservingEnums(todoTableSpec);
+			let newSpec: Updraft.TableSpec<Todo, TodoDelta, TodoQuery> = clonePreservingEnums(todoTableSpec);
 			let newSchema = clone(todoTableExpectedSchema);
 			let dataCount = 10;
 			let newData = sampleTodos(dataCount);
-			sampleMutators(dataCount).forEach((m) => {
+			sampleDeltas(dataCount).forEach((m) => {
 				let id = m.id;
 				delete m.id;
-				let d = mutate(newData[id], m);
+				let d = update(newData[id], m);
 				// db won't return null keys
 				for (let field in d) {
 					if (d[field] == null) {
@@ -584,7 +584,7 @@ describe("table", function() {
 			.then(() => store.open())
 			.then(() => {
 				statements.length = 0; // clear array
-				return store.add(...changes.map(Updraft.makeSave(todoTable, 100)));
+				return store.add(...changes.map(Updraft.makeCreate(todoTable, 100)));
 			})
 			.then(() => {
 				//console.log("statements: ", statements);
@@ -623,7 +623,7 @@ describe("table", function() {
 		it("simple change progression", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
-					save: {
+					create: {
 						id: 1,
 						text: "base text",
 						created: undefined,
@@ -632,7 +632,7 @@ describe("table", function() {
 					},
 				},
 				{ time: 2,
-					change: {
+					update: {
 						id: 1,
 						status: { $set: TodoStatus.InProgress },
 						text: { $set: "modified at time 2" },
@@ -640,14 +640,14 @@ describe("table", function() {
 					}
 				},
 				{ time: 3,
-					change: {
+					update: {
 						id: 1,
 						created: { $set: new Date(2005) },
 						text: { $set: "modified at time 3" }
 					}
 				},
 				{ time: 4,
-					change: {
+					update: {
 						id: 1,
 						completed: { $set: true }
 					}
@@ -668,7 +668,7 @@ describe("table", function() {
 		it("conflicting adds", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
-					save: {
+					create: {
 						id: 1,
 						text: "base text 1",
 						created: undefined,
@@ -677,7 +677,7 @@ describe("table", function() {
 					},
 				},
 				{ time: 2,
-					save: {
+					create: {
 						id: 1,
 						text: "base text 2",
 						created: undefined,
@@ -699,7 +699,7 @@ describe("table", function() {
 		it("multiple baselines", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
-					save: {
+					create: {
 						id: 1,
 						text: "base text 1",
 						created: undefined,
@@ -707,13 +707,13 @@ describe("table", function() {
 					},
 				},
 				{ time: 2,
-					change: {
+					update: {
 						id: 1,
 						text: { $set: "modified at time 2" }
 					}
 				},
 				{ time: 3,
-					save: {
+					create: {
 						id: 1,
 						text: "base text 2",
 						created: new Date(2005),
@@ -721,7 +721,7 @@ describe("table", function() {
 					},
 				},
 				{ time: 4,
-					change: {
+					update: {
 						id: 1,
 						completed: { $set: true }
 					}
@@ -741,13 +741,13 @@ describe("table", function() {
 		it("no baseline", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
-					change: {
+					update: {
 						id: 1,
 						text: { $set: "modified at time 2" }
 					}
 				},
 				{ time: 2,
-					save: {
+					create: {
 						id: 1,
 						text: "base text 2",
 						created: new Date(2005),
@@ -755,7 +755,7 @@ describe("table", function() {
 					},
 				},
 				{ time: 3,
-					change: {
+					update: {
 						id: 1,
 						completed: { $set: true }
 					}
@@ -775,7 +775,7 @@ describe("table", function() {
 		it("out-of-order changes", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
-					save: {
+					create: {
 						id: 1,
 						text: "base text",
 						completed: false,
@@ -783,21 +783,21 @@ describe("table", function() {
 					},
 				},
 				{ time: 4,
-					change: {
+					update: {
 						id: 1,
 						created: { $set: new Date(2005) },
 						completed: { $set: true }
 					}
 				},
 				{ time: 3,
-					change: {
+					update: {
 						id: 1,
 						created: { $set: new Date(2003) },
 						text: { $set: "modified at time 3" }
 					}
 				},
 				{ time: 2,
-					change: {
+					update: {
 						id: 1,
 						text: { $set: "modified at time 2" }
 					}
@@ -817,7 +817,7 @@ describe("table", function() {
 		it("deletion", function() {
 			let changes: TodoChange[] = [
 				{ time: 1,
-					save: {
+					create: {
 						id: 101,
 						text: "base text 1",
 						created: undefined,
@@ -856,7 +856,7 @@ describe("table", function() {
 			let toSave = new TodoClass({});
 			expect(toSave.constructorCalled).to.be.true;
 
-			let newSpec: Updraft.TableSpec<Todo, TodoMutator, TodoQuery> = clonePreservingEnums(todoTableSpec);
+			let newSpec: Updraft.TableSpec<Todo, TodoDelta, TodoQuery> = clonePreservingEnums(todoTableSpec);
 			newSpec.clazz = TodoClass;
 
 			let w = createDb(true, false);
@@ -865,7 +865,7 @@ describe("table", function() {
 
 			return Promise.resolve()
 				.then(() => store.open())
-				.then(() => todoTable.add({save: toSave}))
+				.then(() => todoTable.add({create: toSave}))
 				.then(() => todoTable.find({}))
 				.then((data: TodoClass[]) => {
 					expect(data[0]).to.haveOwnProperty("constructorCalled");
@@ -890,7 +890,7 @@ describe("table", function() {
 
 			return Promise.resolve()
 				.then(() => store.open())
-				.then(() => todoTable.add({time: 1, save: toSave}))
+				.then(() => todoTable.add({time: 1, create: toSave}))
 				.then(() => todoTable.find({}))
 				.then((data: Todo[]) => {
 					expect(data[0]).to.deep.equal(toSave);
@@ -918,8 +918,8 @@ describe("table", function() {
 
 			return Promise.resolve()
 				.then(() => store.open())
-				.then(() => todoTable.add(...(makeRecords(0, 2000).concat(makeRecords(10, 20))).map(Updraft.makeSave(todoTable, 1))))
-				.then(() => todoTable.add(...makeRecords(1000, 4000).map(Updraft.makeSave(todoTable, 2))))
+				.then(() => todoTable.add(...(makeRecords(0, 2000).concat(makeRecords(10, 20))).map(Updraft.makeCreate(todoTable, 1))))
+				.then(() => todoTable.add(...makeRecords(1000, 4000).map(Updraft.makeCreate(todoTable, 2))))
 				.then(() => todoTable.find({}, {count: true}))
 				.then((dataCount: number) => {
 					expect(dataCount).to.equal(4000);
@@ -943,7 +943,7 @@ describe("table", function() {
 
 			return Promise.resolve()
 				.then(() => store.open())
-				.then(() => todoTable.add(...todos.map(todo => <TodoChange>{ time: 1, save: todo })))
+				.then(() => todoTable.add(...todos.map(todo => <TodoChange>{ time: 1, create: todo })))
 				;
 		});
 

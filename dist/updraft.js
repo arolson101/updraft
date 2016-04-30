@@ -468,25 +468,25 @@ var Updraft;
         deleter: keyOf({ $delete: null }),
     };
     function verifyArrayCase(value, spec, c) {
-        Updraft.verify(Array.isArray(value), "mutate(): expected target of %s to be an array; got %s.", c, value);
+        Updraft.verify(Array.isArray(value), "update(): expected target of %s to be an array; got %s.", c, value);
         var specValue = spec[c];
-        Updraft.verify(Array.isArray(specValue), "mutate(): expected spec of %s to be an array; got %s. " +
+        Updraft.verify(Array.isArray(specValue), "update(): expected spec of %s to be an array; got %s. " +
             "Did you forget to wrap your parameter in an array?", c, specValue);
     }
     function verifySetCase(value, spec, c) {
-        Updraft.verify(value instanceof Set, "mutate(): expected target of %s to be a set; got %s.", c, value);
+        Updraft.verify(value instanceof Set, "update(): expected target of %s to be a set; got %s.", c, value);
         var specValue = spec[c];
-        Updraft.verify(Array.isArray(specValue), "mutate(): expected spec of %s to be an array; got %s. " +
+        Updraft.verify(Array.isArray(specValue), "update(): expected spec of %s to be an array; got %s. " +
             "Did you forget to wrap your parameter in an array?", c, specValue);
     }
-    function mutate(value, spec) {
-        Updraft.verify(typeof spec === "object", "mutate(): You provided a key path to mutate() that did not contain one " +
+    function update(value, spec) {
+        Updraft.verify(typeof spec === "object", "update(): You provided a key path to update() that did not contain one " +
             "of %s. Did you forget to include {%s: ...}?", Object.keys(command).join(", "), command.set);
         // verify(
         // 	Object.keys(spec).reduce( function(previousValue: boolean, currentValue: string): boolean {
         // 		return previousValue && (keyOf(spec[currentValue]) in command);
         // 	}, true),
-        // 	"mutate(): argument has an unknown key; supported keys are (%s).  mutator: %s",
+        // 	"update(): argument has an unknown key; supported keys are (%s).  delta: %s",
         // 	Object.keys(command).join(", "),
         // 	spec
         // );
@@ -502,14 +502,14 @@ var Updraft;
         if (Updraft.hasOwnProperty.call(spec, command.merge)) {
             var mergeObj = spec[command.merge];
             var nextValue_1 = shallowCopy(value);
-            Updraft.verify(mergeObj && typeof mergeObj === "object", "mutate(): %s expects a spec of type 'object'; got %s", command.merge, mergeObj);
-            Updraft.verify(nextValue_1 && typeof nextValue_1 === "object", "mutate(): %s expects a target of type 'object'; got %s", command.merge, nextValue_1);
+            Updraft.verify(mergeObj && typeof mergeObj === "object", "update(): %s expects a spec of type 'object'; got %s", command.merge, mergeObj);
+            Updraft.verify(nextValue_1 && typeof nextValue_1 === "object", "update(): %s expects a target of type 'object'; got %s", command.merge, nextValue_1);
             Updraft.assign(nextValue_1, spec[command.merge]);
             return shallowEqual(value, nextValue_1) ? value : nextValue_1;
         }
         if (Updraft.hasOwnProperty.call(spec, command.deleter) && (typeof value === "object") && !(value instanceof Set)) {
             var keys = spec[command.deleter];
-            Updraft.verify(keys && Array.isArray(keys), "mutate(): %s expects a spec of type 'array'; got %s", command.deleter, keys);
+            Updraft.verify(keys && Array.isArray(keys), "update(): %s expects a spec of type 'array'; got %s", command.deleter, keys);
             var nextValue_2 = shallowCopy(value);
             changed = false;
             keys.forEach(function (key) {
@@ -545,10 +545,10 @@ var Updraft;
         if (Updraft.hasOwnProperty.call(spec, command.splice)) {
             var nextValue_5 = shallowCopy(value);
             Updraft.verify(Array.isArray(value), "Expected %s target to be an array; got %s", command.splice, value);
-            Updraft.verify(Array.isArray(spec[command.splice]), "mutate(): expected spec of %s to be an array of arrays; got %s. " +
+            Updraft.verify(Array.isArray(spec[command.splice]), "update(): expected spec of %s to be an array of arrays; got %s. " +
                 "Did you forget to wrap your parameters in an array?", command.splice, spec[command.splice]);
             spec[command.splice].forEach(function (args) {
-                Updraft.verify(Array.isArray(args), "mutate(): expected spec of %s to be an array of arrays; got %s. " +
+                Updraft.verify(Array.isArray(args), "update(): expected spec of %s to be an array of arrays; got %s. " +
                     "Did you forget to wrap your parameters in an array?", command.splice, spec[command.splice]);
                 nextValue_5.splice.apply(nextValue_5, args);
             });
@@ -579,7 +579,7 @@ var Updraft;
         for (var k in spec) {
             if (typeof value === "object" && !(command.hasOwnProperty(k))) {
                 var oldValue = value[k];
-                var newValue = mutate(oldValue, spec[k]);
+                var newValue = update(oldValue, spec[k]);
                 if (oldValue !== newValue) {
                     if (!nextValue) {
                         nextValue = shallowCopy(value);
@@ -591,11 +591,7 @@ var Updraft;
         }
         return changed ? nextValue : value;
     }
-    Updraft.mutate = mutate;
-    function isMutated(a, b) {
-        return a !== b;
-    }
-    Updraft.isMutated = isMutated;
+    Updraft.update = update;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
 ///<reference path="./Column"/>
 ///<reference path="./verify"/>
@@ -634,8 +630,8 @@ var Updraft;
     }
     Updraft.tableKey = tableKey;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-///<reference path="./Mutate"/>
 ///<reference path="./Column"/>
+///<reference path="./Delta"/>
 ///<reference path="./Database"/>
 ///<reference path="./Table"/>
 ///<reference path="./Text"/>
@@ -854,7 +850,7 @@ var Updraft;
         };
         Store.prototype.setValue = function (key, value) {
             this.keyValues[key] = value;
-            return this.keyValueTable.add({ save: { key: key, value: value } });
+            return this.keyValueTable.add({ create: { key: key, value: value } });
         };
         Store.prototype.add = function () {
             var _this = this;
@@ -866,8 +862,8 @@ var Updraft;
             return new Promise(function (promiseResolve, reject) {
                 var tableKeySet = [];
                 changes.forEach(function (change) {
-                    if (change.save) {
-                        var key = change.table.keyValue(change.save);
+                    if (change.create) {
+                        var key = change.table.keyValue(change.create);
                         var keys = null;
                         var duplicateKeys = null;
                         var allKeys = null;
@@ -950,7 +946,7 @@ var Updraft;
                         Updraft.verify(table, "change must specify table");
                         var changeTable = getChangeTableName(table.spec.name);
                         var time = change.time || Date.now();
-                        Updraft.verify((change.save ? 1 : 0) + (change.change ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
+                        Updraft.verify((change.create ? 1 : 0) + (change.update ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
                         var existingKeys = null;
                         tableKeySet.some(function (tk) {
                             /* istanbul ignore else */
@@ -962,9 +958,9 @@ var Updraft;
                                 return false;
                             }
                         });
-                        if (change.save) {
+                        if (change.create) {
                             // append internal column values
-                            var element = Updraft.assign({}, change.save, (_a = {}, _a[internal_column_time] = time, _a));
+                            var element = Updraft.assign({}, change.create, (_a = {}, _a[internal_column_time] = time, _a));
                             var key = table.keyValue(element);
                             // optimization: don't resolve elements that aren't already in the db- just mark them as latest
                             if (existingKeys.has(key)) {
@@ -975,33 +971,33 @@ var Updraft;
                             }
                             insertElement(transaction, table, element, insertNextChange);
                         }
-                        if (change.change || change.delete) {
+                        if (change.update || change.delete) {
                             var changeRow = {
                                 key: null,
                                 time: time,
                                 change: null
                             };
-                            if (change.change) {
-                                // store changes
-                                var mutator = Updraft.shallowCopy(change.change);
-                                changeRow.key = table.keyValue(mutator);
-                                delete mutator[table.key];
-                                changeRow.change = serializeChange(mutator, table.spec);
+                            if (change.update) {
+                                // store deltas
+                                var delta = Updraft.shallowCopy(change.update);
+                                changeRow.key = table.keyValue(delta);
+                                delete delta[table.key];
+                                changeRow.change = serializeDelta(delta, table.spec);
                             }
                             else {
                                 // mark deleted
                                 changeRow.key = change.delete;
-                                changeRow.change = serializeChange(deleteRow_action, table.spec);
+                                changeRow.change = serializeDelta(deleteRow_action, table.spec);
                             }
-                            // insert into change table
+                            // insert into delta table
                             var columns = Object.keys(changeRow);
                             var values = columns.map(function (k) { return changeRow[k]; });
                             toResolve.add({ table: table, key: changeRow.key });
                             insert(transaction, changeTable, columns, values, insertNextChange);
                         }
                         /* istanbul ignore next */
-                        if (!change.save && !change.change && !change.delete) {
-                            throw new Error("no operation specified for change- should be one of save, change, or delete");
+                        if (!change.create && !change.update && !change.delete) {
+                            throw new Error("no operation specified for delta- should be one of create, update, or delete");
                         }
                     }
                     else {
@@ -1310,18 +1306,18 @@ var Updraft;
     function resolve(transaction, table, keyValue, nextCallback) {
         selectBaseline(transaction, table, keyValue, function (tx2, baseline) {
             getChanges(tx2, table, baseline, function (tx3, changes) {
-                var mutation = applyChanges(baseline, changes, table.spec);
+                var deltaResult = applyChanges(baseline, changes, table.spec);
                 var promises = [];
-                if (!mutation.isChanged) {
+                if (!deltaResult.isChanged) {
                     // mark it as latest (and others as not)
                     setLatest(tx3, table, keyValue, baseline.rowid, nextCallback);
                 }
                 else {
                     // invalidate old latest rows
                     // insert new latest row
-                    var element = Updraft.mutate(mutation.element, (_a = {},
+                    var element = Updraft.update(deltaResult.element, (_a = {},
                         _a[internal_column_latest] = { $set: true },
-                        _a[internal_column_time] = { $set: mutation.time },
+                        _a[internal_column_time] = { $set: deltaResult.time },
                         _a[internal_column_composed] = { $set: true },
                         _a
                     ));
@@ -1601,11 +1597,11 @@ var Updraft;
         var time = baseline.time;
         for (var i = 0; i < changes.length; i++) {
             var row = changes[i];
-            var mutator = deserializeChange(row.change, spec);
-            element = Updraft.mutate(element, mutator);
+            var delta = deserializeDelta(row.change, spec);
+            element = Updraft.update(element, delta);
             time = Math.max(time, row.time);
         }
-        var isChanged = Updraft.isMutated(baseline.element, element) || baseline.rowid == -1;
+        var isChanged = (baseline.element !== element) || baseline.rowid == -1;
         return { element: element, time: time, isChanged: isChanged };
     }
     function setLatest(transaction, table, keyValue, rowid, nextCallback) {
@@ -1636,7 +1632,7 @@ var Updraft;
         return value;
     }
     var setKey = Updraft.keyOf({ $set: false });
-    function serializeChange(change, spec) {
+    function serializeDelta(change, spec) {
         for (var col in change) {
             var val = change[col];
             if (Updraft.hasOwnProperty.call(val, setKey)) {
@@ -1646,15 +1642,15 @@ var Updraft;
         }
         return Updraft.toText(change);
     }
-    function deserializeChange(text, spec) {
-        var change = Updraft.fromText(text);
-        for (var col in change) {
-            var val = change[col];
+    function deserializeDelta(text, spec) {
+        var delta = Updraft.fromText(text);
+        for (var col in delta) {
+            var val = delta[col];
             if (Updraft.hasOwnProperty.call(val, setKey)) {
-                change[col][setKey] = deserializeValue(spec, col, change[col][setKey]);
+                delta[col][setKey] = deserializeValue(spec, col, delta[col][setKey]);
             }
         }
-        return change;
+        return delta;
     }
     function deserializeRow(spec, row) {
         var ret = {};
@@ -1677,23 +1673,23 @@ var Updraft;
     }
     Updraft.createStore = createStore;
     /* istanbul ignore next */
-    function makeSave(table, time) {
-        return function (save) { return ({
+    function makeCreate(table, time) {
+        return function (create) { return ({
             table: table,
             time: time,
-            save: save
+            create: create
         }); };
     }
-    Updraft.makeSave = makeSave;
+    Updraft.makeCreate = makeCreate;
     /* istanbul ignore next */
-    function makeChange(table, time) {
-        return function (change) { return ({
+    function makeUpdate(table, time) {
+        return function (update) { return ({
             table: table,
             time: time,
-            change: change
+            update: update
         }); };
     }
-    Updraft.makeChange = makeChange;
+    Updraft.makeUpdate = makeUpdate;
     /* istanbul ignore next */
     function makeDelete(table, time) {
         return function (id) { return ({

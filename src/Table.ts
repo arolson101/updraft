@@ -5,15 +5,15 @@
 namespace Updraft {
 	export type KeyType = string | number;
 	
-	export interface TableChange<Element, Mutator> {
-		table?: Table<Element, Mutator, any>;
+	export interface TableChange<Element, Delta> {
+		table?: Table<Element, Delta, any>;
 		time?: number;
 		delete?: KeyType;
-		change?: Mutator;
-		save?: Element;
+		update?: Delta;
+		create?: Element;
 	}
 	
-	export interface TableSpec<Element, Mutator, Query> {
+	export interface TableSpec<Element, Delta, Query> {
 		name: string;
 		columns: ColumnSet;
 		renamedColumns?: RenamedColumnSet;
@@ -22,7 +22,7 @@ namespace Updraft {
 	}
 	
 	export interface RenamedColumnSet {
-			[oldColumnName: string]: string;
+		[oldColumnName: string]: string;
 	}
 	
 	export enum OrderBy {
@@ -46,22 +46,22 @@ namespace Updraft {
 		count?: boolean;
 	}
 	
-	export class Table<Element, Mutator, Query> {
-		spec: TableSpec<Element, Mutator, Query>;
+	export class Table<Element, Delta, Query> {
+		spec: TableSpec<Element, Delta, Query>;
 		key: KeyType;
 	
-		constructor(spec: TableSpec<Element, Mutator, Query>) {
+		constructor(spec: TableSpec<Element, Delta, Query>) {
 			this.spec = spec;
 			this.key = tableKey(spec);
 		}
 	
-		keyValue(element: Element | Mutator): KeyType {
+		keyValue(element: Element | Delta): KeyType {
 			verify(this.key in element, "object does not have key field '%s' set: %s", this.key, element);
 			return element[this.key];
 		}
 	
 		find: (query: Query | Query[], opts?: FindOpts) => Promise<Element[] | number>;
-		add: (...changes: TableChange<Element, Mutator>[]) => Promise<any>;
+		add: (...changes: TableChange<Element, Delta>[]) => Promise<any>;
 	}
 	
 	

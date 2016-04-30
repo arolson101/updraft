@@ -6,9 +6,9 @@ var expect = require("chai").expect;
 var Column = Updraft.Column;
 var ColumnType = Updraft.ColumnType;
 var Q = Updraft.Query;
-var M = Updraft.Mutate;
+var D = Updraft.Delta;
 var OrderBy = Updraft.OrderBy;
-var mutate = Updraft.mutate;
+var update = Updraft.update;
 
 
 function createDb(inMemory, trace) {
