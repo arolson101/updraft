@@ -110,7 +110,7 @@ store.open({name: 'my database'})
     };
 
     // save baseline
-    return taskTable.add([{ time: time + 0, save: task }]);
+    return taskTable.add([{ time: time, create: task }]);
   })
   .then(function() {
 
@@ -152,8 +152,8 @@ interface Task {
 
 interface TaskDelta {
   id: number; // NOTE: database does not support changing the key value
-  description: M.str;
-  done: M.bool;
+  description: D.str;
+  done: D.bool;
 }
 
 interface TaskQuery {
