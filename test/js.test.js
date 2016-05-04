@@ -84,7 +84,7 @@ describe("works in pure javascript", function() {
 	it("simple change progression", function() {
 		var changes = [
 			{ time: 1,
-				save: {
+				create: {
 					id: 1,
 					text: "base text",
 					created: undefined,
@@ -92,20 +92,20 @@ describe("works in pure javascript", function() {
 				},
 			},
 			{ time: 2,
-				change: {
+				update: {
 					id: 1,
 					text: { $set: "modified at time 2" }
 				}
 			},
 			{ time: 3,
-				change: {
+				update: {
 					id: 1,
 					created: { $set: new Date(2005) },
 					text: { $set: "modified at time 3" }
 				}
 			},
 			{ time: 4,
-				change: {
+				update: {
 					id: 1,
 					completed: { $set: true }
 				}
