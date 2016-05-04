@@ -200,6 +200,16 @@ const todoTableExpectedSchema = {
 		}
 	},
 	
+	updraft_locals: {
+		name: "updraft_locals",
+		indices: <string[]>[],
+		triggers: {},
+		columns: {
+			key: Column.String().Key(),
+			value: Column.JSON()
+		}
+	},
+	
 	updraft_keyValues: {
 		name: "updraft_keyValues",
 		indices: <string[]>[],

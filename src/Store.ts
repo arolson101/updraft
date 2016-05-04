@@ -18,6 +18,7 @@ namespace Updraft {
 	
 	export interface CreateStoreParams {
 		db: DbWrapper;
+		generateGuid?(): string;
 	}
 	
 	export interface Schema {
@@ -75,11 +76,21 @@ namespace Updraft {
 	internalColumn[internal_column_time] = Column.Int().Key();
 	internalColumn[internal_column_latest] = Column.Bool();
 	internalColumn[internal_column_composed] = Column.Bool();
+	const localKey_guid = "guid";
+	const localKey_syncId = "syncId";
 	
 	const deleteRow_action = { [internal_column_deleted]: { $set: true } };
 	
 	const keyValueTableSpec: TableSpec<KeyValue, any, any> = {
 		name: internal_prefix + "keyValues",
+		columns: {
+			key: Column.String().Key(),
+			value: Column.JSON(),
+		}
+	};
+
+	const localsTableSpec: TableSpec<KeyValue, any, any> = {
+		name: internal_prefix + "locals",
 		columns: {
 			key: Column.String().Key(),
 			value: Column.JSON(),
@@ -91,6 +102,9 @@ namespace Updraft {
 		private tables: TableSpecAny[];
 		private db: DbWrapper;
 		private keyValueTable: Table<KeyValue, any, any>;
+		private localsTable: Table<KeyValue, any, any>;
+		private guid: string;
+		private syncId: number;
 		private keyValues: KeyValueMap;
 	
 		constructor(params: CreateStoreParams) {
@@ -98,17 +112,36 @@ namespace Updraft {
 			this.tables = [];
 			this.db = null;
 			verify(this.params.db, "must pass a DbWrapper");
-			this.keyValueTable = this.createTable<KeyValue, any, any>(keyValueTableSpec);
+			this.localsTable = this.createUntrackedTable<KeyValue, any, any>(localsTableSpec);
+			this.keyValueTable = this.createTrackedTable<KeyValue, any, any>(keyValueTableSpec, true);
 		}
 	
-		createTable<Element, Delta, Query>(tableSpec: TableSpec<Element, Delta, Query>): Table<Element, Delta, Query> {
+		public createTable<Element, Delta, Query>(tableSpec: TableSpec<Element, Delta, Query>): Table<Element, Delta, Query> {
+			return this.createTrackedTable(tableSpec, false);
+		}
+		
+		private createTrackedTable<Element, Delta, Query>(tableSpec: TableSpec<Element, Delta, Query>, internal: boolean): Table<Element, Delta, Query> {
 			verify(!this.db, "createTable() can only be added before open()");
-			if (tableSpec !== keyValueTableSpec) {
+			if (!internal) {
 				verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
 			}
 			for (let col in tableSpec.columns) {
 				verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
 			}
+			let table = this.createTableObject(tableSpec);
+			this.tables.push(...createInternalTableSpecs(table));
+			this.tables.push(createChangeTableSpec(table));
+			return table;
+		}
+
+		private createUntrackedTable<Element, Delta, Query>(tableSpec: TableSpec<Element, Delta, Query>): Table<Element, Delta, Query> {
+			buildIndices(tableSpec);
+			let table = this.createTableObject<Element, any, any>(tableSpec);
+			this.tables.push(tableSpec);
+			return table;
+		}
+		
+		private createTableObject<Element, Delta, Query>(tableSpec: TableSpec<Element, Delta, Query>): Table<Element, Delta, Query> {
 			let table = new Table<Element, Delta, Query>(tableSpec);
 			table.add = (...changes: TableChange<Element, Delta>[]): Promise<any> => {
 				changes.forEach(change => change.table = table);
@@ -117,12 +150,10 @@ namespace Updraft {
 			table.find = (queryArg: Query | Query[], opts?: FindOpts): Promise<Element[] | number> => {
 				return this.find(table, queryArg, opts);
 			};
-			this.tables.push(...createInternalTableSpecs(table));
-			this.tables.push(createChangeTableSpec(table));
 			return table;
 		}
 	
-		open(): Promise<any> {
+		public open(): Promise<any> {
 			verify(!this.db, "open() called more than once!");
 			verify(this.tables.length, "open() called before any tables were added");
 	
@@ -140,8 +171,10 @@ namespace Updraft {
 								this.syncTable(transaction, schema, table, act);
 							}
 							else {
-								this.loadKeyValues(transaction, () => {
-									transaction.commit(resolve);
+								this.loadLocals(transaction, () => {
+									this.loadKeyValues(transaction, () => {
+										transaction.commit(resolve);
+									});
 								});
 							}
 						};
@@ -151,7 +184,7 @@ namespace Updraft {
 				;
 		}
 	
-		readSchema(): Promise<Schema> {
+		public readSchema(): Promise<Schema> {
 			verify(this.db, "readSchema(): not opened");
 			
 			return new Promise((resolve: Resolver<Schema>, reject: DbErrorCallback) => {
@@ -274,6 +307,53 @@ namespace Updraft {
 			}
 		}
 		
+		private loadLocals(transaction: DbTransaction, nextCallback: DbTransactionCallback): void {
+			transaction.executeSql("SELECT key, value FROM " + this.localsTable.spec.name, [], (tx2: DbTransaction, rows: KeyValue[]) => {
+				rows.forEach((row: KeyValue) => {
+					switch (row.key) {
+						case localKey_guid:
+							this.guid = row.value;
+							break;
+						case localKey_syncId:
+							this.syncId = row.value;
+							break;
+						/* istanbul ignore next */
+						default:
+							verify(false, "unknown key %s in %s", row.key, this.localsTable.spec.name);
+					}
+				});
+
+				const initGuid = (tx: DbTransaction, next: DbTransactionCallback) => {
+					if (!this.guid && this.params.generateGuid) {
+						const guid = this.params.generateGuid();
+						this.saveLocal(tx, localKey_guid, guid, next);
+					}
+					else {
+						next(tx);
+					}
+				};
+				
+				const initSyncId = (tx: DbTransaction, next: DbTransactionCallback) => {
+					if (!this.syncId) {
+						const syncId = 100;
+						this.saveLocal(tx, localKey_syncId, syncId, next);
+					}
+					else {
+						next(tx);
+					}
+				};
+				
+				initGuid(tx2, (tx3) => {
+					initSyncId(tx3, nextCallback);
+				});
+			});
+		}
+
+		private saveLocal(transaction: DbTransaction, key: string, value: any, nextCallback: DbTransactionCallback): void {
+			let sql: string = "INSERT INTO " + this.localsTable.spec.name + " (key, value) VALUES (?, ?)"; 
+			transaction.executeSql(sql, [key, value], nextCallback);
+		}
+		
 		private loadKeyValues(transaction: DbTransaction, nextCallback: DbTransactionCallback): void {
 			return runQuery(transaction, this.keyValueTable, {}, undefined, undefined, (tx2: DbTransaction, rows: KeyValue[]) => {
 				this.keyValues = {};
@@ -284,16 +364,16 @@ namespace Updraft {
 			});
 		}
 
-		getValue(key: string): any {
+		public getValue(key: string): any {
 			return this.keyValues[key];
 		}
 		
-		setValue(key: string, value: any): Promise<any> {
+		public setValue(key: string, value: any): Promise<any> {
 			this.keyValues[key] = value;
 			return this.keyValueTable.add({create: {key, value}});
 		}
 	
-		add(...changes: TableChange<any, any>[]): Promise<any> {
+		public add(...changes: TableChange<any, any>[]): Promise<any> {
 			verify(this.db, "apply(): not opened");
 			
 			interface ResolveKey {
@@ -486,7 +566,7 @@ namespace Updraft {
 			});
 		}
 	
-		find<Element, Query>(table: Table<Element, any, Query>, queryArg: Query | Query[], opts?: FindOpts): Promise<Element[] | number> {
+		public find<Element, Query>(table: Table<Element, any, Query>, queryArg: Query | Query[], opts?: FindOpts): Promise<Element[] | number> {
 			return new Promise((resolve: Resolver<Element[] | number>, reject: DbErrorCallback) => {
 				this.db.readTransaction((transaction: DbTransaction) => {
 					let queries: Query[] = Array.isArray(queryArg) ? queryArg : [queryArg];
