@@ -46,6 +46,7 @@ namespace Updraft {
 		key?: KeyType;
 		time?: number;
 		change?: string;
+		syncId?: number;
 	}
 	
 	interface SetTableRow {
@@ -71,11 +72,13 @@ namespace Updraft {
 	const internal_column_time = internal_prefix + "time";
 	const internal_column_latest = internal_prefix + "latest";
 	const internal_column_composed = internal_prefix + "composed";
+	const internal_column_syncId = internal_prefix + "syncId";
 	const internalColumn: ColumnSet = {};
 	internalColumn[internal_column_deleted] = Column.Bool();
 	internalColumn[internal_column_time] = Column.Int().Key();
 	internalColumn[internal_column_latest] = Column.Bool();
 	internalColumn[internal_column_composed] = Column.Bool();
+	internalColumn[internal_column_syncId] = Column.Int().Index();
 	const localKey_guid = "guid";
 	const localKey_syncId = "syncId";
 	
@@ -325,8 +328,8 @@ namespace Updraft {
 
 				const initGuid = (tx: DbTransaction, next: DbTransactionCallback) => {
 					if (!this.guid && this.params.generateGuid) {
-						const guid = this.params.generateGuid();
-						this.saveLocal(tx, localKey_guid, guid, next);
+						this.guid = this.params.generateGuid();
+						this.saveLocal(tx, localKey_guid, this.guid, next);
 					}
 					else {
 						next(tx);
@@ -335,8 +338,8 @@ namespace Updraft {
 				
 				const initSyncId = (tx: DbTransaction, next: DbTransactionCallback) => {
 					if (!this.syncId) {
-						const syncId = 100;
-						this.saveLocal(tx, localKey_syncId, syncId, next);
+						this.syncId = 100;
+						this.saveLocal(tx, localKey_syncId, this.syncId, next);
 					}
 					else {
 						next(tx);
@@ -390,6 +393,8 @@ namespace Updraft {
 			}
 
 			return new Promise((promiseResolve, reject) => {
+				const syncId = this.syncId;
+				verify(syncId, "invalid syncId");
 				const tableKeySet: TableKeySet[] = [];
 				changes.forEach(change => {
 					if (change.create) {
@@ -495,10 +500,11 @@ namespace Updraft {
 							let element = assign(
 								{},
 								change.create,
-								{ [internal_column_time]: time }
+								{ [internal_column_time]: time },
+								{ [internal_column_syncId]: syncId }
 							);
-						 const key = table.keyValue(element);
-						 // optimization: don't resolve elements that aren't already in the db- just mark them as latest
+							const key = table.keyValue(element);
+							// optimization: don't resolve elements that aren't already in the db- just mark them as latest
 							if (existingKeys.has(key)) {
 								toResolve.add({ table, key });
 							}
@@ -512,7 +518,8 @@ namespace Updraft {
 							let changeRow: ChangeTableRow = {
 								key: null,
 								time: time,
-								change: null
+								change: null,
+								syncId: syncId
 							};
 							if (change.update) {
 								// store deltas
@@ -619,6 +626,7 @@ namespace Updraft {
 				key: Column.Int().Key(),
 				time: Column.DateTime().Key(),
 				change: Column.JSON(),
+				syncId: Column.Int().Index(),
 			}
 		};
 		buildIndices(newSpec);
@@ -898,7 +906,7 @@ namespace Updraft {
 					let element = update(deltaResult.element, {
 						[internal_column_latest]: {$set: true},
 						[internal_column_time]: {$set: deltaResult.time},
-						[internal_column_composed]: {$set: true}
+						[internal_column_composed]: {$set: true},
 					});
 					
 					invalidateLatest(tx3, table, keyValue, (tx4: DbTransaction) => {

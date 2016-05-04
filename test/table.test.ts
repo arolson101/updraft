@@ -174,7 +174,8 @@ const todoTableExpectedSchema = {
 			updraft_deleted: Column.Bool(),
 			updraft_composed: Column.Bool(),
 			updraft_time: Column.Int().Key(),
-			updraft_latest: Column.Bool()
+			updraft_latest: Column.Bool(),
+			updraft_syncId: Column.Int().Index(),
 		}
 	},
 
@@ -196,7 +197,8 @@ const todoTableExpectedSchema = {
 		columns: {
 			key: Column.Int().Key(),
 			time: Column.DateTime().Key(),
-			change: Column.JSON()
+			change: Column.JSON(),
+			syncId: Column.Int().Index(),
 		}
 	},
 	
@@ -221,7 +223,8 @@ const todoTableExpectedSchema = {
 			updraft_deleted: Column.Bool(),
 			updraft_composed: Column.Bool(),
 			updraft_time: Column.Int().Key(),
-			updraft_latest: Column.Bool()
+			updraft_latest: Column.Bool(),
+			updraft_syncId: Column.Int().Index(),
 		}
 	},
 	
@@ -232,7 +235,8 @@ const todoTableExpectedSchema = {
 		columns: {
 			key: Column.Int().Key(),
 			time: Column.DateTime().Key(),
-			change: Column.JSON()
+			change: Column.JSON(),
+			syncId: Column.Int().Index(),
 		}
 	},
 };
