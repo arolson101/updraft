@@ -134,4 +134,4 @@ gulp.task("sync", function() {
 });
 
 
-gulp.task("default", ["compile", "coverage", "test-phantomjs-quiet", "lint", /*"typedoc",*/ "sync"]);
+gulp.task("default", ["compile", "coverage", "test-node", "test-phantomjs-quiet", "lint", /*"typedoc",*/ "sync"]);

@@ -1,5 +1,6 @@
 ///<reference path="../typings/main.d.ts"/>
 ///<reference path="../dist/updraft.d.ts"/>
+///<reference path="./mytypings/enum.d.ts"/>
 
 require("./updraft_loader");
 import { expect } from "chai";
