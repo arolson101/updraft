@@ -67,7 +67,7 @@ gulp.task("compile", function() {
 
 
 gulp.task('coverage', ['compile'], shell.task([
-  "./node_modules/.bin/ts-node node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha test/*.ts"
+  "ts-node node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha test/*.ts"
 ]));
 
 
