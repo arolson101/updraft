@@ -1,10 +1,10 @@
-///<reference path="./Column"/>
-///<reference path="./Delta"/>
-///<reference path="./Database"/>
-///<reference path="./Table"/>
-///<reference path="./Text"/>
-///<reference path="./assign"/>
-///<reference path="./verify"/>
+///<reference path="./Column.ts"/>
+///<reference path="./Delta.ts"/>
+///<reference path="./Database.ts"/>
+///<reference path="./Table.ts"/>
+///<reference path="./Text.ts"/>
+///<reference path="./assign.ts"/>
+///<reference path="./verify.ts"/>
 "use strict";
 
 namespace Updraft {

@@ -1,5 +1,5 @@
-///<reference path="./websql.d.ts"/>
-///<reference path="./Database"/>
+///<reference path="../typings/main.d.ts"/>
+///<reference path="./Database.ts"/>
 "use strict";
 
 namespace Updraft {
@@ -60,7 +60,7 @@ namespace Updraft {
 					(transaction: SQLTransaction, error: SQLError) => {
 						console.error("error executing '" + this.stringify(sql, params) + "': ", error);
 						if (tx.errorCallback) {
-							tx.errorCallback(error);
+							tx.errorCallback(error as any);
 						}
 						else {
 							throw error;
@@ -98,7 +98,7 @@ namespace Updraft {
 				(transaction: SQLTransaction, error: SQLError) => {
 					console.error("error executing '" + this.stringify(sql, params) + "': ", error);
 					if (tx.errorCallback) {
-						tx.errorCallback(error);
+						tx.errorCallback(error as any);
 					}
 					else {
 						throw error;

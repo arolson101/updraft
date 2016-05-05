@@ -1,0 +1,19 @@
+{
+  "name": "updraft",
+  "version": false,
+  "dependencies": {},
+  "ambientDependencies": {
+    "chai": "registry:dt/chai#3.4.0+20160317120654",
+    "chai-as-promised": "registry:dt/chai-as-promised#0.0.0+20160423070304",
+    "chai-datetime": "registry:dt/chai-datetime#0.0.0+20160317120654",
+    "clone": "registry:dt/clone#0.1.11+20160317120654",
+    "es6-collections": "registry:dt/es6-collections#0.5.1+20160316155526",
+    "es6-promise": "registry:dt/es6-promise#0.0.0+20160423074304",
+    "gulp-mocha": "registry:dt/gulp-mocha#0.0.0+20160316155526",
+    "mocha": "registry:dt/mocha#2.2.5+20160317120654",
+    "node": "registry:dt/node#4.0.0+20160501135006",
+    "promises-a-plus": "registry:dt/promises-a-plus#0.0.0+20160317120654",
+    "sqlite3": "registry:dt/sqlite3#2.2.3+20160316155526",
+    "websql": "registry:dt/websql#0.0.0+20160316155526"
+  }
+}

@@ -1,9 +1,9 @@
 // written to React"s immutability helpers spec
 // see https://facebook.github.io/react/docs/update.html
 
-///<reference path="../typings/tsd.d.ts"/>
-///<reference path="./assign"/>
-///<reference path="./verify"/>
+///<reference path="../typings/main.d.ts"/>
+///<reference path="./assign.ts"/>
+///<reference path="./verify.ts"/>
 "use strict";
 
 namespace Updraft {

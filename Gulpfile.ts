@@ -1,4 +1,4 @@
-///<reference path="typings/tsd.d.ts"/>
+///<reference path="typings/main.d.ts"/>
 
 var gulp = require("gulp");
 var gutil = require("gulp-util");
@@ -134,4 +134,4 @@ gulp.task("sync", function() {
 });
 
 
-gulp.task("default", ["compile", "coverage", "test-phantomjs-quiet", "lint", "typedoc", "sync"]);
+gulp.task("default", ["compile", "coverage", "test-phantomjs-quiet", "lint", /*"typedoc",*/ "sync"]);

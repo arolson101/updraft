@@ -1,5 +1,5 @@
-///<reference path="../typings/tsd.d.ts"/>
-///<reference path="./Database"/>
+///<reference path="../typings/main.d.ts"/>
+///<reference path="./Database.ts"/>
 "use strict";
 
 namespace Updraft {

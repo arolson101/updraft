@@ -1,5 +1,5 @@
-///<reference path="./Text"/>
-///<reference path="./verify"/>
+///<reference path="./Text.ts"/>
+///<reference path="./verify.ts"/>
 "use strict";
 
 namespace Updraft {

@@ -1,4 +1,4 @@
-///<reference path="./Store"/>
+///<reference path="./Store.ts"/>
 "use strict";
 
 /* istanbul ignore else */

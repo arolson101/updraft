@@ -25,7 +25,6 @@
 		"./Table.ts",
 		"./Text.ts",
 		"./verify.ts",
-		"./websql.d.ts",
 		"./WebsqlWrapper.ts"
 	]
 }
