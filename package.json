@@ -2,10 +2,8 @@
   "name": "updraft",
   "version": "0.8.0",
   "main": "dist/updraft.js",
+  "typings": "./dist/updraft.d.ts",
   "description": "Javascript ORM-like storage in SQLite (WebSQL or other), synced to the cloud",
-  "typescript": {
-    "definition": "./dist/updraft.d.ts"
-  },
   "repository": {
     "type": "git",
     "url": "git://github.com/arolson101/updraft.git"
