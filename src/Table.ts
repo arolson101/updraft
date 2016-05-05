@@ -1,6 +1,5 @@
 ///<reference path="./Column.ts"/>
 ///<reference path="./verify.ts"/>
-"use strict";
 
 namespace Updraft {
 	export type KeyType = string | number;

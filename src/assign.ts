@@ -1,4 +1,3 @@
-"use strict";
 
 namespace Updraft {
 	/* istanbul ignore next */

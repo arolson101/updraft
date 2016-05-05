@@ -1,4 +1,3 @@
-"use strict";
 
 namespace Updraft {
 	function reviver(key: string, value: any): any {

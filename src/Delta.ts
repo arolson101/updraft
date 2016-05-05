@@ -4,7 +4,6 @@
 ///<reference path="../typings/main.d.ts"/>
 ///<reference path="./assign.ts"/>
 ///<reference path="./verify.ts"/>
-"use strict";
 
 namespace Updraft {
 	export namespace Delta {

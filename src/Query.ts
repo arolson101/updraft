@@ -1,4 +1,3 @@
-"use strict";
 
 namespace Updraft.Query {
 	export interface Comparisons<T> {

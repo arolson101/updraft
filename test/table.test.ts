@@ -1,6 +1,5 @@
 ///<reference path="../typings/main.d.ts"/>
 ///<reference path="../dist/updraft.d.ts"/>
-"use strict";
 
 require("./updraft_loader");
 import { expect } from "chai";
