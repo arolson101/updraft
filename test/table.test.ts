@@ -18,6 +18,7 @@ let saveWebSqlValues = false;
 // TODO: lists
 // TODO: blobs
 
+const DEFAULT_SYNCID = 100;
 
 interface Db {
 	db: Updraft.DbWrapper;
@@ -175,7 +176,8 @@ const todoTableExpectedSchema = {
 			updraft_composed: Column.Bool(),
 			updraft_time: Column.Int().Key(),
 			updraft_latest: Column.Bool(),
-			updraft_syncId: Column.Int().Index(),
+			updraft_source: Column.String().Index(),
+			updraft_syncId: Column.Int().Default(DEFAULT_SYNCID).Index(),
 		}
 	},
 
@@ -198,7 +200,8 @@ const todoTableExpectedSchema = {
 			key: Column.Int().Key(),
 			time: Column.DateTime().Key(),
 			change: Column.JSON(),
-			syncId: Column.Int().Index(),
+			source: Column.String().Index(),
+			syncId: Column.Int().Default(DEFAULT_SYNCID).Index(),
 		}
 	},
 	
@@ -224,7 +227,8 @@ const todoTableExpectedSchema = {
 			updraft_composed: Column.Bool(),
 			updraft_time: Column.Int().Key(),
 			updraft_latest: Column.Bool(),
-			updraft_syncId: Column.Int().Index(),
+			updraft_source: Column.String().Index(),
+			updraft_syncId: Column.Int().Default(DEFAULT_SYNCID).Index(),
 		}
 	},
 	
@@ -236,7 +240,8 @@ const todoTableExpectedSchema = {
 			key: Column.Int().Key(),
 			time: Column.DateTime().Key(),
 			change: Column.JSON(),
-			syncId: Column.Int().Index(),
+			source: Column.String().Index(),
+			syncId: Column.Int().Default(DEFAULT_SYNCID).Index(),
 		}
 	},
 };

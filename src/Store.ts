@@ -45,6 +45,7 @@ namespace Updraft {
 		key?: KeyType;
 		time?: number;
 		change?: string;
+		source?: string;
 		syncId?: number;
 	}
 	
@@ -66,18 +67,21 @@ namespace Updraft {
 	const MAX_VARIABLES = 999;
 	const ROWID = "rowid";
 	const COUNT = "COUNT(*)";
+	const DEFAULT_SYNCID = 100;
 	const internal_prefix = "updraft_";
 	const internal_column_deleted = internal_prefix + "deleted";
 	const internal_column_time = internal_prefix + "time";
 	const internal_column_latest = internal_prefix + "latest";
 	const internal_column_composed = internal_prefix + "composed";
+	const internal_column_source = internal_prefix + "source";
 	const internal_column_syncId = internal_prefix + "syncId";
 	const internalColumn: ColumnSet = {};
 	internalColumn[internal_column_deleted] = Column.Bool();
 	internalColumn[internal_column_time] = Column.Int().Key();
 	internalColumn[internal_column_latest] = Column.Bool();
 	internalColumn[internal_column_composed] = Column.Bool();
-	internalColumn[internal_column_syncId] = Column.Int().Index();
+	internalColumn[internal_column_source] = Column.String().Index();
+	internalColumn[internal_column_syncId] = Column.Int().Default(DEFAULT_SYNCID).Index();
 	const localKey_guid = "guid";
 	const localKey_syncId = "syncId";
 	
@@ -337,7 +341,7 @@ namespace Updraft {
 				
 				const initSyncId = (tx: DbTransaction, next: DbTransactionCallback) => {
 					if (!this.syncId) {
-						this.syncId = 100;
+						this.syncId = DEFAULT_SYNCID;
 						this.saveLocal(tx, localKey_syncId, this.syncId, next);
 					}
 					else {
@@ -374,9 +378,13 @@ namespace Updraft {
 			this.keyValues[key] = value;
 			return this.keyValueTable.add({create: {key, value}});
 		}
-	
+
 		public add(...changes: TableChange<any, any>[]): Promise<any> {
-			verify(this.db, "apply(): not opened");
+			return this.addFromSource(changes, null);
+		}
+	
+		public addFromSource(changes: TableChange<any, any>[], source: string): Promise<any> {
+			verify(this.db, "addFromSource(): not opened");
 			
 			interface ResolveKey {
 				table: TableAny;
@@ -500,6 +508,7 @@ namespace Updraft {
 								{},
 								change.create,
 								{ [internal_column_time]: time },
+								{ [internal_column_source]: source },
 								{ [internal_column_syncId]: syncId }
 							);
 							const key = table.keyValue(element);
@@ -518,6 +527,7 @@ namespace Updraft {
 								key: null,
 								time: time,
 								change: null,
+								source: source,
 								syncId: syncId
 							};
 							if (change.update) {
@@ -625,7 +635,8 @@ namespace Updraft {
 				key: Column.Int().Key(),
 				time: Column.DateTime().Key(),
 				change: Column.JSON(),
-				syncId: Column.Int().Index(),
+				source: Column.String().Index(),
+				syncId: Column.Int().Default(DEFAULT_SYNCID).Index(),
 			}
 		};
 		buildIndices(newSpec);
@@ -1252,7 +1263,6 @@ namespace Updraft {
 			let x = spec.columns[col].serialize(value);
 			return x;
 		}
-		verify(typeof value == "number" || value, "bad value");
 		return value;
 	}
 	
