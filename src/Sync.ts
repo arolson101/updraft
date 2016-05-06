@@ -12,6 +12,8 @@ namespace Updraft {
   
   export interface StoreSync {
     syncId: number;
+    getLocal(key: string): any;
+    setLocal(key: string, value: any): Promise<any>;
     findChanges(params: FindChangesOptions): Promise<any>;
     addFromSource(changes: TableChange<any, any>[], source: string): Promise<any>;
   }
