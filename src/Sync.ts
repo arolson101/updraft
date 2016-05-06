@@ -2,7 +2,7 @@
 ///<reference path="./Store.ts"/>
 
 namespace Updraft {
-  export interface FindChangesParams {
+  export interface FindChangesOptions {
     minSyncId: number;
     maxSyncId: number;
     limit: number;
@@ -12,12 +12,13 @@ namespace Updraft {
   
   export interface StoreSync {
     syncId: number;
-    findChanges(params: FindChangesParams): Promise<any>;
+    findChanges(params: FindChangesOptions): Promise<any>;
+    addFromSource(changes: TableChange<any, any>[], source: string): Promise<any>;
   }
   
   export interface SyncProvider {
-    onOpened(name: string, store: StoreSync): any;
-    onAdded(store: StoreSync): any;
+    onOpened(filename: string, store: StoreSync): any;
+    onAdded(): any;
   }
   
   export interface SyncProviderCollection {
