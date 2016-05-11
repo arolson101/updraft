@@ -4,6 +4,12 @@
 
 
 namespace Updraft {
+  const INDEX_FILENAME = "index.dat";
+  
+  interface IndexContents {
+    key: string;
+  }
+
   export interface SyncProviderFSOptions {
     name: string;
 
@@ -24,50 +30,81 @@ namespace Updraft {
   }
   
   export class SyncProviderFS implements SyncProvider {
-    options: SyncProviderFSOptions;
-    storeName: string;
-    store: StoreSync;
-    key: string;
-    source: string;
+    private options: SyncProviderFSOptions;
+    private storeName: string;
+    private store: StoreSync;
+    private source: string;
+    private index: IndexContents;
 
     constructor(params: SyncProviderFSOptions) {
       this.options = params;
     }
     
-    constructPath(basename: string, batch: number): string {
+    private constructPath(basename: string, batch: number): string {
       return basename;
     }
     
-    getKeyName(): string {
+    private getKeyName(): string {
       return this.options.name + "_key";
     }
     
-    init(storeName: string, store: StoreSync): Promise<any> {
+    async init(storeName: string, store: StoreSync) {
+      const { listFiles } = this.options;
       this.storeName = storeName;
       this.store = store;
-      this.key = store.getLocal(this.getKeyName());
-      let p = Promise.resolve();
-      if (!this.key) {
-        this.key = this.options.generateKey();
-        p = p.then(() => store.setLocal(this.getKeyName(), this.key));
+      const files = await listFiles(this.storeName);
+      await this.loadIndex(files);
+      await this.ingestChanges(files);
+    }
+    
+    private async loadIndex(files: string[]) {
+      const { readFile, pathCombine } = this.options;
+      let indexText: string;
+      if (files.find(name => name === INDEX_FILENAME)) {
+        indexText = await readFile(pathCombine(this.storeName, INDEX_FILENAME));
       }
-      p = p.then(() => this.options.listFiles(this.storeName))
-      .then((files: string[]): any => {
-        
-      });
-      return p;
+      else {
+        indexText = await this.generateIndex();
+      }
+      this.index = fromText(indexText);
+    }
+    
+    private async generateIndex() {
+      const { pathCombine, generateKey, writeFile } = this.options;
+      const path = pathCombine(this.storeName, INDEX_FILENAME);
+      const contents: IndexContents = {
+        key: generateKey()
+      };
+      const text = toText(contents);
+      await writeFile(path, text);
+      return text;
+    }
+    
+    private async ingestChanges(files: string[]) {
+      // find last ingested change
+    }
+    
+    private async ingestFile(path: string) {
+      const { readFile, decrypt, decompress } = this.options;
+      const contents = await readFile(path);
+      let i = decrypt(this.index.key, contents);
+      i = decompress(i);
+      let changes: TableChange<any, any>[] = fromText(i);
+      return this.store.addFromSource(changes, this.source);
     }
     
     saveChanges(basename: string, store: StoreSync) {
+      const { compress, encrypt, pathCombine, writeFile } = this.options;
       const params: FindChangesOptions = {
         minSyncId: 0,
         maxSyncId: 0,
         limit: 1000,
         process: (batch: number, changes: TableChange<any, any>[]): Promise<any> => {
           let o = toText(changes);
-          o = this.options.compress(o);
-          o = this.options.encrypt(this.key, o);
-          return this.options.writeChange(basename, batch, o);
+          o = compress(o);
+          o = encrypt(this.index.key, o);
+          let path = pathCombine(this.storeName, basename, batch as any);
+          return writeFile(path, o);
         },
         complete: (batchCount: number, success: boolean): Promise<any> => {
           return Promise.resolve();
@@ -75,17 +112,9 @@ namespace Updraft {
       };
     }
     
-    loadChanges(data: string): Promise<any> {
-      let i = this.options.decrypt(this.key, data);
-      i = this.options.decompress(i);
-      let changes: TableChange<any, any>[] = fromText(i);
-      return this.store.addFromSource(changes, this.source);
-    }
-    
     onOpened(storeName: string, store: StoreSync): any {
       this.storeName = storeName;
       this.store = store;
-      this.key = "";
       this.source = "";
     }
 
