@@ -10,7 +10,7 @@ namespace Updraft {
     complete(batchCount: number, success: boolean): Promise<any>;
   }
   
-  export interface StoreSync {
+  export interface Store2 {
     syncId: number;
     getLocal(key: string): any;
     setLocal(key: string, value: any): Promise<any>;
@@ -19,8 +19,13 @@ namespace Updraft {
   }
   
   export interface SyncProvider {
-    onOpened(filename: string, store: StoreSync): any;
-    onAdded(): any;
+    getStores(): Promise<string[]>;
+    open(storeName: string, store: Store2): SyncConnection;
+  }
+
+  export interface SyncConnection {
+    onOpened(): any;
+    onChanged(): any;
   }
   
   export interface SyncProviderCollection {
