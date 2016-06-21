@@ -24,28 +24,41 @@ namespace Updraft {
     size: number;
   }
 
+  export interface ReadFileResult {
+    exists: boolean;
+    contents?: string;
+  }
+
   const INDEX_FILENAME = "index.dat";
-  
+
   interface IndexContents {
     key: string;
   }
+
+  export interface EncryptedInfo {
+    mode: string;
+    iv: string;
+    cipher: string;
+  }
+
+  type ChangeFile = TableChange<any, any>[];
 
   export interface SyncProviderFSOptions {
     name: string;
 
     // crypto
     generateKey(): string;
-    encrypt(key: string, data: string): string;
-    decrypt(key: string, data: string): string;
+    encrypt(key: string, data: string): EncryptedInfo;
+    decrypt(key: string, data: EncryptedInfo): string;
 
     // compression
     compress(data: string): string;
     decompress(data: string): string;
-    
+
     // filesystem
     pathCombine(...components: string[]): string;
     listFiles(dir: string): Promise<FileInfo[]>;
-    readFile(path: string): Promise<string>;
+    readFile(path: string): Promise<ReadFileResult>;
     writeFile(path: string, data: string): Promise<any>;
   }
 
@@ -58,8 +71,11 @@ namespace Updraft {
 
     getStores(): Promise<string[]> {
       return this.options.listFiles("")
-      .then(files => { 
-        const stores = files.filter((info: FileInfo) => info.size > 0).map(info => info.name);
+      .then(files => {
+        const stores = files
+          .filter((info: FileInfo) => info.size > 0)
+          .map(info => info.name)
+          ;
         return Promise.resolve(stores);
       });
     }
@@ -74,9 +90,8 @@ namespace Updraft {
     storeName: string;
     store: Store2;
     options: SyncProviderFSOptions;
-    key: string;
     source: string;
-    private index: IndexContents; 
+    private index: IndexContents;
 
     constructor(storeName: string, store: Store2, options: SyncProviderFSOptions) {
       this.storeName = storeName;
@@ -84,59 +99,68 @@ namespace Updraft {
       this.options = options;
     }
 
-    constructPath(basename: string, batch: number): string {
-      return basename;
+    start(): Promise<any> {
+      return this.readOrCreateIndex()
+        .then(() => this.options.listFiles(this.storeName))
+        .then((files) => this.ingestChanges(files))
+      ;
     }
-    
-    private getKeyName(): string {
-      return this.options.name + "_key";
+
+    private encodeFile<T>(key: string, data: T): string {
+      const { encrypt, compress } = this.options;
+      const dataAsText = toText(data);
+      const compressed = compress(dataAsText);
+      const encrypted = encrypt(key, compressed);
+      return toText(encrypted);
     }
-    
-    async init(storeName: string, store: Store2) {
-      const { listFiles } = this.options;
-      this.storeName = storeName;
-      this.store = store;
-      const files = await listFiles(this.storeName);
-      await this.loadIndex(files);
-      await this.ingestChanges(files);
+
+    private decodeFile<T>(key: string, data: string): T {
+      const { decrypt, decompress } = this.options;
+      const info: EncryptedInfo = fromText(data);
+      const decrypted = decrypt(key, info);
+      const decompressed = decompress(decrypted);
+      return fromText(decompressed);
     }
-    
-    private async loadIndex(files: FileInfo[]) {
-      const { readFile, pathCombine } = this.options;
-      let indexText: string;
-      if (files.find(f => f.name === INDEX_FILENAME)) {
-        indexText = await readFile(pathCombine(this.storeName, INDEX_FILENAME));
-      }
-      else {
-        indexText = await this.generateIndex();
-      }
-      this.index = fromText(indexText);
+
+    private readOrCreateIndex(): Promise<any> {
+      const { pathCombine, readFile, writeFile, generateKey } = this.options;
+      const indexPath = pathCombine(this.storeName, INDEX_FILENAME);
+      return readFile(indexPath)
+      .then(indexFile => {
+        if (indexFile.exists) {
+          this.index = this.decodeFile<IndexContents>(this.store.syncKey, indexFile.contents);
+          return Promise.resolve();
+        }
+        else {
+          const index: IndexContents = {
+            key: generateKey()
+          };
+          const data = this.encodeFile(this.store.syncKey, index);
+          return writeFile(indexPath, data)
+            .then(() => {
+              this.index = index;
+              return Promise.resolve();
+            })
+          ;
+        }
+      });
     }
-    
-    private async generateIndex() {
-      const { pathCombine, generateKey, writeFile } = this.options;
-      const path = pathCombine(this.storeName, INDEX_FILENAME);
-      const contents: IndexContents = {
-        key: generateKey()
-      };
-      const text = toText(contents);
-      await writeFile(path, text);
-      return text;
-    }
-    
-    private async ingestChanges(files: FileInfo[]) {
+
+    private ingestChanges(files: FileInfo[]) {
       // find last ingested change
     }
-    
-    private async ingestFile(path: string) {
+
+    private ingestFile(path: string): Promise<any> {
       const { readFile, decrypt, decompress } = this.options;
-      const contents = await readFile(path);
-      let i = decrypt(this.index.key, contents);
-      i = decompress(i);
-      let changes: TableChange<any, any>[] = fromText(i);
-      return this.store.addFromSource(changes, this.source);
+      return readFile(path)
+      .then((file) => {
+        if (file.exists) {
+          let changes = this.decodeFile<ChangeFile>(this.index.key, file.contents);
+          return this.store.addFromSource(changes, this.source);
+        }
+      });
     }
-    
+
     saveChanges(basename: string, store: Store2) {
       const { compress, encrypt, pathCombine, writeFile } = this.options;
       const params: FindChangesOptions = {
@@ -144,11 +168,9 @@ namespace Updraft {
         maxSyncId: 0,
         limit: 1000,
         process: (batch: number, changes: TableChange<any, any>[]): Promise<any> => {
-          let o = toText(changes);
-          o = compress(o);
-          o = encrypt(this.index.key, o);
           let path = pathCombine(this.storeName, basename, batch as any);
-          return writeFile(path, o);
+          const data = this.encodeFile(this.index.key, changes);
+          return writeFile(path, data);
         },
         complete: (batchCount: number, success: boolean): Promise<any> => {
           return Promise.resolve();
@@ -156,43 +178,35 @@ namespace Updraft {
       };
     }
 
-    writeChange(basename: string, batch: number, data: string) {
-
-    }
-    
-    loadChanges(data: string): Promise<any> {
-      let i = this.options.decrypt(this.key, data);
-      i = this.options.decompress(i);
-      let changes: TableChange<any, any>[] = fromText(i);
-      return this.store.addFromSource(changes, this.source);
+    onOpened(): any {
+      this.start();
     }
 
-    onOpened(): any {}
     onChanged(): any {}
   }
-  
+
   class DropboxSyncProvider extends SyncProviderFS {
     constructor(user: string, password: string) {
       let params: SyncProviderFSOptions = {
         name: "dropbox",
 
         generateKey: () => "generatedKey",
-        encrypt: (key: string, data: string): string => data,
-        decrypt: (key: string, data: string): string => data,
+        encrypt: (key: string, data: string): EncryptedInfo => ({mode: "", iv: "", cipher: data}),
+        decrypt: (key: string, data: EncryptedInfo): string => data.cipher,
 
         compress: (data: string): string => data,
         decompress: (data: string): string => data,
-      
+
         pathCombine: (...components: string[]): string => components.join("/"),
         listFiles: (dir: string): Promise<FileInfo[]> => Promise.resolve([]),
-        readFile: (path: string): Promise<string> => Promise.resolve(""),
+        readFile: (path: string): Promise<ReadFileResult> => Promise.resolve({exists: false}),
         writeFile: (path: string, data: string): Promise<any> => Promise.resolve(),
       };
 
       super(params);
     }
   }
-  
+
   function test() {
     let dsp = new DropboxSyncProvider("username", "password");
   }
