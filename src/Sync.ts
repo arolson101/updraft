@@ -26,10 +26,6 @@ namespace Updraft {
 
   export interface SyncConnection {
     onOpened(): any;
-    onChanged(): any;
-  }
-
-  export interface SyncProviderCollection {
-    [name: string]: SyncProvider;
+    onChanged(syncId: number): any;
   }
 }

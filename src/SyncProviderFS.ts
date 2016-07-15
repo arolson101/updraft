@@ -13,6 +13,8 @@ Filesystem structure:
 
 index.dat:
   encryption key, encrypted with GUID, requires a connected device to read
+
+
 */
 
 
@@ -75,7 +77,7 @@ namespace Updraft {
         const stores = files
           .filter((info: FileInfo) => info.size > 0)
           .map(info => info.name)
-          ;
+        ;
         return Promise.resolve(stores);
       });
     }
@@ -91,18 +93,23 @@ namespace Updraft {
     store: Store2;
     options: SyncProviderFSOptions;
     source: string;
+    actionQueue: Promise<any>;
+    lastSyncId: number;
     private index: IndexContents;
 
     constructor(storeName: string, store: Store2, options: SyncProviderFSOptions) {
       this.storeName = storeName;
       this.store = store;
       this.options = options;
+      this.actionQueue = Promise.resolve();
+      this.lastSyncId = -1;
     }
 
     start(): Promise<any> {
       return this.readOrCreateIndex()
-        .then(() => this.options.listFiles(this.storeName))
-        .then((files) => this.ingestChanges(files))
+        .then(() => this.registerListener())
+        .then(() => this.ingestChanges())
+        .then(() => this.onChanged(this.store.syncId))
       ;
     }
 
@@ -126,46 +133,58 @@ namespace Updraft {
       const { pathCombine, readFile, writeFile, generateKey } = this.options;
       const indexPath = pathCombine(this.storeName, INDEX_FILENAME);
       return readFile(indexPath)
-      .then(indexFile => {
-        if (indexFile.exists) {
-          this.index = this.decodeFile<IndexContents>(this.store.syncKey, indexFile.contents);
-          return Promise.resolve();
-        }
-        else {
-          const index: IndexContents = {
-            key: generateKey()
-          };
-          const data = this.encodeFile(this.store.syncKey, index);
-          return writeFile(indexPath, data)
-            .then(() => {
-              this.index = index;
-              return Promise.resolve();
-            })
-          ;
-        }
-      });
+        .then(indexFile => {
+          if (indexFile.exists) {
+            this.index = this.decodeFile<IndexContents>(this.store.syncKey, indexFile.contents);
+            return Promise.resolve();
+          }
+          else {
+            const index: IndexContents = {
+              key: generateKey()
+            };
+            const data = this.encodeFile(this.store.syncKey, index);
+            return writeFile(indexPath, data)
+              .then(() => {
+                this.index = index;
+                return Promise.resolve();
+              })
+            ;
+          }
+        })
+      ;
     }
 
-    private ingestChanges(files: FileInfo[]) {
+    private registerListener(): Promise<any> {
+      return Promise.resolve();
+    }
+
+    private ingestChanges(): Promise<any> {
       // find last ingested change
+      return Promise.resolve()
+        .then(() => this.options.listFiles(this.storeName))
+        .then((files) => {
+          files.forEach(file => this.queueAction(() => this.ingestFile(file)));
+        })
+      ;
     }
 
-    private ingestFile(path: string): Promise<any> {
+    private ingestFile(file: FileInfo): Promise<any> {
       const { readFile, decrypt, decompress } = this.options;
-      return readFile(path)
-      .then((file) => {
-        if (file.exists) {
-          let changes = this.decodeFile<ChangeFile>(this.index.key, file.contents);
-          return this.store.addFromSource(changes, this.source);
-        }
-      });
+      return readFile(file.name)
+        .then((file) => {
+          if (file.exists) {
+            let changes = this.decodeFile<ChangeFile>(this.index.key, file.contents);
+            return this.store.addFromSource(changes, this.source);
+          }
+        })
+      ;
     }
 
-    saveChanges(basename: string, store: Store2) {
+    private saveChanges(syncId: number, basename: string): Promise<any> {
       const { compress, encrypt, pathCombine, writeFile } = this.options;
       const params: FindChangesOptions = {
-        minSyncId: 0,
-        maxSyncId: 0,
+        minSyncId: this.lastSyncId,
+        maxSyncId: syncId,
         limit: 1000,
         process: (batch: number, changes: TableChange<any, any>[]): Promise<any> => {
           let path = pathCombine(this.storeName, basename, batch as any);
@@ -173,16 +192,29 @@ namespace Updraft {
           return writeFile(path, data);
         },
         complete: (batchCount: number, success: boolean): Promise<any> => {
+          this.lastSyncId = syncId;
           return Promise.resolve();
         }
       };
+      return this.store.findChanges(params);
     }
 
     onOpened(): any {
       this.start();
     }
 
-    onChanged(): any {}
+    onChanged(syncId: number): any {
+      this.queueAction(() => {
+        // only run the latest sync, as it will rollup previous syncs
+        if (this.store.syncId == syncId) {
+          return this.saveChanges(syncId, "basename");
+        }
+      });
+    }
+
+    private queueAction(action: () => Promise<any>) {
+      this.actionQueue = this.actionQueue.then(action);
+    }
   }
 
   class DropboxSyncProvider extends SyncProviderFS {
