@@ -20,49 +20,14 @@ index.dat:
 
 namespace Updraft {
 
-  export interface FileInfo {
-    name: string;
-    directory: boolean;
-    size: number;
-  }
-
-  export interface ReadFileResult {
-    exists: boolean;
-    contents?: string;
-  }
-
   const INDEX_FILENAME = "index.dat";
 
   interface IndexContents {
     key: string;
   }
 
-  export interface EncryptedInfo {
-    mode: string;
-    iv: string;
-    cipher: string;
-  }
-
   type ChangeFile = TableChange<any, any>[];
 
-  export interface SyncProviderFSOptions {
-    name: string;
-
-    // crypto
-    generateKey(): string;
-    encrypt(key: string, data: string): EncryptedInfo;
-    decrypt(key: string, data: EncryptedInfo): string;
-
-    // compression
-    compress(data: string): string;
-    decompress(data: string): string;
-
-    // filesystem
-    pathCombine(...components: string[]): string;
-    listFiles(dir: string): Promise<FileInfo[]>;
-    readFile(path: string): Promise<ReadFileResult>;
-    writeFile(path: string, data: string): Promise<any>;
-  }
 
   export class SyncProviderFS implements SyncProvider {
     options: SyncProviderFSOptions;
@@ -130,7 +95,7 @@ namespace Updraft {
     }
 
     private readOrCreateIndex(): Promise<any> {
-      const { pathCombine, readFile, writeFile, generateKey } = this.options;
+      const { pathCombine, readFile, beginWrite, generateKey } = this.options;
       const indexPath = pathCombine(this.storeName, INDEX_FILENAME);
       return readFile(indexPath)
         .then(indexFile => {
@@ -143,13 +108,24 @@ namespace Updraft {
               key: generateKey()
             };
             const data = this.encodeFile(this.store.syncKey, index);
-            return writeFile(indexPath, data)
+            return this.writeSingleFile(indexPath, data)
               .then(() => {
                 this.index = index;
                 return Promise.resolve();
               })
             ;
           }
+        })
+      ;
+    }
+
+    private writeSingleFile(path: string, data: string): Promise<any> {
+      const { beginWrite } = this.options;
+      return beginWrite()
+        .then((context: SyncProviderFSWriteContext) => {
+          return context.writeFile(path, data)
+          .then(() => context.finish())
+          ;
         })
       ;
     }
@@ -181,22 +157,25 @@ namespace Updraft {
     }
 
     private saveChanges(syncId: number, basename: string): Promise<any> {
-      const { compress, encrypt, pathCombine, writeFile } = this.options;
-      const params: FindChangesOptions = {
-        minSyncId: this.lastSyncId,
-        maxSyncId: syncId,
-        limit: 1000,
-        process: (batch: number, changes: TableChange<any, any>[]): Promise<any> => {
-          let path = pathCombine(this.storeName, basename, batch as any);
-          const data = this.encodeFile(this.index.key, changes);
-          return writeFile(path, data);
-        },
-        complete: (batchCount: number, success: boolean): Promise<any> => {
-          this.lastSyncId = syncId;
-          return Promise.resolve();
-        }
-      };
-      return this.store.findChanges(params);
+      const { compress, encrypt, pathCombine, beginWrite } = this.options;
+      return beginWrite()
+        .then((context: SyncProviderFSWriteContext) => {
+          const params: FindChangesOptions = {
+            minSyncId: this.lastSyncId,
+            maxSyncId: syncId,
+            process: (currentSyncId: number, changes: TableChange<any, any>[]): Promise<any> => {
+              let path = pathCombine(this.storeName, basename, currentSyncId as any);
+              const data = this.encodeFile(this.index.key, changes);
+              return context.writeFile(path, data);
+            },
+            complete: (batchCount: number, success: boolean): Promise<any> => {
+              this.lastSyncId = syncId;
+              return context.finish();
+            }
+          };
+          return this.store.findChanges(params);
+        })
+      ;
     }
 
     onOpened(): any {
@@ -232,7 +211,10 @@ namespace Updraft {
         pathCombine: (...components: string[]): string => components.join("/"),
         listFiles: (dir: string): Promise<FileInfo[]> => Promise.resolve([]),
         readFile: (path: string): Promise<ReadFileResult> => Promise.resolve({exists: false}),
-        writeFile: (path: string, data: string): Promise<any> => Promise.resolve(),
+        beginWrite: (): Promise<SyncProviderFSWriteContext> => Promise.resolve({
+          writeFile: (path: string, data: string): Promise<any> => Promise.resolve(),
+          finish: (): Promise<any> => Promise.resolve()
+        }),
       };
 
       super(params);
