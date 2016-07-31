@@ -12,7 +12,7 @@ Filesystem structure:
         <timestamp>.dat - changes
 
 index.dat:
-  encryption key, encrypted with GUID, requires a connected device to read
+  encryption key, encrypted with master password
 
 
 */
@@ -20,7 +20,8 @@ index.dat:
 
 namespace Updraft {
 
-  const INDEX_FILENAME = "index.dat";
+  const INDEX_FILENAME = "_index.dat";
+  const FILE_EXT = ".bin";
 
   interface IndexContents {
     key: string;
@@ -37,14 +38,7 @@ namespace Updraft {
     }
 
     getStores(): Promise<string[]> {
-      return this.options.listFiles("")
-      .then(files => {
-        const stores = files
-          .filter((info: FileInfo) => info.size > 0)
-          .map(info => info.name)
-        ;
-        return Promise.resolve(stores);
-      });
+      return this.options.getStores();
     }
 
     open(storeName: string, store: Store2): SyncConnection {
@@ -95,8 +89,8 @@ namespace Updraft {
     }
 
     private readOrCreateIndex(): Promise<any> {
-      const { pathCombine, readFile, beginWrite, generateKey } = this.options;
-      const indexPath = pathCombine(this.storeName, INDEX_FILENAME);
+      const { makeUri, readFile, beginWrite, generateKey } = this.options;
+      const indexPath = makeUri(this.storeName, INDEX_FILENAME);
       return readFile(indexPath)
         .then(indexFile => {
           if (indexFile.exists) {
@@ -135,36 +129,38 @@ namespace Updraft {
     }
 
     private ingestChanges(): Promise<any> {
-      // find last ingested change
       return Promise.resolve()
-        .then(() => this.options.listFiles(this.storeName))
-        .then((files) => {
-          files.forEach(file => this.queueAction(() => this.ingestFile(file)));
+        .then(() => this.options.filesForStore(this.storeName))
+        .then((allFiles: string[]) => this.store.getUnresolved(allFiles))
+        .then((unresolvedUris: string[]) => {
+          unresolvedUris.forEach(uri => {
+            this.queueAction(() => this.ingestFile(uri));
+          });
         })
       ;
     }
 
-    private ingestFile(file: FileInfo): Promise<any> {
+    private ingestFile(uri: string): Promise<any> {
       const { readFile, decrypt, decompress } = this.options;
-      return readFile(file.name)
+      return readFile(uri)
         .then((file) => {
           if (file.exists) {
             let changes = this.decodeFile<ChangeFile>(this.index.key, file.contents);
-            return this.store.addFromSource(changes, this.source);
+            return this.store.addFromSync(changes, uri);
           }
         })
       ;
     }
 
-    private saveChanges(syncId: number, basename: string): Promise<any> {
-      const { compress, encrypt, pathCombine, beginWrite } = this.options;
+    private saveChanges(syncId: number): Promise<any> {
+      const { compress, encrypt, makeUri, beginWrite } = this.options;
       return beginWrite()
         .then((context: SyncProviderFSWriteContext) => {
           const params: FindChangesOptions = {
             minSyncId: this.lastSyncId,
             maxSyncId: syncId,
             process: (currentSyncId: number, changes: TableChange<any, any>[]): Promise<any> => {
-              let path = pathCombine(this.storeName, basename, currentSyncId as any);
+              let path = makeUri(this.storeName, this.store.syncId.toString() + currentSyncId.toString() + FILE_EXT);
               const data = this.encodeFile(this.index.key, changes);
               return context.writeFile(path, data);
             },
@@ -186,7 +182,7 @@ namespace Updraft {
       this.queueAction(() => {
         // only run the latest sync, as it will rollup previous syncs
         if (this.store.syncId == syncId) {
-          return this.saveChanges(syncId, "basename");
+          return this.saveChanges(syncId);
         }
       });
     }
@@ -208,8 +204,9 @@ namespace Updraft {
         compress: (data: string): string => data,
         decompress: (data: string): string => data,
 
-        pathCombine: (...components: string[]): string => components.join("/"),
-        listFiles: (dir: string): Promise<FileInfo[]> => Promise.resolve([]),
+        makeUri: (storeName: string, fileName: string): string => "dropbox://" + storeName + "/" + fileName,
+        getStores: (): Promise<string[]> => Promise.resolve([]),
+        filesForStore: (storeName: string): Promise<string[]> => Promise.resolve([]),
         readFile: (path: string): Promise<ReadFileResult> => Promise.resolve({exists: false}),
         beginWrite: (): Promise<SyncProviderFSWriteContext> => Promise.resolve({
           writeFile: (path: string, data: string): Promise<any> => Promise.resolve(),

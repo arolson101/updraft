@@ -14,8 +14,9 @@ namespace Updraft {
     syncKey: string;
     getLocal(key: string): any;
     setLocal(key: string, value: any): Promise<any>;
+    getUnresolved(uris: string[]): Promise<string[]>;
+    addFromSync(changes: TableChange<any, any>[], uri: string): Promise<any>;
     findChanges(params: FindChangesOptions): Promise<any>;
-    addFromSource(changes: TableChange<any, any>[], source: string): Promise<any>;
   }
 
   export interface SyncProvider {
@@ -58,8 +59,9 @@ namespace Updraft {
     decompress(data: string): string;
 
     // filesystem
-    pathCombine(...components: string[]): string;
-    listFiles(dir: string): Promise<FileInfo[]>;
+    makeUri(storeName: string, fileName: string): string;
+    getStores(): Promise<string[]>;
+    filesForStore(storeName: string): Promise<string[]>;
     readFile(path: string): Promise<ReadFileResult>;
     beginWrite(): Promise<SyncProviderFSWriteContext>;
   }
