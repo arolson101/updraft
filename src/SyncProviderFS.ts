@@ -30,36 +30,42 @@ namespace Updraft {
   type ChangeFile = TableChange<any, any>[];
 
 
-  export class SyncProviderFS implements SyncProvider {
-    options: SyncProviderFSOptions;
+  export abstract class SyncProviderFS implements SyncProvider {
+    // crypto
+    abstract generateKey(): string;
+    abstract encrypt(key: string, data: string): EncryptedInfo;
+    abstract decrypt(key: string, data: EncryptedInfo): string;
 
-    constructor(options: SyncProviderFSOptions) {
-      this.options = options;
-    }
+    // compression
+    abstract compress(data: string): string;
+    abstract decompress(data: string): string;
 
-    getStores(): Promise<string[]> {
-      return this.options.getStores();
-    }
+    // filesystem
+    abstract makeUri(storeName: string, fileName: string): string;
+    abstract getStores(): Promise<string[]>;
+    abstract filesForStore(storeName: string): Promise<string[]>;
+    abstract readFile(path: string): Promise<ReadFileResult>;
+    abstract beginWrite(): Promise<SyncProviderFSWriteContext>;
 
     open(storeName: string, store: Store2): SyncConnection {
-      return new SyncConnectionFS(storeName, store, this.options);
+      return new SyncConnectionFS(storeName, store, this);
     }
   }
 
 
-  export class SyncConnectionFS implements SyncConnection {
+  class SyncConnectionFS implements SyncConnection {
     storeName: string;
     store: Store2;
-    options: SyncProviderFSOptions;
+    fs: SyncProviderFS;
     source: string;
     actionQueue: Promise<any>;
     lastSyncId: number;
     private index: IndexContents;
 
-    constructor(storeName: string, store: Store2, options: SyncProviderFSOptions) {
+    constructor(storeName: string, store: Store2, fs: SyncProviderFS) {
       this.storeName = storeName;
       this.store = store;
-      this.options = options;
+      this.fs = fs;
       this.actionQueue = Promise.resolve();
       this.lastSyncId = -1;
     }
@@ -73,7 +79,7 @@ namespace Updraft {
     }
 
     private encodeFile<T>(key: string, data: T): string {
-      const { encrypt, compress } = this.options;
+      const { encrypt, compress } = this.fs;
       const dataAsText = toText(data);
       const compressed = compress(dataAsText);
       const encrypted = encrypt(key, compressed);
@@ -81,7 +87,7 @@ namespace Updraft {
     }
 
     private decodeFile<T>(key: string, data: string): T {
-      const { decrypt, decompress } = this.options;
+      const { decrypt, decompress } = this.fs;
       const info: EncryptedInfo = fromText(data);
       const decrypted = decrypt(key, info);
       const decompressed = decompress(decrypted);
@@ -89,7 +95,7 @@ namespace Updraft {
     }
 
     private readOrCreateIndex(): Promise<any> {
-      const { makeUri, readFile, beginWrite, generateKey } = this.options;
+      const { makeUri, readFile, beginWrite, generateKey } = this.fs;
       const indexPath = makeUri(this.storeName, INDEX_FILENAME);
       return readFile(indexPath)
         .then(indexFile => {
@@ -114,7 +120,7 @@ namespace Updraft {
     }
 
     private writeSingleFile(path: string, data: string): Promise<any> {
-      const { beginWrite } = this.options;
+      const { beginWrite } = this.fs;
       return beginWrite()
         .then((context: SyncProviderFSWriteContext) => {
           return context.writeFile(path, data)
@@ -130,7 +136,7 @@ namespace Updraft {
 
     private ingestChanges(): Promise<any> {
       return Promise.resolve()
-        .then(() => this.options.filesForStore(this.storeName))
+        .then(() => this.fs.filesForStore(this.storeName))
         .then((allFiles: string[]) => this.store.getUnresolved(allFiles))
         .then((unresolvedUris: string[]) => {
           unresolvedUris.forEach(uri => {
@@ -141,7 +147,7 @@ namespace Updraft {
     }
 
     private ingestFile(uri: string): Promise<any> {
-      const { readFile, decrypt, decompress } = this.options;
+      const { readFile, decrypt, decompress } = this.fs;
       return readFile(uri)
         .then((file) => {
           if (file.exists) {
@@ -153,7 +159,7 @@ namespace Updraft {
     }
 
     private saveChanges(syncId: number): Promise<any> {
-      const { compress, encrypt, makeUri, beginWrite } = this.options;
+      const { compress, encrypt, makeUri, beginWrite } = this.fs;
       return beginWrite()
         .then((context: SyncProviderFSWriteContext) => {
           const params: FindChangesOptions = {
@@ -190,35 +196,5 @@ namespace Updraft {
     private queueAction(action: () => Promise<any>) {
       this.actionQueue = this.actionQueue.then(action);
     }
-  }
-
-  class DropboxSyncProvider extends SyncProviderFS {
-    constructor(user: string, password: string) {
-      let params: SyncProviderFSOptions = {
-        name: "dropbox",
-
-        generateKey: () => "generatedKey",
-        encrypt: (key: string, data: string): EncryptedInfo => ({mode: "", iv: "", cipher: data}),
-        decrypt: (key: string, data: EncryptedInfo): string => data.cipher,
-
-        compress: (data: string): string => data,
-        decompress: (data: string): string => data,
-
-        makeUri: (storeName: string, fileName: string): string => "dropbox://" + storeName + "/" + fileName,
-        getStores: (): Promise<string[]> => Promise.resolve([]),
-        filesForStore: (storeName: string): Promise<string[]> => Promise.resolve([]),
-        readFile: (path: string): Promise<ReadFileResult> => Promise.resolve({exists: false}),
-        beginWrite: (): Promise<SyncProviderFSWriteContext> => Promise.resolve({
-          writeFile: (path: string, data: string): Promise<any> => Promise.resolve(),
-          finish: (): Promise<any> => Promise.resolve()
-        }),
-      };
-
-      super(params);
-    }
-  }
-
-  function test() {
-    let dsp = new DropboxSyncProvider("username", "password");
   }
 }

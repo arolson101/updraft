@@ -327,6 +327,71 @@ function populateData(db: Updraft.DbWrapper, count: number) {
 }
 
 
+class TestSyncProvider extends Updraft.SyncProviderFS {
+	encrypted: boolean;
+	compressed: boolean;
+	files: { [key: string]: string };
+
+	constructor(encrypted: boolean, compressed: boolean) {
+		super();
+		this.encrypted = encrypted;
+		this.compressed = compressed;
+	}
+
+	// crypto
+	generateKey(): string {
+		return "generatedKey";
+	}
+	encrypt(key: string, data: string): Updraft.EncryptedInfo {
+		return {
+			mode: "",
+			iv: "",
+			cipher: data
+		};
+	}
+	decrypt(key: string, data: Updraft.EncryptedInfo): string {
+		return data.cipher;
+	}
+
+	// compression
+	compress(data: string): string {
+		return data;
+	}
+	decompress(data: string): string {
+		return data;
+	}
+
+	// filesystem
+	makeUri(storeName: string, fileName: string): string {
+		return fileName;
+	}
+	getStores(): Promise<string[]> {
+		return Promise.resolve(["testStore"]);
+	}
+	filesForStore(storeName: string): Promise<string[]> {
+		return Promise.resolve(Object.keys(this.files));
+	}
+	readFile(path: string): Promise<Updraft.ReadFileResult> {
+		return Promise.resolve({
+			exists: path in this.files,
+			contents: this.files[path]
+		});
+	}
+	beginWrite(): Promise<Updraft.SyncProviderFSWriteContext> {
+		return Promise.resolve({
+			writeFile: this.writeFile.bind(this),
+			finish: (): Promise<any> => Promise.resolve(),
+		});
+	}
+
+	writeFile(path: string, data: string): Promise<any> {
+		this.files[path] = data;
+		return Promise.resolve();
+	}
+}
+
+
+
 describe("table", function() {
 	//this.timeout(0);
 	this.slow(10000);
@@ -1071,6 +1136,35 @@ describe("table", function() {
 					.then(() => todoTable.find({text: {$like: "%todo 1%"}}, {count: true}).then((results) => expect(results).to.equal(3)))
 					;
 			});
+		});
+	});
+
+
+	describe("sync", function() {
+		let w: Db;
+		let todoTable: TodoTable;
+		let todos: Todo[];
+
+		before(() => {
+			todos = sampleTodos(12);
+
+			w = createDb(true, false);
+
+			let store = Updraft.createStore({ db: w.db });
+			todoTable = store.createTable(todoTableSpec);
+
+			return Promise.resolve()
+				.then(() => store.open())
+				.then(() => todoTable.add(...todos.map(todo => <TodoChange>{ time: 1, create: todo })))
+				;
+		});
+
+		after(() => {
+			return w.close();
+		});
+
+		it("writes changes to files", function() {
+
 		});
 	});
 });
