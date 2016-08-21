@@ -1,7 +1,7 @@
 // written to React"s immutability helpers spec
 // see https://facebook.github.io/react/docs/update.html
 
-///<reference path="../typings/main.d.ts"/>
+///<reference path="../typings/index.d.ts"/>
 ///<reference path="./assign.ts"/>
 ///<reference path="./verify.ts"/>
 

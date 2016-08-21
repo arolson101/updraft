@@ -158,20 +158,20 @@ namespace Updraft {
       ;
     }
 
-    private saveChanges(syncId: number): Promise<any> {
+    private saveChanges(maxSyncId: number): Promise<any> {
       const { compress, encrypt, makeUri, beginWrite } = this.fs;
       return beginWrite()
         .then((context: SyncProviderFSWriteContext) => {
           const params: FindChangesOptions = {
             minSyncId: this.lastSyncId,
-            maxSyncId: syncId,
+            maxSyncId: maxSyncId,
             process: (currentSyncId: number, changes: TableChange<any, any>[]): Promise<any> => {
               let path = makeUri(this.storeName, this.store.syncId.toString() + currentSyncId.toString() + FILE_EXT);
               const data = this.encodeFile(this.index.key, changes);
               return context.writeFile(path, data);
             },
             complete: (batchCount: number, success: boolean): Promise<any> => {
-              this.lastSyncId = syncId;
+              this.lastSyncId = maxSyncId;
               return context.finish();
             }
           };

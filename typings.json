@@ -1,8 +1,7 @@
 {
   "name": "updraft",
   "version": false,
-  "dependencies": {},
-  "ambientDependencies": {
+  "globalDependencies": {
     "chai": "registry:dt/chai#3.4.0+20160317120654",
     "chai-as-promised": "registry:dt/chai-as-promised#0.0.0+20160423070304",
     "chai-datetime": "registry:dt/chai-datetime#0.0.0+20160317120654",
