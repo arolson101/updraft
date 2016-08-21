@@ -11,6 +11,10 @@ namespace Updraft {
 	function startsWith(str: string, val: string) {
 		return str.lastIndexOf(val, 0) === 0;
 	}
+
+	function quote(str: string) {
+		return '"' + str + '"';
+	}
 	
 	export type TableSpecAny = TableSpec<any, any, any>;
 	export type TableAny = Table<any, any, any>;
@@ -292,7 +296,7 @@ namespace Updraft {
 					let stmts: DbStatement[] = [];
 					Object.keys(addedColumns).forEach((colName) => {
 						let col: Column = spec.columns[colName];
-						let columnDecl = colName + " " + Column.sql(col);
+						let columnDecl = quote(colName) + " " + Column.sql(col);
 						stmts.push({sql: "ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl});
 					});
 					
@@ -721,7 +725,7 @@ namespace Updraft {
 					break;
 	
 				default:
-					decl = col + " " + Column.sql(attrs);
+					decl = quote(col) + " " + Column.sql(attrs);
 					cols.push(decl);
 					if (attrs.isKey) {
 						pk.push(col);
@@ -801,8 +805,8 @@ namespace Updraft {
 		let newTableColumns = oldTableColumns.map(col => (col in renamedColumns) ? renamedColumns[col] : col);
 		/* istanbul ignore else */
 		if (oldTableColumns.length && newTableColumns.length) {
-			let stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
-			stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
+			let stmt = "INSERT INTO " + newName + " (" + newTableColumns.map(quote).join(", ") + ") ";
+			stmt += "SELECT " + oldTableColumns.map(quote).join(", ") + " FROM " + oldName + ";";
 			transaction.executeSql(stmt, [], nextCallback);
 		}
 		else {
@@ -1066,7 +1070,7 @@ namespace Updraft {
 	
 		let fields: FieldSpec = assign({}, opts.fields || table.spec.columns, {[internal_column_time]: true});
 		let columns: string[] = selectableColumns(table.spec, fields);
-		let stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
+		let stmt = "SELECT " + (opts.count ? COUNT : columns.map(quote).join(", "));
 		stmt += " FROM " + table.spec.name;
 		if (conditionSets.length) {
 			stmt += " WHERE " + conditionSets.map(conditions => "(" + conditions.join(" AND ") + ")").join(" OR ");

@@ -1,4 +1,3 @@
-"use strict";
 var Updraft;
 (function (Updraft) {
     /* istanbul ignore next */
@@ -35,7 +34,6 @@ var Updraft;
     };
     Updraft.assign = ObjectAssign;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-"use strict";
 var Updraft;
 (function (Updraft) {
     function reviver(key, value) {
@@ -56,7 +54,6 @@ var Updraft;
     }
     Updraft.fromText = fromText;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-"use strict";
 var Updraft;
 (function (Updraft) {
     /* istanbul ignore next */
@@ -82,17 +79,16 @@ var Updraft;
         }
         /* istanbul ignore next */
         if (!condition) {
-            var argIndex = 0;
-            var error = new Error(format.replace(/%s/g, function () { return makePrintable(args[argIndex++]); }));
+            var argIndex_1 = 0;
+            var error = new Error(format.replace(/%s/g, function () { return makePrintable(args[argIndex_1++]); }));
             error.framesToPop = 1; // we don't care about verify's own frame
             throw error;
         }
     }
     Updraft.verify = verify;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-///<reference path="./Text"/>
-///<reference path="./verify"/>
-"use strict";
+///<reference path="./Text.ts"/>
+///<reference path="./verify.ts"/>
 var Updraft;
 (function (Updraft) {
     (function (ColumnType) {
@@ -360,7 +356,7 @@ var Updraft;
             return true;
         };
         return Column;
-    })();
+    }());
     Updraft.Column = Column;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
 var Updraft;
@@ -383,10 +379,9 @@ var Updraft;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
 // written to React"s immutability helpers spec
 // see https://facebook.github.io/react/docs/update.html
-///<reference path="../typings/tsd.d.ts"/>
-///<reference path="./assign"/>
-///<reference path="./verify"/>
-"use strict";
+///<reference path="../typings/index.d.ts"/>
+///<reference path="./assign.ts"/>
+///<reference path="./verify.ts"/>
 var Updraft;
 (function (Updraft) {
     function shallowCopy(x) {
@@ -422,15 +417,15 @@ var Updraft;
         }
         else if (a instanceof Set && b instanceof Set) {
             var aa = a;
-            var bb = b;
-            if (aa.size == bb.size) {
-                var equal = true;
+            var bb_1 = b;
+            if (aa.size == bb_1.size) {
+                var equal_1 = true;
                 aa.forEach(function (elt) {
-                    if (equal && !bb.has(elt)) {
-                        equal = false;
+                    if (equal_1 && !bb_1.has(elt)) {
+                        equal_1 = false;
                     }
                 });
-                return equal;
+                return equal_1;
             }
             return false;
         }
@@ -441,8 +436,8 @@ var Updraft;
             var akeys = Object.keys(a);
             var bkeys = Object.keys(b);
             if (akeys.length == bkeys.length) {
-                for (var _i = 0; _i < akeys.length; _i++) {
-                    var key = akeys[_i];
+                for (var _i = 0, akeys_1 = akeys; _i < akeys_1.length; _i++) {
+                    var key = akeys_1[_i];
                     if (!(key in b) || a[key] != b[key]) {
                         return false;
                     }
@@ -593,9 +588,8 @@ var Updraft;
     }
     Updraft.update = update;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-///<reference path="./Column"/>
-///<reference path="./verify"/>
-"use strict";
+///<reference path="./Column.ts"/>
+///<reference path="./verify.ts"/>
 var Updraft;
 (function (Updraft) {
     (function (OrderBy) {
@@ -613,7 +607,7 @@ var Updraft;
             return element[this.key];
         };
         return Table;
-    })();
+    }());
     Updraft.Table = Table;
     function tableKey(spec) {
         var key = null;
@@ -630,35 +624,51 @@ var Updraft;
     }
     Updraft.tableKey = tableKey;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-///<reference path="./Column"/>
-///<reference path="./Delta"/>
-///<reference path="./Database"/>
-///<reference path="./Table"/>
-///<reference path="./Text"/>
-///<reference path="./assign"/>
-///<reference path="./verify"/>
-"use strict";
+///<reference path="./Column.ts"/>
+///<reference path="./Delta.ts"/>
+///<reference path="./Database.ts"/>
+///<reference path="./Table.ts"/>
+///<reference path="./Text.ts"/>
+///<reference path="./assign.ts"/>
+///<reference path="./verify.ts"/>
 var Updraft;
 (function (Updraft) {
     function startsWith(str, val) {
         return str.lastIndexOf(val, 0) === 0;
     }
+    function quote(str) {
+        return '"' + str + '"';
+    }
     var MAX_VARIABLES = 999;
     var ROWID = "rowid";
     var COUNT = "COUNT(*)";
+    var DEFAULT_SYNCID = 100;
     var internal_prefix = "updraft_";
     var internal_column_deleted = internal_prefix + "deleted";
     var internal_column_time = internal_prefix + "time";
     var internal_column_latest = internal_prefix + "latest";
     var internal_column_composed = internal_prefix + "composed";
+    var internal_column_source = internal_prefix + "source";
+    var internal_column_syncId = internal_prefix + "syncId";
     var internalColumn = {};
     internalColumn[internal_column_deleted] = Updraft.Column.Bool();
     internalColumn[internal_column_time] = Updraft.Column.Int().Key();
     internalColumn[internal_column_latest] = Updraft.Column.Bool();
     internalColumn[internal_column_composed] = Updraft.Column.Bool();
+    internalColumn[internal_column_source] = Updraft.Column.String().Index();
+    internalColumn[internal_column_syncId] = Updraft.Column.Int().Default(DEFAULT_SYNCID).Index();
+    var localKey_guid = "guid";
+    var localKey_syncId = "syncId";
     var deleteRow_action = (_a = {}, _a[internal_column_deleted] = { $set: true }, _a);
     var keyValueTableSpec = {
         name: internal_prefix + "keyValues",
+        columns: {
+            key: Updraft.Column.String().Key(),
+            value: Updraft.Column.JSON(),
+        }
+    };
+    var localsTableSpec = {
+        name: internal_prefix + "locals",
         columns: {
             key: Updraft.Column.String().Key(),
             value: Updraft.Column.JSON(),
@@ -670,17 +680,34 @@ var Updraft;
             this.tables = [];
             this.db = null;
             Updraft.verify(this.params.db, "must pass a DbWrapper");
-            this.keyValueTable = this.createTable(keyValueTableSpec);
+            this.localsTable = this.createUntrackedTable(localsTableSpec);
+            this.keyValueTable = this.createTrackedTable(keyValueTableSpec, true);
         }
         Store.prototype.createTable = function (tableSpec) {
-            var _this = this;
+            return this.createTrackedTable(tableSpec, false);
+        };
+        Store.prototype.createTrackedTable = function (tableSpec, internal) {
             Updraft.verify(!this.db, "createTable() can only be added before open()");
-            if (tableSpec !== keyValueTableSpec) {
+            if (!internal) {
                 Updraft.verify(!startsWith(tableSpec.name, internal_prefix), "table name %s cannot begin with %s", tableSpec.name, internal_prefix);
             }
             for (var col in tableSpec.columns) {
                 Updraft.verify(!startsWith(col, internal_prefix), "table %s column %s cannot begin with %s", tableSpec.name, col, internal_prefix);
             }
+            var table = this.createTableObject(tableSpec);
+            (_a = this.tables).push.apply(_a, createInternalTableSpecs(table));
+            this.tables.push(createChangeTableSpec(table));
+            return table;
+            /* istanbul ignore next */ var _a;
+        };
+        Store.prototype.createUntrackedTable = function (tableSpec) {
+            buildIndices(tableSpec);
+            var table = this.createTableObject(tableSpec);
+            this.tables.push(tableSpec);
+            return table;
+        };
+        Store.prototype.createTableObject = function (tableSpec) {
+            var _this = this;
             var table = new Updraft.Table(tableSpec);
             table.add = function () {
                 var changes = [];
@@ -693,10 +720,7 @@ var Updraft;
             table.find = function (queryArg, opts) {
                 return _this.find(table, queryArg, opts);
             };
-            (_a = this.tables).push.apply(_a, createInternalTableSpecs(table));
-            this.tables.push(createChangeTableSpec(table));
             return table;
-            /* istanbul ignore next */ var _a;
         };
         Store.prototype.open = function () {
             var _this = this;
@@ -715,8 +739,10 @@ var Updraft;
                             _this.syncTable(transaction, schema, table, act);
                         }
                         else {
-                            _this.loadKeyValues(transaction, function () {
-                                transaction.commit(resolve);
+                            _this.loadLocals(transaction, function () {
+                                _this.loadKeyValues(transaction, function () {
+                                    transaction.commit(resolve);
+                                });
                             });
                         }
                     };
@@ -760,49 +786,49 @@ var Updraft;
         };
         Store.prototype.syncTable = function (transaction, schema, spec, nextCallback) {
             if (spec.name in schema) {
-                var oldColumns = schema[spec.name].columns;
-                var newColumns = spec.columns;
+                var oldColumns_1 = schema[spec.name].columns;
+                var newColumns_1 = spec.columns;
                 var recreateTable = false;
-                for (var colName in oldColumns) {
-                    if (!(colName in newColumns)) {
+                for (var colName in oldColumns_1) {
+                    if (!(colName in newColumns_1)) {
                         recreateTable = true;
                         break;
                     }
-                    var oldCol = oldColumns[colName];
-                    var newCol = newColumns[colName];
+                    var oldCol = oldColumns_1[colName];
+                    var newCol = newColumns_1[colName];
                     if (!Updraft.Column.equal(oldCol, newCol)) {
                         recreateTable = true;
                         break;
                     }
                 }
-                var renamedColumns = Updraft.shallowCopy(spec.renamedColumns) || {};
-                for (var colName in renamedColumns) {
-                    if (colName in oldColumns) {
+                var renamedColumns_1 = Updraft.shallowCopy(spec.renamedColumns) || {};
+                for (var colName in renamedColumns_1) {
+                    if (colName in oldColumns_1) {
                         recreateTable = true;
                     }
                     else {
-                        delete renamedColumns[colName];
+                        delete renamedColumns_1[colName];
                     }
                 }
                 var addedColumns = {};
                 if (!recreateTable) {
-                    for (var _i = 0, _a = selectableColumns(spec, newColumns); _i < _a.length; _i++) {
+                    for (var _i = 0, _a = selectableColumns(spec, newColumns_1); _i < _a.length; _i++) {
                         var colName = _a[_i];
-                        if (!(colName in oldColumns)) {
-                            addedColumns[colName] = newColumns[colName];
+                        if (!(colName in oldColumns_1)) {
+                            addedColumns[colName] = newColumns_1[colName];
                         }
                     }
                 }
                 if (recreateTable) {
                     // recreate and migrate data
-                    var tempTableName = "temp_" + spec.name;
-                    var changeTableName = getChangeTableName(spec.name);
-                    dropTable(transaction, tempTableName, function (tx2) {
-                        createTable(tx2, tempTableName, spec.columns, function (tx3) {
-                            copyData(tx3, spec.name, tempTableName, oldColumns, newColumns, renamedColumns, function (tx4) {
+                    var tempTableName_1 = "temp_" + spec.name;
+                    var changeTableName_1 = getChangeTableName(spec.name);
+                    dropTable(transaction, tempTableName_1, function (tx2) {
+                        createTable(tx2, tempTableName_1, spec.columns, function (tx3) {
+                            copyData(tx3, spec.name, tempTableName_1, oldColumns_1, newColumns_1, renamedColumns_1, function (tx4) {
                                 dropTable(tx4, spec.name, function (tx5) {
-                                    renameTable(tx5, tempTableName, spec.name, function (tx6) {
-                                        migrateChangeTable(tx6, changeTableName, oldColumns, newColumns, renamedColumns, function (tx7) {
+                                    renameTable(tx5, tempTableName_1, spec.name, function (tx6) {
+                                        migrateChangeTable(tx6, changeTableName_1, oldColumns_1, newColumns_1, renamedColumns_1, function (tx7) {
                                             createIndices(tx7, schema, spec, true, nextCallback);
                                         });
                                     });
@@ -813,13 +839,13 @@ var Updraft;
                 }
                 else if (!isEmpty(addedColumns)) {
                     // alter table, add columns
-                    var stmts = [];
+                    var stmts_1 = [];
                     Object.keys(addedColumns).forEach(function (colName) {
                         var col = spec.columns[colName];
-                        var columnDecl = colName + " " + Updraft.Column.sql(col);
-                        stmts.push({ sql: "ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl });
+                        var columnDecl = quote(colName) + " " + Updraft.Column.sql(col);
+                        stmts_1.push({ sql: "ALTER TABLE " + spec.name + " ADD COLUMN " + columnDecl });
                     });
-                    Updraft.DbExecuteSequence(transaction, stmts, function (tx2) {
+                    Updraft.DbExecuteSequence(transaction, stmts_1, function (tx2) {
                         createIndices(tx2, schema, spec, false, nextCallback);
                     });
                 }
@@ -834,6 +860,49 @@ var Updraft;
                     createIndices(tx2, schema, spec, true, nextCallback);
                 });
             }
+        };
+        Store.prototype.loadLocals = function (transaction, nextCallback) {
+            var _this = this;
+            transaction.executeSql("SELECT key, value FROM " + this.localsTable.spec.name, [], function (tx2, rows) {
+                rows.forEach(function (row) {
+                    switch (row.key) {
+                        case localKey_guid:
+                            _this.guid = row.value;
+                            break;
+                        case localKey_syncId:
+                            _this.syncId = row.value;
+                            break;
+                        /* istanbul ignore next */
+                        default:
+                            Updraft.verify(false, "unknown key %s in %s", row.key, _this.localsTable.spec.name);
+                    }
+                });
+                var initGuid = function (tx, next) {
+                    if (!_this.guid && _this.params.generateGuid) {
+                        _this.guid = _this.params.generateGuid();
+                        _this.saveLocal(tx, localKey_guid, _this.guid, next);
+                    }
+                    else {
+                        next(tx);
+                    }
+                };
+                var initSyncId = function (tx, next) {
+                    if (!_this.syncId) {
+                        _this.syncId = DEFAULT_SYNCID;
+                        _this.saveLocal(tx, localKey_syncId, _this.syncId, next);
+                    }
+                    else {
+                        next(tx);
+                    }
+                };
+                initGuid(tx2, function (tx3) {
+                    initSyncId(tx3, nextCallback);
+                });
+            });
+        };
+        Store.prototype.saveLocal = function (transaction, key, value, nextCallback) {
+            var sql = "INSERT INTO " + this.localsTable.spec.name + " (key, value) VALUES (?, ?)";
+            transaction.executeSql(sql, [key, value], nextCallback);
         };
         Store.prototype.loadKeyValues = function (transaction, nextCallback) {
             var _this = this;
@@ -853,13 +922,18 @@ var Updraft;
             return this.keyValueTable.add({ create: { key: key, value: value } });
         };
         Store.prototype.add = function () {
-            var _this = this;
             var changes = [];
             for (var _i = 0; _i < arguments.length; _i++) {
                 changes[_i - 0] = arguments[_i];
             }
-            Updraft.verify(this.db, "apply(): not opened");
+            return this.addFromSource(changes, null);
+        };
+        Store.prototype.addFromSource = function (changes, source) {
+            var _this = this;
+            Updraft.verify(this.db, "addFromSource(): not opened");
             return new Promise(function (promiseResolve, reject) {
+                var syncId = _this.syncId;
+                Updraft.verify(syncId, "invalid syncId");
                 var tableKeySet = [];
                 changes.forEach(function (change) {
                     if (change.create) {
@@ -908,25 +982,25 @@ var Updraft;
                 var resolveChanges = null;
                 findExistingIds = function (transaction) {
                     if (findIdx < tableKeySet.length) {
-                        var table = tableKeySet[findIdx].table;
-                        var keysArray = tableKeySet[findIdx].keysArray;
-                        var duplicateKeys = tableKeySet[findIdx].duplicateKeys;
-                        var existingKeys = tableKeySet[findIdx].existingKeys;
-                        var notDuplicatedValues = [];
-                        keysArray[findBatchIdx].forEach(function (key) {
-                            if (!duplicateKeys.has(key)) {
-                                notDuplicatedValues.push(key);
+                        var table_1 = tableKeySet[findIdx].table;
+                        var keysArray_1 = tableKeySet[findIdx].keysArray;
+                        var duplicateKeys_1 = tableKeySet[findIdx].duplicateKeys;
+                        var existingKeys_1 = tableKeySet[findIdx].existingKeys;
+                        var notDuplicatedValues_1 = [];
+                        keysArray_1[findBatchIdx].forEach(function (key) {
+                            if (!duplicateKeys_1.has(key)) {
+                                notDuplicatedValues_1.push(key);
                             }
                         });
-                        var query = (_a = {}, _a[table.key] = { $in: notDuplicatedValues }, _a);
-                        var opts = { fields: (_b = {}, _b[table.key] = true, _b) };
-                        runQuery(transaction, table, query, opts, null, function (tx, rows) {
-                            for (var _i = 0; _i < rows.length; _i++) {
-                                var row = rows[_i];
-                                existingKeys.add(row[table.key]);
+                        var query = (_a = {}, _a[table_1.key] = { $in: notDuplicatedValues_1 }, _a);
+                        var opts = { fields: (_b = {}, _b[table_1.key] = true, _b) };
+                        runQuery(transaction, table_1, query, opts, null, function (tx, rows) {
+                            for (var _i = 0, rows_1 = rows; _i < rows_1.length; _i++) {
+                                var row = rows_1[_i];
+                                existingKeys_1.add(row[table_1.key]);
                             }
                             findBatchIdx++;
-                            if (findBatchIdx >= keysArray.length) {
+                            if (findBatchIdx >= keysArray_1.length) {
                                 findIdx++;
                                 findBatchIdx = 0;
                             }
@@ -942,16 +1016,16 @@ var Updraft;
                     if (changeIdx < changes.length) {
                         var change = changes[changeIdx];
                         changeIdx++;
-                        var table = change.table;
-                        Updraft.verify(table, "change must specify table");
-                        var changeTable = getChangeTableName(table.spec.name);
+                        var table_2 = change.table;
+                        Updraft.verify(table_2, "change must specify table");
+                        var changeTable = getChangeTableName(table_2.spec.name);
                         var time = change.time || Date.now();
                         Updraft.verify((change.create ? 1 : 0) + (change.update ? 1 : 0) + (change.delete ? 1 : 0) === 1, "change (%s) must specify exactly one action at a time", change);
-                        var existingKeys = null;
+                        var existingKeys_2 = null;
                         tableKeySet.some(function (tk) {
                             /* istanbul ignore else */
-                            if (tk.table === table) {
-                                existingKeys = tk.existingKeys;
+                            if (tk.table === table_2) {
+                                existingKeys_2 = tk.existingKeys;
                                 return true;
                             }
                             else {
@@ -960,39 +1034,41 @@ var Updraft;
                         });
                         if (change.create) {
                             // append internal column values
-                            var element = Updraft.assign({}, change.create, (_a = {}, _a[internal_column_time] = time, _a));
-                            var key = table.keyValue(element);
+                            var element = Updraft.assign({}, change.create, (_a = {}, _a[internal_column_time] = time, _a), (_b = {}, _b[internal_column_source] = source, _b), (_c = {}, _c[internal_column_syncId] = syncId, _c));
+                            var key = table_2.keyValue(element);
                             // optimization: don't resolve elements that aren't already in the db- just mark them as latest
-                            if (existingKeys.has(key)) {
-                                toResolve.add({ table: table, key: key });
+                            if (existingKeys_2.has(key)) {
+                                toResolve.add({ table: table_2, key: key });
                             }
                             else {
                                 element[internal_column_latest] = true;
                             }
-                            insertElement(transaction, table, element, insertNextChange);
+                            insertElement(transaction, table_2, element, insertNextChange);
                         }
                         if (change.update || change.delete) {
-                            var changeRow = {
+                            var changeRow_1 = {
                                 key: null,
                                 time: time,
-                                change: null
+                                change: null,
+                                source: source,
+                                syncId: syncId
                             };
                             if (change.update) {
                                 // store deltas
                                 var delta = Updraft.shallowCopy(change.update);
-                                changeRow.key = table.keyValue(delta);
-                                delete delta[table.key];
-                                changeRow.change = serializeDelta(delta, table.spec);
+                                changeRow_1.key = table_2.keyValue(delta);
+                                delete delta[table_2.key];
+                                changeRow_1.change = serializeDelta(delta, table_2.spec);
                             }
                             else {
                                 // mark deleted
-                                changeRow.key = change.delete;
-                                changeRow.change = serializeDelta(deleteRow_action, table.spec);
+                                changeRow_1.key = change.delete;
+                                changeRow_1.change = serializeDelta(deleteRow_action, table_2.spec);
                             }
                             // insert into delta table
-                            var columns = Object.keys(changeRow);
-                            var values = columns.map(function (k) { return changeRow[k]; });
-                            toResolve.add({ table: table, key: changeRow.key });
+                            var columns = Object.keys(changeRow_1);
+                            var values = columns.map(function (k) { return changeRow_1[k]; });
+                            toResolve.add({ table: table_2, key: changeRow_1.key });
                             insert(transaction, changeTable, columns, values, insertNextChange);
                         }
                         /* istanbul ignore next */
@@ -1003,7 +1079,7 @@ var Updraft;
                     else {
                         resolveChanges(transaction);
                     }
-                    /* istanbul ignore next */ var _a;
+                    /* istanbul ignore next */ var _a, _b, _c;
                 };
                 resolveChanges = function (transaction) {
                     var j = 0;
@@ -1044,7 +1120,7 @@ var Updraft;
             });
         };
         return Store;
-    })();
+    }());
     Updraft.Store = Store;
     function getChangeTableName(name) {
         return internal_prefix + "changes_" + name;
@@ -1077,6 +1153,8 @@ var Updraft;
                 key: Updraft.Column.Int().Key(),
                 time: Updraft.Column.DateTime().Key(),
                 change: Updraft.Column.JSON(),
+                source: Updraft.Column.String().Index(),
+                syncId: Updraft.Column.Int().Default(DEFAULT_SYNCID).Index(),
             }
         };
         buildIndices(newSpec);
@@ -1154,7 +1232,7 @@ var Updraft;
                     Updraft.verify(!attrs.isKey, "table %s cannot have a key on set column %s", name, col);
                     break;
                 default:
-                    decl = col + " " + Updraft.Column.sql(attrs);
+                    decl = quote(col) + " " + Updraft.Column.sql(attrs);
                     cols.push(decl);
                     if (attrs.isKey) {
                         pk.push(col);
@@ -1222,8 +1300,8 @@ var Updraft;
         var newTableColumns = oldTableColumns.map(function (col) { return (col in renamedColumns) ? renamedColumns[col] : col; });
         /* istanbul ignore else */
         if (oldTableColumns.length && newTableColumns.length) {
-            var stmt = "INSERT INTO " + newName + " (" + newTableColumns.join(", ") + ") ";
-            stmt += "SELECT " + oldTableColumns.join(", ") + " FROM " + oldName + ";";
+            var stmt = "INSERT INTO " + newName + " (" + newTableColumns.map(quote).join(", ") + ") ";
+            stmt += "SELECT " + oldTableColumns.map(quote).join(", ") + " FROM " + oldName + ";";
             transaction.executeSql(stmt, [], nextCallback);
         }
         else {
@@ -1246,8 +1324,8 @@ var Updraft;
                         changed = true;
                     }
                 }
-                for (var _i = 0; _i < deletedColumns.length; _i++) {
-                    var oldCol = deletedColumns[_i];
+                for (var _i = 0, deletedColumns_1 = deletedColumns; _i < deletedColumns_1.length; _i++) {
+                    var oldCol = deletedColumns_1[_i];
                     if (oldCol in change) {
                         delete change[oldCol];
                         changed = true;
@@ -1315,14 +1393,14 @@ var Updraft;
                 else {
                     // invalidate old latest rows
                     // insert new latest row
-                    var element = Updraft.update(deltaResult.element, (_a = {},
+                    var element_1 = Updraft.update(deltaResult.element, (_a = {},
                         _a[internal_column_latest] = { $set: true },
                         _a[internal_column_time] = { $set: deltaResult.time },
                         _a[internal_column_composed] = { $set: true },
                         _a
                     ));
                     invalidateLatest(tx3, table, keyValue, function (tx4) {
-                        insertElement(tx4, table, element, nextCallback);
+                        insertElement(tx4, table, element_1, nextCallback);
                     });
                 }
                 /* istanbul ignore next */ var _a;
@@ -1388,7 +1466,7 @@ var Updraft;
                         found = true;
                         break;
                     case Updraft.ColumnType.set:
-                        var existsSetValues = function (setValues, args) {
+                        var existsSetValues_1 = function (setValues, args) {
                             var escapedValues = setValues.map(function (value) { return column.element.serialize(value); });
                             args.push.apply(args, escapedValues);
                             return "EXISTS ("
@@ -1401,19 +1479,19 @@ var Updraft;
                         var setConditions = {
                             $has: function (hasValue) {
                                 Updraft.verify(!Array.isArray(hasValue), "must not be an array: %s", hasValue);
-                                var condition = existsSetValues([hasValue], values);
+                                var condition = existsSetValues_1([hasValue], values);
                                 conditions.push(condition);
                             },
                             $hasAny: function (hasAnyValues) {
                                 Updraft.verify(Array.isArray(hasAnyValues), "must be an array: %s", hasAnyValues);
-                                var condition = existsSetValues(hasAnyValues, values);
+                                var condition = existsSetValues_1(hasAnyValues, values);
                                 conditions.push(condition);
                             },
                             $hasAll: function (hasAllValues) {
                                 Updraft.verify(Array.isArray(hasAllValues), "must be an array: %s", hasAllValues);
-                                for (var _i = 0; _i < hasAllValues.length; _i++) {
-                                    var hasValue = hasAllValues[_i];
-                                    var condition = existsSetValues([hasValue], values);
+                                for (var _i = 0, hasAllValues_1 = hasAllValues; _i < hasAllValues_1.length; _i++) {
+                                    var hasValue = hasAllValues_1[_i];
+                                    var condition = existsSetValues_1([hasValue], values);
                                     conditions.push(condition);
                                 }
                             }
@@ -1455,7 +1533,7 @@ var Updraft;
         });
         var fields = Updraft.assign({}, opts.fields || table.spec.columns, (_a = {}, _a[internal_column_time] = true, _a));
         var columns = selectableColumns(table.spec, fields);
-        var stmt = "SELECT " + (opts.count ? COUNT : columns.join(", "));
+        var stmt = "SELECT " + (opts.count ? COUNT : columns.map(quote).join(", "));
         stmt += " FROM " + table.spec.name;
         if (conditionSets.length) {
             stmt += " WHERE " + conditionSets.map(function (conditions) { return "(" + conditions.join(" AND ") + ")"; }).join(" OR ");
@@ -1559,18 +1637,18 @@ var Updraft;
             if (i < cols.length) {
                 var col = cols[i];
                 i++;
-                var column = table.spec.columns[col];
-                if (column.type == Updraft.ColumnType.set) {
-                    var set = element[col] = element[col] || new Set();
+                var column_1 = table.spec.columns[col];
+                if (column_1.type == Updraft.ColumnType.set) {
+                    var set_1 = element[col] = element[col] || new Set();
                     var keyValue = verifyGetValue(element, table.key);
                     var time = verifyGetValue(element, internal_column_time);
                     var p = tx2.executeSql("SELECT value "
                         + "FROM " + getSetTableName(table.spec.name, col)
                         + " WHERE key=?"
                         + " AND time=?", [keyValue, time], function (tx, results) {
-                        for (var _i = 0; _i < results.length; _i++) {
-                            var row = results[_i];
-                            set.add(column.element.deserialize(row.value));
+                        for (var _i = 0, results_1 = results; _i < results_1.length; _i++) {
+                            var row = results_1[_i];
+                            set_1.add(column_1.element.deserialize(row.value));
                         }
                         loadNextField(tx2);
                     });
@@ -1622,7 +1700,6 @@ var Updraft;
             var x = spec.columns[col].serialize(value);
             return x;
         }
-        Updraft.verify(typeof value == "number" || value, "bad value");
         return value;
     }
     function deserializeValue(spec, col, value) {
@@ -1701,13 +1778,11 @@ var Updraft;
     Updraft.makeDelete = makeDelete;
     /* istanbul ignore next */ var _a;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-///<reference path="./Store"/>
-"use strict";
+///<reference path="./Store.ts"/>
 /* istanbul ignore else */
 if (typeof module !== "undefined") {
     module.exports = Updraft;
 }
-"use strict";
 var Updraft;
 (function (Updraft) {
     var Query;
@@ -1719,9 +1794,8 @@ var Updraft;
         Query.escape = escape;
     })(Query = Updraft.Query || (Updraft.Query = {}));
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-///<reference path="../typings/tsd.d.ts"/>
-///<reference path="./Database"/>
-"use strict";
+///<reference path="../typings/index.d.ts"/>
+///<reference path="./Database.ts"/>
 var Updraft;
 (function (Updraft) {
     var SQLiteWrapper = (function () {
@@ -1849,15 +1923,14 @@ var Updraft;
             callback(tx);
         };
         return SQLiteWrapper;
-    })();
+    }());
     function createSQLiteWrapper(db, traceCallback) {
         return new SQLiteWrapper(db, traceCallback);
     }
     Updraft.createSQLiteWrapper = createSQLiteWrapper;
 })(Updraft || (/* istanbul ignore next */ Updraft = {}));
-///<reference path="./websql.d.ts"/>
-///<reference path="./Database"/>
-"use strict";
+///<reference path="../typings/index.d.ts"/>
+///<reference path="./Database.ts"/>
 var Updraft;
 (function (Updraft) {
     /* istanbul ignore next: can't test websql in node */
@@ -1976,7 +2049,7 @@ var Updraft;
             });
         };
         return WebsqlWrapper;
-    })();
+    }());
     /* istanbul ignore next: can't test websql in node */
     function createWebsqlWrapper(name, version, displayName, estimatedSize, traceCallback) {
         return new WebsqlWrapper(name, version, displayName, estimatedSize, traceCallback);

@@ -227,6 +227,7 @@ declare namespace Updraft {
     type TableAny = Table<any, any, any>;
     interface CreateStoreParams {
         db: DbWrapper;
+        generateGuid?(): string;
     }
     interface Schema {
         [table: string]: TableSpecAny;
@@ -236,16 +237,25 @@ declare namespace Updraft {
         private tables;
         private db;
         private keyValueTable;
+        private localsTable;
+        private guid;
+        private syncId;
         private keyValues;
         constructor(params: CreateStoreParams);
         createTable<Element, Delta, Query>(tableSpec: TableSpec<Element, Delta, Query>): Table<Element, Delta, Query>;
+        private createTrackedTable<Element, Delta, Query>(tableSpec, internal);
+        private createUntrackedTable<Element, Delta, Query>(tableSpec);
+        private createTableObject<Element, Delta, Query>(tableSpec);
         open(): Promise<any>;
         readSchema(): Promise<Schema>;
         private syncTable(transaction, schema, spec, nextCallback);
+        private loadLocals(transaction, nextCallback);
+        private saveLocal(transaction, key, value, nextCallback);
         private loadKeyValues(transaction, nextCallback);
         getValue(key: string): any;
         setValue(key: string, value: any): Promise<any>;
         add(...changes: TableChange<any, any>[]): Promise<any>;
+        addFromSource(changes: TableChange<any, any>[], source: string): Promise<any>;
         find<Element, Query>(table: Table<Element, any, Query>, queryArg: Query | Query[], opts?: FindOpts): Promise<Element[] | number>;
     }
     function createStore(params: CreateStoreParams): Store;

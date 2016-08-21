@@ -1,6 +1,6 @@
 {
   "name": "updraft",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "main": "dist/updraft.js",
   "typings": "./dist/updraft.d.ts",
   "description": "Javascript ORM-like storage in SQLite (WebSQL or other), synced to the cloud",

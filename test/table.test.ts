@@ -121,6 +121,7 @@ interface _Todo<key, date, estatus, ealtstatus, real, bool, str, strset, history
 	text?: str;
 	tags?: strset;
 	history?: history;
+	group?: str;
 }
 
 interface Todo extends _Todo<number, Date, TodoStatus, EnumValue, number, boolean, string, Set<string>, Array<HistoryItem>> {}
@@ -144,7 +145,8 @@ const todoTableSpec: TodoTableSpec = {
 		due: Column.Date(),
 		text: Column.String(),
 		history: Column.JSON(),
-		tags: Column.Set(ColumnType.text)
+		tags: Column.Set(ColumnType.text),
+		group: Column.String()
 	},
 	indices: [
 		["status", "progress"]
@@ -171,6 +173,7 @@ const todoTableExpectedSchema = {
 			progress: Column.Real().Default(0.1),
 			text: Column.String(),
 			history: Column.JSON(),
+			group: Column.String(),
 
 			updraft_deleted: Column.Bool(),
 			updraft_composed: Column.Bool(),
